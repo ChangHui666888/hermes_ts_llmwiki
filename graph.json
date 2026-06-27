@@ -36,6 +36,56 @@
         "hermes",
         "session"
       ]
+    },
+    {
+      "id": "sqlite",
+      "type": "entity",
+      "title": "Sqlite",
+      "path": "entities/sqlite.md",
+      "tags": [
+        "hermes",
+        "session"
+      ]
+    },
+    {
+      "id": "the-user-has-provided-a-detailed-outline",
+      "type": "entity",
+      "title": "The User Has Provided A Detailed Outline",
+      "path": "entities/the-user-has-provided-a-detailed-outline.md",
+      "tags": [
+        "hermes",
+        "session"
+      ]
+    },
+    {
+      "id": "hermes-agent",
+      "type": "entity",
+      "title": "Hermes Agent",
+      "path": "entities/hermes-agent.md",
+      "tags": [
+        "hermes",
+        "session"
+      ]
+    },
+    {
+      "id": "session-mqgsbksrlgtdxj",
+      "type": "entity",
+      "title": "Session Mqgsbksrlgtdxj",
+      "path": "entities/session-mqgsbksrlgtdxj.md",
+      "tags": [
+        "hermes",
+        "session"
+      ]
+    },
+    {
+      "id": "ai",
+      "type": "entity",
+      "title": "Ai",
+      "path": "entities/ai.md",
+      "tags": [
+        "hermes",
+        "session"
+      ]
     }
   ],
   "edges": [
@@ -51,6 +101,31 @@
     },
     {
       "source": "hermes-sqlite-pipeline-test",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "sqlite",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "hermes-agent",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "session-mqgsbksrlgtdxj",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "ai",
       "target": "SCHEMA",
       "type": "references"
     }

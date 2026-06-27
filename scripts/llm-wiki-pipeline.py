@@ -43,25 +43,27 @@ def query_recent_sessions(cur, limit: int = 5) -> list[dict]:
 
         if "sessions" in tables:
             cur.execute(f"""
-                SELECT id, title, created_at, updated_at, message_count
+                SELECT id, title, started_at, ended_at, message_count,
+                       input_tokens, output_tokens, model
                 FROM sessions
-                ORDER BY updated_at DESC
+                WHERE title IS NOT NULL AND title != ''
+                ORDER BY started_at DESC
                 LIMIT {limit}
             """)
             rows = cur.fetchall()
             if rows:
-                return [dict(r) for r in rows]
-
-        if "conversations" in tables:
-            cur.execute(f"""
-                SELECT id, title, created_at, updated_at
-                FROM conversations
-                ORDER BY updated_at DESC
-                LIMIT {limit}
-            """)
-            rows = cur.fetchall()
-            if rows:
-                return [dict(r) for r in rows]
+                result = []
+                for r in rows:
+                    d = dict(r)
+                    # Convert Unix timestamps to ISO dates
+                    if d.get("started_at"):
+                        d["started_at"] = datetime.datetime.fromtimestamp(
+                            d["started_at"]).strftime("%Y-%m-%d %H:%M")
+                    if d.get("ended_at"):
+                        d["ended_at"] = datetime.datetime.fromtimestamp(
+                            d["ended_at"]).strftime("%Y-%m-%d %H:%M")
+                    result.append(d)
+                return result
 
         # Fallback: count + sample
         print("  ℹ️  No standard session tables found, generating wiki from DB stats")
@@ -79,34 +81,38 @@ def generate_wiki_page(session: dict) -> str:
     title = session.get("title", "Untitled Session") or "Untitled Session"
     safe_name = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:40] or f"session-{session.get('id', 'unknown')}"
 
-    created = session.get("created_at", "2026-06-27")[:10]
-    updated = session.get("updated_at", "2026-06-27")[:10]
-    msg_count = session.get("message_count", session.get("tables", "?"))
+    started = session.get("started_at", "2026-06-27")[:10]
+    ended = session.get("ended_at", "2026-06-27")[:10] if session.get("ended_at") else "in progress"
+    msg_count = session.get("message_count", "?")
+    model = session.get("model", "unknown")
 
     return f"""---
 title: "{title}"
-created: {created}
-updated: {updated}
-type: query
-tags: [hermes, session]
-sources: []
+started: {started}
+ended: {ended}
+type: session
+tags: [hermes, session, {model.split('/')[0] if '/' in model else model}]
+model: {model}
+message_count: {msg_count}
 ---
 
 # {title}
 
 **Source:** Hermes session `{session.get('id')}`
+**Model:** {model}
 **Messages:** {msg_count}
-**Last updated:** {updated}
+**Started:** {started}
+**Ended:** {ended}
 
 ## Summary
 
-This page was auto-generated from a Hermes session stored in state.db.
-Links to related [[SCHEMA|Wiki Schema]].
+This page was auto-generated from a Hermes session stored in state.db via the
+Hermes → SQLite → Wiki pipeline. Links to [[SCHEMA|Wiki Schema]].
 
 ## Content
 
-> Session data extracted via Hermes → SQLite pipeline.
-> Edit this page with meaningful content for the wiki.
+> Session data extracted from SQLite state.db.
+> Edit this page with meaningful content and cross-links to other [[entities/]] pages.
 """
 
 def write_wiki_page(content: str, session: dict) -> Path:
