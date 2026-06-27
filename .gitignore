@@ -1,0 +1,22 @@
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Obsidian
+.obsidian/workspace
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# Temp
+tmp/
+temp/
+
+# Large files
+*.exe
+*.dmg
+*.iso
+*.zip
+*.tar.gz

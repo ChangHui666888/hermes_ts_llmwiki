@@ -1,0 +1,7 @@
+# Normalize line endings
+* text=auto
+
+# Wiki files
+*.md text diff=markdown
+*.yaml text
+*.yml text
