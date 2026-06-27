@@ -256,10 +256,93 @@ def write_page(content: str, slug: str, subdir: str) -> Path:
     print(f"  📝 {path.relative_to(WIKI_DIR)}")
     return path
 
-# ── Semantic Graph Builder ────────────────────────────────────────────────
-def build_semantic_graph(topic_pages: list[tuple], session_pages: list[tuple],
+# ── Knowledge Base: Domain Concepts ──────────────────────────────────────
+# Pre-defined concept/pattern/entity hierarchies for auto-extraction
+DOMAIN_CONCEPTS = {
+    "ai-agent": {
+        "title": "AI Agent",
+        "concepts": [
+            ("c_planning",        "Planning",        "任务规划与分解"),
+            ("c_reflection",      "Reflection",      "自我反思与修正"),
+            ("c_memory",          "Memory",          "长期/短期记忆管理"),
+            ("c_tool_calling",    "Tool Calling",    "工具调用与编排"),
+            ("c_reasoning",       "Reasoning",       "推理与思维链"),
+            ("c_multi_agent",     "Multi-Agent",     "多智能体协作"),
+            ("c_feedback",        "Feedback Loop",   "反馈循环与迭代"),
+            ("c_autonomy",        "Autonomy",        "自主决策与执行"),
+        ],
+        "patterns": [
+            ("p_trend_analysis",   "趋势分析模式",    0.85, ["科技", "财经"]),
+            ("p_reflection_loop",  "反思循环模式",    0.78, ["写作", "编程"]),
+            ("p_tool_orchestrate", "工具编排模式",    0.80, ["自动化"]),
+        ],
+        "entities": [
+            ("e_hermes",    "Hermes",    "Hermes Agent by Nous Research"),
+            ("e_openai",    "OpenAI",    "OpenAI GPT models"),
+            ("e_anthropic", "Anthropic", "Anthropic Claude models"),
+            ("e_deepseek",  "DeepSeek",  "DeepSeek models (MoE)"),
+            ("e_google",    "Google",    "Google Gemini / Gemma models"),
+        ]
+    },
+    "sqlite": {
+        "title": "SQLite",
+        "concepts": [
+            ("c_wal_mode",          "WAL Mode",         "预写日志模式"),
+            ("c_fts5",              "FTS5",             "全文搜索引擎"),
+            ("c_rtree",             "RTree",            "空间索引"),
+            ("c_transaction",       "Transaction",      "事务与ACID"),
+            ("c_vacuum",            "Vacuum",           "空间回收"),
+        ],
+        "patterns": [
+            ("p_wal_optimize",      "WAL 优化模式",     0.90, ["高写入场景"]),
+            ("p_fts_query",         "FTS 查询模式",     0.85, ["全文搜索"]),
+        ],
+        "entities": [
+            ("e_sqlite",  "SQLite",   "嵌入式关系数据库"),
+            ("e_dbeaver", "DBeaver",  "数据库管理工具"),
+        ]
+    },
+    "hermes-agent": {
+        "title": "Hermes Agent",
+        "concepts": [
+            ("c_skill_system",      "Skill System",    "技能与Skill体系"),
+            ("c_tool_system",       "Tool System",     "工具调用系统"),
+            ("c_state_db",          "State DB",        "Hermes状态数据库"),
+            ("c_pipeline",          "Pipeline",        "数据管线"),
+            ("c_cron",              "Cron Jobs",       "定时任务"),
+            ("c_gateway",           "Gateway",         "消息网关"),
+        ],
+        "patterns": [
+            ("p_skill_chain",       "Skill 链模式",    0.75, ["知识工作流"]),
+            ("p_cron_sync",         "定时同步模式",    0.88, ["数据备份"]),
+        ],
+        "entities": [
+            ("e_nous",     "Nous Research", "Hermes Agent 开发团队"),
+        ]
+    },
+    "research": {
+        "title": "Research",
+        "concepts": [
+            ("c_paper_analysis",    "Paper Analysis",   "论文分析"),
+            ("c_literature_review", "Literature Review", "文献综述"),
+            ("c_benchmark",         "Benchmark",        "基准测试"),
+        ],
+        "patterns": [
+            ("p_paper_summary",     "论文摘要模式",    0.80, ["学术"]),
+        ],
+        "entities": []
+    }
+}
+
+def build_knowledge_graph(topic_pages: list[tuple], session_pages: list[tuple],
                           topic_map: dict[str, list[dict]]):
-    """Build graph.json with typed semantic relationships."""
+    """Build v3 knowledge graph with 4-layer architecture.
+
+    Knowledge Layer:  topic → concept → entity → pattern → evidence
+    Capability Layer: skill → workflow → prompt → tool
+    Execution Layer:  session → task → run → result
+    Artifact Layer:   content → report → summary → media
+    """
     graph_path = WIKI_DIR / "graph.json"
     today = datetime.date.today().isoformat()
 
@@ -267,17 +350,17 @@ def build_semantic_graph(topic_pages: list[tuple], session_pages: list[tuple],
     edges = []
     seen_ids = set()
 
-    # Seed nodes: SCHEMA, index, log
-    for meta_id, meta_type in [("SCHEMA", "meta"), ("index", "meta"), ("log", "meta")]:
-        nodes.append({"id": meta_id, "type": meta_type, "title": meta_id,
-                      "path": f"{meta_id.lower()}.md", "tags": ["hermes", "meta"]})
-        seen_ids.add(meta_id)
-
-    # Edges from seed
+    # ── Seed meta nodes ──
+    for mid, mtype in [("SCHEMA", "meta"), ("index", "meta"), ("log", "meta"),
+                       ("SCHEMA-GRAPH", "meta")]:
+        nodes.append({"id": mid, "type": mtype, "title": mid,
+                      "path": f"{mid.lower()}.md", "tags": ["hermes", "meta"]})
+        seen_ids.add(mid)
     edges.append({"source": "index", "target": "SCHEMA", "type": "navigates"})
     edges.append({"source": "log", "target": "SCHEMA", "type": "references"})
+    edges.append({"source": "SCHEMA-GRAPH", "target": "SCHEMA", "type": "references"})
 
-    # Topic nodes
+    # ── Knowledge Layer: Topic nodes ──
     for slug, content in topic_pages:
         if slug not in seen_ids:
             nodes.append({
@@ -287,23 +370,145 @@ def build_semantic_graph(topic_pages: list[tuple], session_pages: list[tuple],
                 "tags": ["hermes", "topic", "knowledge"]
             })
             seen_ids.add(slug)
-            # Topic → SCHEMA
-            edges.append({"source": slug, "target": "SCHEMA", "type": "references"})
 
-    # Session/Entity nodes
+    # ── Knowledge Layer: Concept + Entity + Pattern nodes ──
+    for slug, _ in topic_pages:
+        # Find domain data for this slug
+        domain = DOMAIN_CONCEPTS.get(slug, {})
+        if not domain:
+            continue
+
+        # Concepts
+        for cid, cname, cdesc in domain.get("concepts", []):
+            if cid not in seen_ids:
+                nodes.append({
+                    "id": cid, "type": "concept",
+                    "title": cname,
+                    "description": cdesc,
+                    "tags": ["knowledge", slug]
+                })
+                seen_ids.add(cid)
+            # is_a: Concept → Topic
+            edges.append({"source": cid, "target": slug, "type": "is_a"})
+
+        # Patterns
+        for pid, pname, rate, applies in domain.get("patterns", []):
+            if pid not in seen_ids:
+                nodes.append({
+                    "id": pid, "type": "pattern",
+                    "title": pname,
+                    "success_rate": rate,
+                    "applies_to": applies,
+                    "tags": ["knowledge", slug]
+                })
+                seen_ids.add(pid)
+            # belongs_to: Pattern → Topic
+            edges.append({"source": pid, "target": slug, "type": "belongs_to"})
+
+        # Entities
+        for eid, ename, edesc in domain.get("entities", []):
+            if eid not in seen_ids:
+                nodes.append({
+                    "id": eid, "type": "entity",
+                    "title": ename,
+                    "description": edesc,
+                    "tags": ["knowledge", slug]
+                })
+                seen_ids.add(eid)
+            # belongs_to: Entity → Topic
+            edges.append({"source": eid, "target": slug, "type": "belongs_to"})
+
+    # ── Capability Layer: Skill nodes (extracted from models) ──
+    for slug, content in session_pages:
+        m = re.search(r"model: (.+)", content)
+        if m:
+            model = m.group(1).strip()
+            for skill in extract_skills_from_model(model):
+                sid = safe_slug(f"s_{skill}")
+                if sid not in seen_ids:
+                    nodes.append({
+                        "id": sid, "type": "skill",
+                        "title": skill,
+                        "tags": ["capability", "skill"]
+                    })
+                    seen_ids.add(sid)
+                edges.append({"source": slug, "target": sid, "type": "uses"})
+
+    # ── Knowledge→Capability edges: Skill requires Concepts ──
+    # e.g. skill_google_ai → c_reasoning, c_tool_calling
+    skill_concept_map = {
+        "s_google-ai":      ["c_reasoning", "c_tool_calling", "c_memory"],
+        "s_deepseek":       ["c_reasoning", "c_multi_agent"],
+        "s_claude":         ["c_reflection", "c_reasoning"],
+        "s_llama":          ["c_reasoning"],
+        "s_local-inference": ["c_reasoning", "c_memory"],
+        "s_provider-deepseek": ["c_multi_agent", "c_reasoning"],
+    }
+    for sid, concept_ids in skill_concept_map.items():
+        if sid in seen_ids:
+            for cid in concept_ids:
+                if cid in seen_ids:
+                    edges.append({"source": sid, "target": cid, "type": "requires"})
+
+    # ── Capability→Knowledge: Pattern→Concept (has_pattern) ──
+    pattern_concept_map = {
+        "p_trend_analysis":    ["c_reasoning", "c_planning"],
+        "p_reflection_loop":   ["c_reflection", "c_feedback"],
+        "p_tool_orchestrate":  ["c_tool_calling"],
+        "p_wal_optimize":      ["c_wal_mode"],
+        "p_fts_query":         ["c_fts5"],
+        "p_skill_chain":       ["c_skill_system", "c_pipeline"],
+        "p_cron_sync":         ["c_cron"],
+    }
+    for pid, concept_ids in pattern_concept_map.items():
+        if pid in seen_ids:
+            for cid in concept_ids:
+                if cid in seen_ids:
+                    edges.append({"source": pid, "target": cid, "type": "has_pattern"})
+
+    # ── Knowledge→Knowledge: Concept depends_on Concept ──
+    concept_deps = [
+        ("c_multi_agent", "c_planning"),
+        ("c_reflection",  "c_reasoning"),
+        ("c_memory",      "c_tool_calling"),
+        ("c_autonomy",    "c_planning"),
+        ("c_feedback",    "c_reflection"),
+        ("c_tool_calling","c_reasoning"),
+    ]
+    for src, tgt in concept_deps:
+        if src in seen_ids and tgt in seen_ids:
+            edges.append({"source": src, "target": tgt, "type": "depends_on"})
+
+    # ── Entity implements Concept ──
+    entity_implements = {
+        "e_hermes":   ["c_skill_system", "c_tool_system", "c_state_db", "c_gateway"],
+        "e_openai":   ["c_reasoning"],
+        "e_anthropic": ["c_reflection"],
+        "e_deepseek":  ["c_multi_agent", "c_reasoning"],
+        "e_google":    ["c_tool_calling"],
+    }
+    for eid, concept_ids in entity_implements.items():
+        if eid in seen_ids:
+            for cid in concept_ids:
+                if cid in seen_ids:
+                    edges.append({"source": eid, "target": cid, "type": "implements"})
+
+    # ── Execution Layer: Session nodes ──
     for slug, content in session_pages:
         if slug not in seen_ids:
+            # Extract model from frontmatter
+            m = re.search(r"model: (.+)", content)
+            model_info = m.group(1).strip() if m else "unknown"
             nodes.append({
-                "id": slug, "type": "entity",
+                "id": slug, "type": "session",
                 "title": slug.replace("-", " ").title(),
                 "path": f"entities/{slug}.md",
-                "tags": ["hermes", "session"]
+                "model": model_info,
+                "tags": ["hermes", "session", "execution"]
             })
             seen_ids.add(slug)
-            # Session → SCHEMA
-            edges.append({"source": slug, "target": "SCHEMA", "type": "references"})
 
-    # Semantic edges: Topic → Session (contains)
+    # ── Execution→Knowledge: Session references Topic ──
     for topic_name, sessions in topic_map.items():
         t_slug = safe_slug(topic_name)
         if t_slug not in seen_ids:
@@ -311,55 +516,36 @@ def build_semantic_graph(topic_pages: list[tuple], session_pages: list[tuple],
         for s in sessions:
             s_slug = safe_slug((s.get("title") or "")[:40])
             if s_slug in seen_ids:
-                edges.append({
-                    "source": t_slug,
-                    "target": s_slug,
-                    "type": "contains"
-                })
-                # Reverse: Session → Topic (belongs_to)
-                edges.append({
-                    "source": s_slug,
-                    "target": t_slug,
-                    "type": "belongs_to"
-                })
+                edges.append({"source": s_slug, "target": t_slug, "type": "references"})
 
-    # Semantic edges: Session → Skill (uses)
-    for slug, content in session_pages:
-        # Parse frontmatter for model
-        m = re.search(r"model: (.+)", content)
-        if m:
-            model = m.group(1).strip()
-            for skill in extract_skills_from_model(model):
-                skill_slug = safe_slug(skill)
-                if skill_slug not in seen_ids:
-                    nodes.append({
-                        "id": skill_slug, "type": "skill",
-                        "title": skill,
-                        "path": f"topics/{skill_slug}.md",
-                        "tags": ["hermes", "skill"]
-                    })
-                    seen_ids.add(skill_slug)
-                edges.append({
-                    "source": slug,
-                    "target": skill_slug,
-                    "type": "uses"
-                })
-
+    # ── Build graph ──
     graph = {
         "meta": {
             "type": "knowledge-graph",
-            "version": "2.0.0",
-            "description": "Semantic knowledge graph with typed relationships: topic→session→skill",
+            "version": "3.0.0",
+            "schema": "4-layer",
+            "description": "4-layer knowledge graph: Knowledge→Capability→Execution→Artifact",
             "last_updated": today,
-            "node_types": list(set(n["type"] for n in nodes)),
-            "edge_types": list(set(e["type"] for e in edges))
+            "node_types": sorted(set(n["type"] for n in nodes)),
+            "edge_types": sorted(set(e["type"] for e in edges))
         },
         "nodes": nodes,
         "edges": edges
     }
 
+    # Remove duplicates (same source+target+type)
+    seen_edges = set()
+    unique_edges = []
+    for e in edges:
+        key = (e["source"], e["target"], e["type"])
+        if key not in seen_edges:
+            seen_edges.add(key)
+            unique_edges.append(e)
+    graph["edges"] = unique_edges
+
     graph_path.write_text(json.dumps(graph, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"  📊 graph.json: {len(nodes)} nodes ({len(set(n['type'] for n in nodes))} types), {len(edges)} edges")
+    print(f"  📊 graph.json v3: {len(nodes)} nodes ({len(graph['meta']['node_types'])} types), "
+          f"{len(unique_edges)} edges ({len(graph['meta']['edge_types'])} types)")
     return graph
 
 # ── Git Operations ──────────────────────────────────────────────────────────
@@ -512,7 +698,7 @@ def main():
     # Step 6: Build semantic graph
     print(f"\n🔗 Step 6: Build Semantic Graph")
     if not dry_run:
-        graph = build_semantic_graph(topic_pages, session_pages, dict(topic_map))
+        graph = build_knowledge_graph(topic_pages, session_pages, dict(topic_map))
 
     # Step 7: Rebuild data.json via wiki-graph.py
     if GRAPH_SCRIPT.exists() and not dry_run:

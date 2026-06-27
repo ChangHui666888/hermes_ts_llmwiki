@@ -1,0 +1,214 @@
+{
+  "timestamp": "2026-06-28T00:14:21",
+  "summary": {
+    "total": 7,
+    "passed": 6,
+    "failed": 1,
+    "pass_rate": "86%"
+  },
+  "results": [
+    {
+      "layer": "Hermes",
+      "test": "进程运行中",
+      "status": "warn",
+      "detail": "Hermes 进程未独立运行（可能在当前 session 中）",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Hermes",
+      "test": "state.db 活跃",
+      "status": "pass",
+      "detail": "最后更新: 2026-06-28 00:11 (0.0h 前)",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Hermes",
+      "test": "Skill 目录",
+      "status": "pass",
+      "detail": "C:\\Users\\ChangHui\\AppData\\Local\\hermes\\skills",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Hermes",
+      "test": "配置文件",
+      "status": "pass",
+      "detail": "C:\\Users\\ChangHui\\AppData\\Local\\hermes\\config.yaml",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "SQLite",
+      "test": "数据库文件",
+      "status": "pass",
+      "detail": "C:\\Users\\ChangHui\\AppData\\Local\\hermes\\state.db (11432 KB)",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "SQLite",
+      "test": "核心表存在",
+      "status": "pass",
+      "detail": "sessions=✅, messages=✅",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "SQLite",
+      "test": "数据完整性",
+      "status": "pass",
+      "detail": "42 sessions, 497 messages, 5 models",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "SQLite",
+      "test": "WAL 模式",
+      "status": "pass",
+      "detail": "journal_mode = wal",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "SQLite",
+      "test": "CLI 可用",
+      "status": "pass",
+      "detail": "3.53.3 2026-06-26 20:14:12 d4c0e51e4aeb96955b99185ab9cde75c339e2c29c3f3f12428d364a10d782c62 (64-bit)",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Wiki",
+      "test": "目录结构",
+      "status": "pass",
+      "detail": "完整",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Wiki",
+      "test": "核心文件",
+      "status": "pass",
+      "detail": "完整",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Wiki",
+      "test": "知识节点",
+      "status": "pass",
+      "detail": "10 个维基页面",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Wiki",
+      "test": "元数据完整性",
+      "status": "pass",
+      "detail": "所有页面都有 frontmatter",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Wiki",
+      "test": "Wikilink 连通",
+      "status": "pass",
+      "detail": "40 条 wikilink 引用",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Obsidian",
+      "test": "Vault 配置",
+      "status": "pass",
+      "detail": "完整",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Obsidian",
+      "test": "Wikilink 兼容",
+      "status": "pass",
+      "detail": "SCHEMA.md 声明了 wikilink 约定",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Obsidian",
+      "test": "Vault 可读性",
+      "status": "pass",
+      "detail": "根目录 3 个 markdown 文件 (index, SCHEMA, log)",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Git",
+      "test": "仓库存在",
+      "status": "pass",
+      "detail": "C:\\Users\\ChangHui\\wiki\\.git",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Git",
+      "test": "提交历史",
+      "status": "pass",
+      "detail": "8 次提交",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Git",
+      "test": "工作区干净",
+      "status": "pass",
+      "detail": "干净",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Git",
+      "test": "提交能力",
+      "status": "pass",
+      "detail": "可以创建和撤销 commit",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Graph",
+      "test": "图数据文件",
+      "status": "pass",
+      "detail": "graph.json (9375B), data.json (5218B)",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Graph",
+      "test": "节点数",
+      "status": "pass",
+      "detail": "18 个节点",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Graph",
+      "test": "边数",
+      "status": "pass",
+      "detail": "40 条边",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Graph",
+      "test": "语义类型",
+      "status": "pass",
+      "detail": "entity, meta, skill, topic",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Graph",
+      "test": "图谱自动重建",
+      "status": "pass",
+      "detail": "✅ graph data written: 10 pages, C:\\Users\\ChangHui\\wiki\\data.json",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Recall",
+      "test": "页面可检索",
+      "status": "pass",
+      "detail": "10 页有标签, 10 页有 wikilink 引用",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Recall",
+      "test": "管线脚本存在",
+      "status": "pass",
+      "detail": "C:\\Users\\ChangHui\\wiki\\scripts\\llm-wiki-pipeline.py",
+      "timestamp": "2026-06-28T00:14:21"
+    },
+    {
+      "layer": "Recall",
+      "test": "检索索引",
+      "status": "pass",
+      "detail": "data.json 包含 10 页索引, 10 页有标题",
+      "timestamp": "2026-06-28T00:14:21"
+    }
+  ]
+}

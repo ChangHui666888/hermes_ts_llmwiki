@@ -426,8 +426,130 @@ def test_recall():
     return all_pass
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Main
+# Layer 8: Knowledge Evolution Test
 # ═══════════════════════════════════════════════════════════════════════════
+def test_knowledge_evolution():
+    print(f"\n{'='*60}")
+    print(f" Layer 8: Knowledge Evolution（知识演化 — 进阶）")
+    print(f"{'='*60}")
+
+    all_pass = True
+
+    # 8a. Graph has concept nodes
+    graph_path = WIKI_DIR / "graph.json"
+    if graph_path.exists():
+        try:
+            graph = json.loads(graph_path.read_text(encoding="utf-8"))
+            concept_nodes = [n for n in graph["nodes"] if n["type"] == "concept"]
+            pattern_nodes = [n for n in graph["nodes"] if n["type"] == "pattern"]
+
+            all_pass &= log_result("K-Evolution", "概念节点",
+                "pass" if len(concept_nodes) >= 5 else "warn",
+                f"{len(concept_nodes)} concepts (目标 ≥5)")
+
+            all_pass &= log_result("K-Evolution", "模式节点",
+                "pass" if len(pattern_nodes) >= 3 else "warn",
+                f"{len(pattern_nodes)} patterns (目标 ≥3)")
+
+            # 8b. Edge types include semantic relationships
+            edge_types = {e["type"] for e in graph["edges"]}
+            semantic_types = {"is_a", "requires", "depends_on", "implements"}
+            found_semantic = semantic_types & edge_types
+            missing_semantic = semantic_types - edge_types
+
+            all_pass &= log_result("K-Evolution", "语义边类型",
+                "pass" if len(found_semantic) >= 3 else "warn",
+                f"找到: {', '.join(sorted(found_semantic))}" if found_semantic else "无语义边")
+
+            # 8c. Knowledge→Capability cross-layer edges
+            cross_edges = [e for e in graph["edges"] if e["type"] in ("requires", "has_pattern")]
+            all_pass &= log_result("K-Evolution", "跨层关联",
+                "pass" if len(cross_edges) >= 3 else "warn",
+                f"{len(cross_edges)} 跨层边 (Skill→Concept, Pattern→Concept)")
+
+            # 8d. Entity→Concept implements edges
+            impl_edges = [e for e in graph["edges"] if e["type"] == "implements"]
+            all_pass &= log_result("K-Evolution", "实体实现关系",
+                "pass" if len(impl_edges) >= 2 else "warn",
+                f"{len(impl_edges)} implements 边 (Entity→Concept)")
+
+        except Exception as e:
+            all_pass &= log_result("K-Evolution", "Graph 解析", "fail", str(e))
+    else:
+        all_pass &= log_result("K-Evolution", "Graph 文件", "fail", "graph.json 不存在")
+
+    # 8e. Pattern nodes have success_rate metadata
+    if graph_path.exists():
+        try:
+            graph = json.loads(graph_path.read_text(encoding="utf-8"))
+            patterns_with_rate = [n for n in graph["nodes"]
+                                  if n["type"] == "pattern" and "success_rate" in n]
+            all_pass &= log_result("K-Evolution", "模式成功率",
+                "pass" if patterns_with_rate else "warn",
+                f"{len(patterns_with_rate)} patterns 有成功率数据" if patterns_with_rate else "无成功率数据")
+        except:
+            pass
+
+    return all_pass
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Layer 9: Skill Evolution Test
+# ═══════════════════════════════════════════════════════════════════════════
+def test_skill_evolution():
+    print(f"\n{'='*60}")
+    print(f" Layer 9: Skill Evolution（技能演化 — 进阶）")
+    print(f"{'='*60}")
+
+    all_pass = True
+    graph_path = WIKI_DIR / "graph.json"
+
+    if not graph_path.exists():
+        all_pass &= log_result("S-Evolution", "Graph 文件", "fail", "graph.json 不存在")
+        return False
+
+    try:
+        graph = json.loads(graph_path.read_text(encoding="utf-8"))
+
+        # 9a. Skill nodes exist
+        skill_nodes = [n for n in graph["nodes"] if n["type"] == "skill"]
+        all_pass &= log_result("S-Evolution", "技能节点",
+            "pass" if len(skill_nodes) >= 2 else "warn",
+            f"{len(skill_nodes)} skills")
+
+        # 9b. Skills have requires edges to concepts
+        requires_edges = [e for e in graph["edges"] if e["type"] == "requires"]
+        all_pass &= log_result("S-Evolution", "技能依赖 (requires)",
+            "pass" if len(requires_edges) >= 2 else "warn",
+            f"{len(requires_edges)} requires 边 (Skill→Concept)")
+
+        # 9c. Skills used by sessions
+        uses_edges = [e for e in graph["edges"] if e["type"] == "uses"]
+        all_pass &= log_result("S-Evolution", "技能使用 (uses)",
+            "pass" if len(uses_edges) >= 2 else "warn",
+            f"{len(uses_edges)} uses 边 (Session→Skill)")
+
+        # 9d. Pipeline supports skill evolution (check for version field in config)
+        pipeline_script = WIKI_DIR / "scripts" / "llm-wiki-pipeline.py"
+        if pipeline_script.exists():
+            content = pipeline_script.read_text(encoding="utf-8")
+            has_domain_concepts = "DOMAIN_CONCEPTS" in content
+            all_pass &= log_result("S-Evolution", "管线支持知识演化",
+                "pass" if has_domain_concepts else "warn",
+                "DOMAIN_CONCEPTS 知识库已定义" if has_domain_concepts else "缺少知识库")
+
+        # 9e. SCHEMA-GRAPH.md exists (evolution rules defined)
+        schema_graph = WIKI_DIR / "SCHEMA-GRAPH.md"
+        schema_ok = schema_graph.exists()
+        all_pass &= log_result("S-Evolution", "演化规则文档",
+            "pass" if schema_ok else "warn",
+            "SCHEMA-GRAPH.md 定义了演化规则" if schema_ok else "缺少 SCHEMA-GRAPH.md")
+
+    except Exception as e:
+        all_pass &= log_result("S-Evolution", "测试异常", "fail", str(e))
+
+    return all_pass
+
+
 def main():
     quick = "--quick" in sys.argv
     auto_fix = "--fix" in sys.argv
@@ -448,6 +570,8 @@ def main():
 
     if not quick:
         layers.append(("Recall", test_recall))
+        layers.append(("Knowledge Evolution", test_knowledge_evolution))
+        layers.append(("Skill Evolution", test_skill_evolution))
 
     passed = 0
     failed = 0

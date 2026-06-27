@@ -1,21 +1,28 @@
 {
   "meta": {
     "type": "knowledge-graph",
-    "version": "2.0.0",
-    "description": "Semantic knowledge graph with typed relationships: topic→session→skill",
+    "version": "3.0.0",
+    "schema": "4-layer",
+    "description": "4-layer knowledge graph: Knowledge→Capability→Execution→Artifact",
     "last_updated": "2026-06-28",
     "node_types": [
-      "topic",
+      "concept",
+      "entity",
       "meta",
+      "pattern",
+      "session",
       "skill",
-      "entity"
+      "topic"
     ],
     "edge_types": [
       "belongs_to",
-      "uses",
+      "depends_on",
+      "has_pattern",
+      "implements",
+      "is_a",
+      "navigates",
       "references",
-      "contains",
-      "navigates"
+      "uses"
     ]
   },
   "nodes": [
@@ -44,6 +51,16 @@
       "type": "meta",
       "title": "log",
       "path": "log.md",
+      "tags": [
+        "hermes",
+        "meta"
+      ]
+    },
+    {
+      "id": "SCHEMA-GRAPH",
+      "type": "meta",
+      "title": "SCHEMA-GRAPH",
+      "path": "schema-graph.md",
       "tags": [
         "hermes",
         "meta"
@@ -105,103 +122,514 @@
       ]
     },
     {
-      "id": "ai-agent发展趋势与工作流革命",
+      "id": "c_skill_system",
+      "type": "concept",
+      "title": "Skill System",
+      "description": "技能与Skill体系",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_tool_system",
+      "type": "concept",
+      "title": "Tool System",
+      "description": "工具调用系统",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_state_db",
+      "type": "concept",
+      "title": "State DB",
+      "description": "Hermes状态数据库",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_pipeline",
+      "type": "concept",
+      "title": "Pipeline",
+      "description": "数据管线",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_cron",
+      "type": "concept",
+      "title": "Cron Jobs",
+      "description": "定时任务",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_gateway",
+      "type": "concept",
+      "title": "Gateway",
+      "description": "消息网关",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "p_skill_chain",
+      "type": "pattern",
+      "title": "Skill 链模式",
+      "success_rate": 0.75,
+      "applies_to": [
+        "知识工作流"
+      ],
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "p_cron_sync",
+      "type": "pattern",
+      "title": "定时同步模式",
+      "success_rate": 0.88,
+      "applies_to": [
+        "数据备份"
+      ],
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "e_nous",
       "type": "entity",
+      "title": "Nous Research",
+      "description": "Hermes Agent 开发团队",
+      "tags": [
+        "knowledge",
+        "hermes-agent"
+      ]
+    },
+    {
+      "id": "c_planning",
+      "type": "concept",
+      "title": "Planning",
+      "description": "任务规划与分解",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_reflection",
+      "type": "concept",
+      "title": "Reflection",
+      "description": "自我反思与修正",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_memory",
+      "type": "concept",
+      "title": "Memory",
+      "description": "长期/短期记忆管理",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_tool_calling",
+      "type": "concept",
+      "title": "Tool Calling",
+      "description": "工具调用与编排",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_reasoning",
+      "type": "concept",
+      "title": "Reasoning",
+      "description": "推理与思维链",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_multi_agent",
+      "type": "concept",
+      "title": "Multi-Agent",
+      "description": "多智能体协作",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_feedback",
+      "type": "concept",
+      "title": "Feedback Loop",
+      "description": "反馈循环与迭代",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_autonomy",
+      "type": "concept",
+      "title": "Autonomy",
+      "description": "自主决策与执行",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "p_trend_analysis",
+      "type": "pattern",
+      "title": "趋势分析模式",
+      "success_rate": 0.85,
+      "applies_to": [
+        "科技",
+        "财经"
+      ],
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "p_reflection_loop",
+      "type": "pattern",
+      "title": "反思循环模式",
+      "success_rate": 0.78,
+      "applies_to": [
+        "写作",
+        "编程"
+      ],
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "p_tool_orchestrate",
+      "type": "pattern",
+      "title": "工具编排模式",
+      "success_rate": 0.8,
+      "applies_to": [
+        "自动化"
+      ],
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "e_hermes",
+      "type": "entity",
+      "title": "Hermes",
+      "description": "Hermes Agent by Nous Research",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "e_openai",
+      "type": "entity",
+      "title": "OpenAI",
+      "description": "OpenAI GPT models",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "e_anthropic",
+      "type": "entity",
+      "title": "Anthropic",
+      "description": "Anthropic Claude models",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "e_deepseek",
+      "type": "entity",
+      "title": "DeepSeek",
+      "description": "DeepSeek models (MoE)",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "e_google",
+      "type": "entity",
+      "title": "Google",
+      "description": "Google Gemini / Gemma models",
+      "tags": [
+        "knowledge",
+        "ai-agent"
+      ]
+    },
+    {
+      "id": "c_paper_analysis",
+      "type": "concept",
+      "title": "Paper Analysis",
+      "description": "论文分析",
+      "tags": [
+        "knowledge",
+        "research"
+      ]
+    },
+    {
+      "id": "c_literature_review",
+      "type": "concept",
+      "title": "Literature Review",
+      "description": "文献综述",
+      "tags": [
+        "knowledge",
+        "research"
+      ]
+    },
+    {
+      "id": "c_benchmark",
+      "type": "concept",
+      "title": "Benchmark",
+      "description": "基准测试",
+      "tags": [
+        "knowledge",
+        "research"
+      ]
+    },
+    {
+      "id": "p_paper_summary",
+      "type": "pattern",
+      "title": "论文摘要模式",
+      "success_rate": 0.8,
+      "applies_to": [
+        "学术"
+      ],
+      "tags": [
+        "knowledge",
+        "research"
+      ]
+    },
+    {
+      "id": "c_wal_mode",
+      "type": "concept",
+      "title": "WAL Mode",
+      "description": "预写日志模式",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "c_fts5",
+      "type": "concept",
+      "title": "FTS5",
+      "description": "全文搜索引擎",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "c_rtree",
+      "type": "concept",
+      "title": "RTree",
+      "description": "空间索引",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "c_transaction",
+      "type": "concept",
+      "title": "Transaction",
+      "description": "事务与ACID",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "c_vacuum",
+      "type": "concept",
+      "title": "Vacuum",
+      "description": "空间回收",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "p_wal_optimize",
+      "type": "pattern",
+      "title": "WAL 优化模式",
+      "success_rate": 0.9,
+      "applies_to": [
+        "高写入场景"
+      ],
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "p_fts_query",
+      "type": "pattern",
+      "title": "FTS 查询模式",
+      "success_rate": 0.85,
+      "applies_to": [
+        "全文搜索"
+      ],
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "e_sqlite",
+      "type": "entity",
+      "title": "SQLite",
+      "description": "嵌入式关系数据库",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "e_dbeaver",
+      "type": "entity",
+      "title": "DBeaver",
+      "description": "数据库管理工具",
+      "tags": [
+        "knowledge",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "s-gemma",
+      "type": "skill",
+      "title": "Gemma",
+      "tags": [
+        "capability",
+        "skill"
+      ]
+    },
+    {
+      "id": "s-google-ai",
+      "type": "skill",
+      "title": "Google AI",
+      "tags": [
+        "capability",
+        "skill"
+      ]
+    },
+    {
+      "id": "s-provider-google",
+      "type": "skill",
+      "title": "Provider: google",
+      "tags": [
+        "capability",
+        "skill"
+      ]
+    },
+    {
+      "id": "s-deepseek",
+      "type": "skill",
+      "title": "DeepSeek",
+      "tags": [
+        "capability",
+        "skill"
+      ]
+    },
+    {
+      "id": "s-moe-inference",
+      "type": "skill",
+      "title": "MoE Inference",
+      "tags": [
+        "capability",
+        "skill"
+      ]
+    },
+    {
+      "id": "ai-agent发展趋势与工作流革命",
+      "type": "session",
       "title": "Ai Agent发展趋势与工作流革命",
       "path": "entities/ai-agent发展趋势与工作流革命.md",
+      "model": "google/gemma-4-e4b",
       "tags": [
         "hermes",
-        "session"
+        "session",
+        "execution"
       ]
     },
     {
       "id": "sqlite-本地状态检查",
-      "type": "entity",
+      "type": "session",
       "title": "Sqlite 本地状态检查",
       "path": "entities/sqlite-本地状态检查.md",
+      "model": "deepseek-v4-flash",
       "tags": [
         "hermes",
-        "session"
+        "session",
+        "execution"
       ]
     },
     {
       "id": "the-user-has-provided-a-detailed-outline",
-      "type": "entity",
+      "type": "session",
       "title": "The User Has Provided A Detailed Outline",
       "path": "entities/the-user-has-provided-a-detailed-outline.md",
+      "model": "google/gemma-4-e4b",
       "tags": [
         "hermes",
-        "session"
+        "session",
+        "execution"
       ]
     },
     {
       "id": "hermes-agent-搜索抓取工具汇总",
-      "type": "entity",
+      "type": "session",
       "title": "Hermes Agent 搜索抓取工具汇总",
       "path": "entities/hermes-agent-搜索抓取工具汇总.md",
+      "model": "deepseek-v4-pro",
       "tags": [
         "hermes",
-        "session"
+        "session",
+        "execution"
       ]
     },
     {
       "id": "了解我的身份和能力",
-      "type": "entity",
+      "type": "session",
       "title": "了解我的身份和能力",
       "path": "entities/了解我的身份和能力.md",
+      "model": "gemma-4-E4B-it-Q4_K_M.gguf",
       "tags": [
         "hermes",
-        "session"
-      ]
-    },
-    {
-      "id": "gemma",
-      "type": "skill",
-      "title": "Gemma",
-      "path": "topics/gemma.md",
-      "tags": [
-        "hermes",
-        "skill"
-      ]
-    },
-    {
-      "id": "google-ai",
-      "type": "skill",
-      "title": "Google AI",
-      "path": "topics/google-ai.md",
-      "tags": [
-        "hermes",
-        "skill"
-      ]
-    },
-    {
-      "id": "provider-google",
-      "type": "skill",
-      "title": "Provider: google",
-      "path": "topics/provider-google.md",
-      "tags": [
-        "hermes",
-        "skill"
-      ]
-    },
-    {
-      "id": "deepseek",
-      "type": "skill",
-      "title": "DeepSeek",
-      "path": "topics/deepseek.md",
-      "tags": [
-        "hermes",
-        "skill"
-      ]
-    },
-    {
-      "id": "moe-inference",
-      "type": "skill",
-      "title": "MoE Inference",
-      "path": "topics/moe-inference.md",
-      "tags": [
-        "hermes",
-        "skill"
+        "session",
+        "execution"
       ]
     }
   ],
@@ -217,194 +645,424 @@
       "type": "references"
     },
     {
-      "source": "hermes-agent",
+      "source": "SCHEMA-GRAPH",
       "target": "SCHEMA",
       "type": "references"
     },
     {
-      "source": "ai-agent",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_skill_system",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "research",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_tool_system",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "sqlite",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_state_db",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "topic-了解我的身份和能力",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_pipeline",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "ai-agent发展趋势与工作流革命",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_cron",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "sqlite-本地状态检查",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "c_gateway",
+      "target": "hermes-agent",
+      "type": "is_a"
     },
     {
-      "source": "the-user-has-provided-a-detailed-outline",
-      "target": "SCHEMA",
-      "type": "references"
-    },
-    {
-      "source": "hermes-agent-搜索抓取工具汇总",
-      "target": "SCHEMA",
-      "type": "references"
-    },
-    {
-      "source": "了解我的身份和能力",
-      "target": "SCHEMA",
-      "type": "references"
-    },
-    {
-      "source": "hermes-agent",
-      "target": "ai-agent发展趋势与工作流革命",
-      "type": "contains"
-    },
-    {
-      "source": "ai-agent发展趋势与工作流革命",
+      "source": "p_skill_chain",
       "target": "hermes-agent",
       "type": "belongs_to"
     },
     {
-      "source": "hermes-agent",
-      "target": "hermes-agent-搜索抓取工具汇总",
-      "type": "contains"
-    },
-    {
-      "source": "hermes-agent-搜索抓取工具汇总",
+      "source": "p_cron_sync",
       "target": "hermes-agent",
       "type": "belongs_to"
     },
     {
-      "source": "ai-agent",
-      "target": "ai-agent发展趋势与工作流革命",
-      "type": "contains"
+      "source": "e_nous",
+      "target": "hermes-agent",
+      "type": "belongs_to"
     },
     {
-      "source": "ai-agent发展趋势与工作流革命",
+      "source": "c_planning",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_reflection",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_memory",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_tool_calling",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_reasoning",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_multi_agent",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_feedback",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "c_autonomy",
+      "target": "ai-agent",
+      "type": "is_a"
+    },
+    {
+      "source": "p_trend_analysis",
       "target": "ai-agent",
       "type": "belongs_to"
     },
     {
-      "source": "ai-agent",
-      "target": "the-user-has-provided-a-detailed-outline",
-      "type": "contains"
-    },
-    {
-      "source": "the-user-has-provided-a-detailed-outline",
+      "source": "p_reflection_loop",
       "target": "ai-agent",
       "type": "belongs_to"
     },
     {
-      "source": "ai-agent",
-      "target": "hermes-agent-搜索抓取工具汇总",
-      "type": "contains"
-    },
-    {
-      "source": "hermes-agent-搜索抓取工具汇总",
+      "source": "p_tool_orchestrate",
       "target": "ai-agent",
       "type": "belongs_to"
     },
     {
-      "source": "research",
-      "target": "ai-agent发展趋势与工作流革命",
-      "type": "contains"
+      "source": "e_hermes",
+      "target": "ai-agent",
+      "type": "belongs_to"
     },
     {
-      "source": "ai-agent发展趋势与工作流革命",
+      "source": "e_openai",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "e_anthropic",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "e_deepseek",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "e_google",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "c_paper_analysis",
+      "target": "research",
+      "type": "is_a"
+    },
+    {
+      "source": "c_literature_review",
+      "target": "research",
+      "type": "is_a"
+    },
+    {
+      "source": "c_benchmark",
+      "target": "research",
+      "type": "is_a"
+    },
+    {
+      "source": "p_paper_summary",
       "target": "research",
       "type": "belongs_to"
     },
     {
-      "source": "sqlite",
-      "target": "sqlite-本地状态检查",
-      "type": "contains"
+      "source": "c_wal_mode",
+      "target": "sqlite",
+      "type": "is_a"
     },
     {
-      "source": "sqlite-本地状态检查",
+      "source": "c_fts5",
+      "target": "sqlite",
+      "type": "is_a"
+    },
+    {
+      "source": "c_rtree",
+      "target": "sqlite",
+      "type": "is_a"
+    },
+    {
+      "source": "c_transaction",
+      "target": "sqlite",
+      "type": "is_a"
+    },
+    {
+      "source": "c_vacuum",
+      "target": "sqlite",
+      "type": "is_a"
+    },
+    {
+      "source": "p_wal_optimize",
       "target": "sqlite",
       "type": "belongs_to"
     },
     {
-      "source": "topic-了解我的身份和能力",
-      "target": "了解我的身份和能力",
-      "type": "contains"
+      "source": "p_fts_query",
+      "target": "sqlite",
+      "type": "belongs_to"
     },
     {
-      "source": "了解我的身份和能力",
-      "target": "topic-了解我的身份和能力",
+      "source": "e_sqlite",
+      "target": "sqlite",
+      "type": "belongs_to"
+    },
+    {
+      "source": "e_dbeaver",
+      "target": "sqlite",
       "type": "belongs_to"
     },
     {
       "source": "ai-agent发展趋势与工作流革命",
-      "target": "gemma",
+      "target": "s-gemma",
       "type": "uses"
     },
     {
       "source": "ai-agent发展趋势与工作流革命",
-      "target": "google-ai",
+      "target": "s-google-ai",
       "type": "uses"
     },
     {
       "source": "ai-agent发展趋势与工作流革命",
-      "target": "provider-google",
+      "target": "s-provider-google",
       "type": "uses"
     },
     {
       "source": "sqlite-本地状态检查",
-      "target": "deepseek",
+      "target": "s-deepseek",
       "type": "uses"
     },
     {
       "source": "sqlite-本地状态检查",
-      "target": "moe-inference",
+      "target": "s-moe-inference",
       "type": "uses"
     },
     {
       "source": "the-user-has-provided-a-detailed-outline",
-      "target": "gemma",
+      "target": "s-gemma",
       "type": "uses"
     },
     {
       "source": "the-user-has-provided-a-detailed-outline",
-      "target": "google-ai",
+      "target": "s-google-ai",
       "type": "uses"
     },
     {
       "source": "the-user-has-provided-a-detailed-outline",
-      "target": "provider-google",
+      "target": "s-provider-google",
       "type": "uses"
     },
     {
       "source": "hermes-agent-搜索抓取工具汇总",
-      "target": "deepseek",
+      "target": "s-deepseek",
       "type": "uses"
     },
     {
       "source": "hermes-agent-搜索抓取工具汇总",
-      "target": "moe-inference",
+      "target": "s-moe-inference",
       "type": "uses"
     },
     {
       "source": "了解我的身份和能力",
-      "target": "gemma",
+      "target": "s-gemma",
       "type": "uses"
     },
     {
       "source": "了解我的身份和能力",
-      "target": "google-ai",
+      "target": "s-google-ai",
       "type": "uses"
+    },
+    {
+      "source": "p_trend_analysis",
+      "target": "c_reasoning",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_trend_analysis",
+      "target": "c_planning",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_reflection_loop",
+      "target": "c_reflection",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_reflection_loop",
+      "target": "c_feedback",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_tool_orchestrate",
+      "target": "c_tool_calling",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_wal_optimize",
+      "target": "c_wal_mode",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_fts_query",
+      "target": "c_fts5",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_skill_chain",
+      "target": "c_skill_system",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_skill_chain",
+      "target": "c_pipeline",
+      "type": "has_pattern"
+    },
+    {
+      "source": "p_cron_sync",
+      "target": "c_cron",
+      "type": "has_pattern"
+    },
+    {
+      "source": "c_multi_agent",
+      "target": "c_planning",
+      "type": "depends_on"
+    },
+    {
+      "source": "c_reflection",
+      "target": "c_reasoning",
+      "type": "depends_on"
+    },
+    {
+      "source": "c_memory",
+      "target": "c_tool_calling",
+      "type": "depends_on"
+    },
+    {
+      "source": "c_autonomy",
+      "target": "c_planning",
+      "type": "depends_on"
+    },
+    {
+      "source": "c_feedback",
+      "target": "c_reflection",
+      "type": "depends_on"
+    },
+    {
+      "source": "c_tool_calling",
+      "target": "c_reasoning",
+      "type": "depends_on"
+    },
+    {
+      "source": "e_hermes",
+      "target": "c_skill_system",
+      "type": "implements"
+    },
+    {
+      "source": "e_hermes",
+      "target": "c_tool_system",
+      "type": "implements"
+    },
+    {
+      "source": "e_hermes",
+      "target": "c_state_db",
+      "type": "implements"
+    },
+    {
+      "source": "e_hermes",
+      "target": "c_gateway",
+      "type": "implements"
+    },
+    {
+      "source": "e_openai",
+      "target": "c_reasoning",
+      "type": "implements"
+    },
+    {
+      "source": "e_anthropic",
+      "target": "c_reflection",
+      "type": "implements"
+    },
+    {
+      "source": "e_deepseek",
+      "target": "c_multi_agent",
+      "type": "implements"
+    },
+    {
+      "source": "e_deepseek",
+      "target": "c_reasoning",
+      "type": "implements"
+    },
+    {
+      "source": "e_google",
+      "target": "c_tool_calling",
+      "type": "implements"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "hermes-agent",
+      "type": "references"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "hermes-agent",
+      "type": "references"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "ai-agent",
+      "type": "references"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "ai-agent",
+      "type": "references"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "ai-agent",
+      "type": "references"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "research",
+      "type": "references"
+    },
+    {
+      "source": "sqlite-本地状态检查",
+      "target": "sqlite",
+      "type": "references"
+    },
+    {
+      "source": "了解我的身份和能力",
+      "target": "topic-了解我的身份和能力",
+      "type": "references"
     }
   ]
 }

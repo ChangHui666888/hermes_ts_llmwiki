@@ -5,8 +5,8 @@ started: 2026-06-27
 ended: in progress
 type: session
 model: deepseek-v4-flash
-tokens: 161647
-messages: 114
+tokens: 235056
+messages: 174
 tags: [hermes, session, deepseek-v4-flash]
 topics: ["SQLite"]
 ---
@@ -14,7 +14,7 @@ topics: ["SQLite"]
 # SQLite 本地状态检查
 
 **Session:** `mqwjknu46n6kye` | **Model:** deepseek-v4-flash
-**Messages:** 114 | **Tokens:** 161,647
+**Messages:** 174 | **Tokens:** 235,056
 **Started:** 2026-06-27 | **Ended:** in progress
 
 ## 关联主题 (Topics)

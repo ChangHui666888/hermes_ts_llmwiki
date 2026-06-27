@@ -5,8 +5,8 @@ started: 2026-06-27
 ended: in progress
 type: session
 model: google/gemma-4-e4b
-tokens: 78726
-messages: 7
+tokens: 101397
+messages: 10
 tags: [hermes, session, google]
 topics: ["Hermes Agent", "AI Agent", "Research"]
 ---
@@ -14,7 +14,7 @@ topics: ["Hermes Agent", "AI Agent", "Research"]
 # AI Agent发展趋势与工作流革命
 
 **Session:** `mqwjp65oy0w58r` | **Model:** google/gemma-4-e4b
-**Messages:** 7 | **Tokens:** 78,726
+**Messages:** 10 | **Tokens:** 101,397
 **Started:** 2026-06-27 | **Ended:** in progress
 
 ## 关联主题 (Topics)
