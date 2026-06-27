@@ -437,12 +437,13 @@ def build_knowledge_graph(topic_pages: list[tuple], session_pages: list[tuple],
     # ── Knowledge→Capability edges: Skill requires Concepts ──
     # e.g. skill_google_ai → c_reasoning, c_tool_calling
     skill_concept_map = {
-        "s_google-ai":      ["c_reasoning", "c_tool_calling", "c_memory"],
-        "s_deepseek":       ["c_reasoning", "c_multi_agent"],
-        "s_claude":         ["c_reflection", "c_reasoning"],
-        "s_llama":          ["c_reasoning"],
-        "s_local-inference": ["c_reasoning", "c_memory"],
-        "s_provider-deepseek": ["c_multi_agent", "c_reasoning"],
+        "s-google-ai":         ["c_reasoning", "c_tool_calling", "c_memory"],
+        "s-deepseek":          ["c_reasoning", "c_multi_agent"],
+        "s-claude":            ["c_reflection", "c_reasoning"],
+        "s-llama":             ["c_reasoning"],
+        "s-local-inference":   ["c_reasoning", "c_memory"],
+        "s-provider-deepseek": ["c_multi_agent", "c_reasoning"],
+        "s-provider-google":   ["c_tool_calling", "c_reasoning"],
     }
     for sid, concept_ids in skill_concept_map.items():
         if sid in seen_ids:

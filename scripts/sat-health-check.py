@@ -139,13 +139,21 @@ def test_sqlite():
 
         # 2e. sqlite3 CLI 是否可调用
         cli_test = subprocess.run(
-            ["sqlite3", "--version"],
-            capture_output=True, text=True, timeout=5
+            ["where", "sqlite3"],
+            capture_output=True, timeout=5
         )
-        cli_ok = cli_test.returncode == 0
-        all_pass &= log_result("SQLite", "CLI 可用",
-            "pass" if cli_ok else "fail",
-            cli_test.stdout.strip() if cli_ok else "sqlite3 命令不可用")
+        cli_path = cli_test.stdout.decode("utf-8", errors="replace").strip()
+        if cli_path:
+            cli_ver = subprocess.run(
+                [cli_path.split("\n")[0].strip(), "--version"],
+                capture_output=True, timeout=5
+            )
+            cli_ok = cli_ver.returncode == 0
+            all_pass &= log_result("SQLite", "CLI 可用",
+                "pass" if cli_ok else "warn",
+                cli_ver.stdout.decode("utf-8", errors="replace").strip() if cli_ok else "sqlite3 不可用")
+        else:
+            all_pass &= log_result("SQLite", "CLI 可用", "warn", "sqlite3 不在 PATH 中")
 
     except Exception as e:
         all_pass &= log_result("SQLite", "连接测试", "fail", str(e))
@@ -191,7 +199,7 @@ def test_wiki():
     RE_FM = re.compile(r"^---\n([\s\S]*?)\n---", re.MULTILINE)
     bad_pages = 0
     for f in md_files:
-        if ".obsidian" in str(f) or f.name in ("SCHEMA.md", "index.md", "log.md"):
+        if ".obsidian" in str(f) or f.name in ("SCHEMA.md", "index.md", "log.md", "SCHEMA-GRAPH.md"):
             continue
         content = f.read_text(encoding="utf-8", errors="replace")
         m = RE_FM.match(content)

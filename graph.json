@@ -22,6 +22,7 @@
       "is_a",
       "navigates",
       "references",
+      "requires",
       "uses"
     ]
   },
@@ -898,6 +899,41 @@
       "source": "了解我的身份和能力",
       "target": "s-google-ai",
       "type": "uses"
+    },
+    {
+      "source": "s-google-ai",
+      "target": "c_reasoning",
+      "type": "requires"
+    },
+    {
+      "source": "s-google-ai",
+      "target": "c_tool_calling",
+      "type": "requires"
+    },
+    {
+      "source": "s-google-ai",
+      "target": "c_memory",
+      "type": "requires"
+    },
+    {
+      "source": "s-deepseek",
+      "target": "c_reasoning",
+      "type": "requires"
+    },
+    {
+      "source": "s-deepseek",
+      "target": "c_multi_agent",
+      "type": "requires"
+    },
+    {
+      "source": "s-provider-google",
+      "target": "c_tool_calling",
+      "type": "requires"
+    },
+    {
+      "source": "s-provider-google",
+      "target": "c_reasoning",
+      "type": "requires"
     },
     {
       "source": "p_trend_analysis",
