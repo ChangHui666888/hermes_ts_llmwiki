@@ -1,47 +1,124 @@
 {
   "meta": {
     "type": "knowledge-graph",
-    "description": "Machine-readable graph of wiki pages and their [[wikilink]] connections",
+    "version": "2.0.0",
+    "description": "Semantic knowledge graph with typed relationships: topic→session→skill",
     "last_updated": "2026-06-28",
-    "version": "1.0.0"
+    "node_types": [
+      "topic",
+      "meta",
+      "skill",
+      "entity"
+    ],
+    "edge_types": [
+      "belongs_to",
+      "uses",
+      "references",
+      "contains",
+      "navigates"
+    ]
   },
   "nodes": [
     {
       "id": "SCHEMA",
       "type": "meta",
-      "title": "Wiki Schema",
-      "path": "SCHEMA.md",
-      "tags": []
+      "title": "SCHEMA",
+      "path": "schema.md",
+      "tags": [
+        "hermes",
+        "meta"
+      ]
     },
     {
       "id": "index",
       "type": "meta",
-      "title": "Wiki Index",
+      "title": "index",
       "path": "index.md",
-      "tags": []
+      "tags": [
+        "hermes",
+        "meta"
+      ]
     },
     {
       "id": "log",
       "type": "meta",
-      "title": "Wiki Log",
+      "title": "log",
       "path": "log.md",
-      "tags": []
+      "tags": [
+        "hermes",
+        "meta"
+      ]
     },
     {
-      "id": "hermes-sqlite-pipeline-test",
+      "id": "hermes-agent",
+      "type": "topic",
+      "title": "Hermes Agent",
+      "path": "topics/hermes-agent.md",
+      "tags": [
+        "hermes",
+        "topic",
+        "knowledge"
+      ]
+    },
+    {
+      "id": "ai-agent",
+      "type": "topic",
+      "title": "Ai Agent",
+      "path": "topics/ai-agent.md",
+      "tags": [
+        "hermes",
+        "topic",
+        "knowledge"
+      ]
+    },
+    {
+      "id": "research",
+      "type": "topic",
+      "title": "Research",
+      "path": "topics/research.md",
+      "tags": [
+        "hermes",
+        "topic",
+        "knowledge"
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "topic",
+      "title": "Sqlite",
+      "path": "topics/sqlite.md",
+      "tags": [
+        "hermes",
+        "topic",
+        "knowledge"
+      ]
+    },
+    {
+      "id": "topic-了解我的身份和能力",
+      "type": "topic",
+      "title": "Topic 了解我的身份和能力",
+      "path": "topics/topic-了解我的身份和能力.md",
+      "tags": [
+        "hermes",
+        "topic",
+        "knowledge"
+      ]
+    },
+    {
+      "id": "ai-agent发展趋势与工作流革命",
       "type": "entity",
-      "title": "Hermes Sqlite Pipeline Test",
-      "path": "entities/hermes-sqlite-pipeline-test.md",
+      "title": "Ai Agent发展趋势与工作流革命",
+      "path": "entities/ai-agent发展趋势与工作流革命.md",
       "tags": [
         "hermes",
         "session"
       ]
     },
     {
-      "id": "sqlite",
+      "id": "sqlite-本地状态检查",
       "type": "entity",
-      "title": "Sqlite",
-      "path": "entities/sqlite.md",
+      "title": "Sqlite 本地状态检查",
+      "path": "entities/sqlite-本地状态检查.md",
       "tags": [
         "hermes",
         "session"
@@ -58,33 +135,73 @@
       ]
     },
     {
-      "id": "hermes-agent",
+      "id": "hermes-agent-搜索抓取工具汇总",
       "type": "entity",
-      "title": "Hermes Agent",
-      "path": "entities/hermes-agent.md",
+      "title": "Hermes Agent 搜索抓取工具汇总",
+      "path": "entities/hermes-agent-搜索抓取工具汇总.md",
       "tags": [
         "hermes",
         "session"
       ]
     },
     {
-      "id": "session-mqgsbksrlgtdxj",
+      "id": "了解我的身份和能力",
       "type": "entity",
-      "title": "Session Mqgsbksrlgtdxj",
-      "path": "entities/session-mqgsbksrlgtdxj.md",
+      "title": "了解我的身份和能力",
+      "path": "entities/了解我的身份和能力.md",
       "tags": [
         "hermes",
         "session"
       ]
     },
     {
-      "id": "ai",
-      "type": "entity",
-      "title": "Ai",
-      "path": "entities/ai.md",
+      "id": "gemma",
+      "type": "skill",
+      "title": "Gemma",
+      "path": "topics/gemma.md",
       "tags": [
         "hermes",
-        "session"
+        "skill"
+      ]
+    },
+    {
+      "id": "google-ai",
+      "type": "skill",
+      "title": "Google AI",
+      "path": "topics/google-ai.md",
+      "tags": [
+        "hermes",
+        "skill"
+      ]
+    },
+    {
+      "id": "provider-google",
+      "type": "skill",
+      "title": "Provider: google",
+      "path": "topics/provider-google.md",
+      "tags": [
+        "hermes",
+        "skill"
+      ]
+    },
+    {
+      "id": "deepseek",
+      "type": "skill",
+      "title": "DeepSeek",
+      "path": "topics/deepseek.md",
+      "tags": [
+        "hermes",
+        "skill"
+      ]
+    },
+    {
+      "id": "moe-inference",
+      "type": "skill",
+      "title": "MoE Inference",
+      "path": "topics/moe-inference.md",
+      "tags": [
+        "hermes",
+        "skill"
       ]
     }
   ],
@@ -100,7 +217,17 @@
       "type": "references"
     },
     {
-      "source": "hermes-sqlite-pipeline-test",
+      "source": "hermes-agent",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "ai-agent",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "research",
       "target": "SCHEMA",
       "type": "references"
     },
@@ -110,24 +237,174 @@
       "type": "references"
     },
     {
+      "source": "topic-了解我的身份和能力",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "sqlite-本地状态检查",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
       "source": "the-user-has-provided-a-detailed-outline",
       "target": "SCHEMA",
       "type": "references"
     },
     {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
+      "source": "了解我的身份和能力",
+      "target": "SCHEMA",
+      "type": "references"
+    },
+    {
       "source": "hermes-agent",
-      "target": "SCHEMA",
-      "type": "references"
+      "target": "ai-agent发展趋势与工作流革命",
+      "type": "contains"
     },
     {
-      "source": "session-mqgsbksrlgtdxj",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "hermes-agent",
+      "type": "belongs_to"
     },
     {
-      "source": "ai",
-      "target": "SCHEMA",
-      "type": "references"
+      "source": "hermes-agent",
+      "target": "hermes-agent-搜索抓取工具汇总",
+      "type": "contains"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "hermes-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "ai-agent",
+      "target": "ai-agent发展趋势与工作流革命",
+      "type": "contains"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "ai-agent",
+      "target": "the-user-has-provided-a-detailed-outline",
+      "type": "contains"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "ai-agent",
+      "target": "hermes-agent-搜索抓取工具汇总",
+      "type": "contains"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "ai-agent",
+      "type": "belongs_to"
+    },
+    {
+      "source": "research",
+      "target": "ai-agent发展趋势与工作流革命",
+      "type": "contains"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "research",
+      "type": "belongs_to"
+    },
+    {
+      "source": "sqlite",
+      "target": "sqlite-本地状态检查",
+      "type": "contains"
+    },
+    {
+      "source": "sqlite-本地状态检查",
+      "target": "sqlite",
+      "type": "belongs_to"
+    },
+    {
+      "source": "topic-了解我的身份和能力",
+      "target": "了解我的身份和能力",
+      "type": "contains"
+    },
+    {
+      "source": "了解我的身份和能力",
+      "target": "topic-了解我的身份和能力",
+      "type": "belongs_to"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "gemma",
+      "type": "uses"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "google-ai",
+      "type": "uses"
+    },
+    {
+      "source": "ai-agent发展趋势与工作流革命",
+      "target": "provider-google",
+      "type": "uses"
+    },
+    {
+      "source": "sqlite-本地状态检查",
+      "target": "deepseek",
+      "type": "uses"
+    },
+    {
+      "source": "sqlite-本地状态检查",
+      "target": "moe-inference",
+      "type": "uses"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "gemma",
+      "type": "uses"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "google-ai",
+      "type": "uses"
+    },
+    {
+      "source": "the-user-has-provided-a-detailed-outline",
+      "target": "provider-google",
+      "type": "uses"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "deepseek",
+      "type": "uses"
+    },
+    {
+      "source": "hermes-agent-搜索抓取工具汇总",
+      "target": "moe-inference",
+      "type": "uses"
+    },
+    {
+      "source": "了解我的身份和能力",
+      "target": "gemma",
+      "type": "uses"
+    },
+    {
+      "source": "了解我的身份和能力",
+      "target": "google-ai",
+      "type": "uses"
     }
   ]
 }

@@ -1,27 +1,27 @@
 ---
 title: "The user has provided a detailed outline of an industrial-grade workflow for ..."
+session_id: "mqvx0zj1bgsw58"
 started: 2026-06-27
 ended: in progress
 type: session
-tags: [hermes, session, google]
 model: google/gemma-4-e4b
-message_count: 1
+tokens: 0
+messages: 1
+tags: [hermes, session, google]
+topics: ["AI Agent"]
 ---
 
 # The user has provided a detailed outline of an industrial-grade workflow for ...
 
-**Source:** Hermes session `mqvx0zj1bgsw58`
-**Model:** google/gemma-4-e4b
-**Messages:** 1
-**Started:** 2026-06-27
-**Ended:** in progress
+**Session:** `mqvx0zj1bgsw58` | **Model:** google/gemma-4-e4b
+**Messages:** 1 | **Tokens:** 0
+**Started:** 2026-06-27 | **Ended:** in progress
 
-## Summary
+## 关联主题 (Topics)
 
-This page was auto-generated from a Hermes session stored in state.db via the
-Hermes → SQLite → Wiki pipeline. Links to [[SCHEMA|Wiki Schema]].
+  - [[ai-agent|AI Agent]]
 
-## Content
+## Raw Data
 
-> Session data extracted from SQLite state.db.
-> Edit this page with meaningful content and cross-links to other [[entities/]] pages.
+- 数据源: Hermes state.db
+- 生成管线: llm-wiki-pipeline.py v2
