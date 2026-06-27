@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Wiki — Knowledge Graph</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    overflow: hidden;
+    height: 100vh;
+  }
+  #graph { width: 100vw; height: 100vh; }
+
+  /* Legend / Controls */
+  #controls {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: rgba(30,30,30,0.92);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    min-width: 180px;
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    user-select: none;
+  }
+  #controls h3 { font-size: 14px; margin-bottom: 10px; color: #7c3aed; }
+  #controls .legend-item { display: flex; align-items: center; margin: 4px 0; opacity: 0.85; }
+  #controls .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    margin-right: 8px; flex-shrink: 0;
+  }
+  #controls .count { margin-left: auto; color: #888; font-size: 11px; }
+
+  #stats-bar {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30,30,30,0.85);
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 12px;
+    color: #888;
+    backdrop-filter: blur(8px);
+    z-index: 100;
+  }
+  #stats-bar span { margin: 0 10px; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: rgba(20,20,20,0.95);
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 200;
+    max-width: 300px;
+    backdrop-filter: blur(8px);
+    display: none;
+  }
+  .tooltip .tt-title { color: #fff; font-weight: 600; margin-bottom: 4px; }
+  .tooltip .tt-type { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .tooltip .tt-links { font-size: 11px; color: #7c3aed; }
+  .tooltip .tt-tags { margin-top: 4px; }
+  .tooltip .tt-tag {
+    display: inline-block; font-size: 10px; padding: 1px 6px;
+    border-radius: 8px; background: #2a2a2a; color: #aaa; margin: 1px 2px;
+  }
+
+  /* Nodes & Links (D3) */
+  .link { stroke: #555; stroke-opacity: 0.3; }
+  .link.highlighted { stroke: #7c3aed; stroke-opacity: 0.7; stroke-width: 2.5; }
+  .node { cursor: pointer; stroke: #1e1e1e; stroke-width: 1.5; }
+  .node-label { font-size: 11px; fill: #ccc; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  .node-label.highlighted { fill: #fff; font-size: 13px; font-weight: 600; }
+
+  .search-box {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 100;
+    background: rgba(30,30,30,0.92);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 14px;
+    backdrop-filter: blur(8px);
+  }
+  .search-box input {
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    font-size: 13px;
+    width: 180px;
+    outline: none;
+  }
+  .search-box input::placeholder { color: #555; }
+
+  /* loading overlay */
+  #loading {
+    position: fixed; inset: 0; background: #1e1e1e;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; font-size: 16px; color: #7c3aed;
+  }
+  #loading.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div id="loading">⟳ 构建知识图谱...</div>
+<div id="controls">
+  <h3>📊 Wiki Graph</h3>
+  <div class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span>entity</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#0ea5e9"></span>concept</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>comparison</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>query</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#888"></span>raw / other</div>
+</div>
+
+<div class="search-box">
+  <input id="searchInput" type="text" placeholder="🔍 搜索节点..." oninput="filterGraph(this.value)">
+</div>
+
+<div id="stats-bar">
+  <span id="nodeCount">节点: 0</span>
+  <span id="edgeCount">连接: 0</span>
+  <span id="statusMsg">就绪</span>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<svg id="graph"></svg>
+
+<script>
+// ============================================================
+// Color scheme
+// ============================================================
+const COLORS = {
+  entity:    '#7c3aed',
+  concept:   '#0ea5e9',
+  comparison:'#f59e0b',
+  query:     '#10b981',
+  raw:       '#888',
+  default:   '#888'
+};
+
+function colorFor(type) { return COLORS[type] || COLORS.default; }
+
+// ============================================================
+// Wiki file listing (fetched from /wiki/data.json)
+// ============================================================
+async function scanWiki() {
+  // We embed all wiki metadata in a <script> tag injected by Hermes
+  // For standalone use, fallback to fetching /wiki/data.json
+  try {
+    // Try embedded data first
+    if (window.__WIKI_DATA) return window.__WIKI_DATA;
+    // Fallback: fetch from filesystem via a JSON endpoint
+    const resp = await fetch('./data.json');
+    if (resp.ok) return await resp.json();
+  } catch(e) { /* fall through */ }
+  // If all fails, scan the page itself
+  return null;
+}
+
+// ============================================================
+// Parse [[wikilinks]] from markdown content
+// ============================================================
+function extractLinks(content) {
+  const links = [];
+  const regex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    links.push(match[1].trim());
+  }
+  return [...new Set(links)]; // deduplicate
+}
+
+function parseFrontmatter(content) {
+  const fm = { type: 'default', tags: [], title: '' };
+  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return fm;
+  const yaml = m[1];
+  const titleMatch = yaml.match(/^title:\s*(.+)$/m);
+  const typeMatch  = yaml.match(/^type:\s*(.+)$/m);
+  const tagMatch   = yaml.match(/^tags:\s*\[([^\]]*)\]/m);
+  if (titleMatch) fm.title = titleMatch[1].trim();
+  if (typeMatch)  fm.type = typeMatch[1].trim();
+  if (tagMatch)   fm.tags = tagMatch[1].split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  return fm;
+}
+
+// ============================================================
+// Build the graph
+// ============================================================
+async function buildGraph() {
+  const data = await scanWiki();
+
+  if (!data || !data.files) {
+    // Try fetching from /wiki/data.json relative to this file
+    try {
+      const resp = await fetch('./data.json');
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.files) {
+          return renderFromFiles(json.files);
+        }
+      }
+    } catch(e) {}
+    showError();
+    return;
+  }
+
+  return renderFromFiles(data.files);
+}
+
+function renderFromFiles(files) {
+  const nodes = [];
+  const nodeMap = {};
+  const edges = [];
+
+  for (const [path, info] of Object.entries(files)) {
+    const name = info.title || path.split('/').pop().replace(/\.md$/i, '');
+    const fm = info.frontmatter || {};
+    const type = fm.type || 'other';
+    // Extract filename without extension for link matching
+    const slug = path.split('/').pop().replace(/\.md$/i, '');
+
+    const node = {
+      id: slug,
+      name: fm.title || name,
+      type: type,
+      tags: fm.tags || [],
+      path: path,
+      fullTitle: fm.title || name,
+      confidence: fm.confidence || 'medium'
+    };
+    nodeMap[slug] = node;
+    node._links = info.links || [];
+  }
+
+  // Create node array
+  for (const slug of Object.keys(nodeMap)) {
+    nodes.push(nodeMap[slug]);
+  }
+
+  // Resolve links as edges
+  for (const [slug, node] of Object.entries(nodeMap)) {
+    for (const link of (node._links || [])) {
+      // Try to match the link to a node
+      const targetSlug = link.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      // Also try direct match
+      const target = nodeMap[link] || nodeMap[targetSlug] ||
+                     // fuzzy match: find by name
+                     Object.values(nodeMap).find(n => n.name.toLowerCase() === link.toLowerCase() ||
+                                                      n.id.toLowerCase() === link.toLowerCase());
+      if (target && target.id !== slug) {
+        edges.push({ source: slug, target: target.id });
+      }
+    }
+  }
+
+  renderGraph(nodes, edges);
+}
+
+// ============================================================
+// D3 Force-Directed Graph
+// ============================================================
+let svg, simulation, linkGroup, nodeGroup, labelGroup;
+
+function renderGraph(nodes, edges) {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('nodeCount').textContent = `节点: ${nodes.length}`;
+  document.getElementById('edgeCount').textContent = `连接: ${edges.length}`;
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  svg = d3.select('#graph')
+    .attr('width', width)
+    .attr('height', height);
+
+  svg.selectAll('*').remove();
+
+  // Zoom behavior
+  const g = svg.append('g');
+  svg.call(d3.zoom()
+    .scaleExtent([0.1, 6])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    })
+  );
+
+  // Links
+  linkGroup = g.append('g').selectAll('line')
+    .data(edges)
+    .join('line')
+    .attr('class', 'link')
+    .attr('stroke-width', 1);
+
+  // Nodes
+  nodeGroup = g.append('g').selectAll('circle')
+    .data(nodes)
+    .join('circle')
+    .attr('class', 'node')
+    .attr('r', d => {
+      if (d.type === 'entity') return 8;
+      if (d.type === 'concept') return 7;
+      if (d.type === 'comparison') return 6;
+      if (d.type === 'query') return 5;
+      return 5;
+    })
+    .attr('fill', d => colorFor(d.type))
+    .attr('opacity', 0.85)
+    .call(d3.drag()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      })
+    )
+    .on('mouseenter', showTooltip)
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', hideTooltip);
+
+  // Labels
+  labelGroup = g.append('g').selectAll('text')
+    .data(nodes)
+    .join('text')
+    .attr('class', 'node-label')
+    .text(d => d.name.length > 20 ? d.name.slice(0, 18) + '…' : d.name);
+
+  // Simulation
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-250))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(d => {
+      const base = d.type === 'entity' ? 12 : 10;
+      return base + (d.name.length * 2);
+    }))
+    .on('tick', ticked);
+
+  function ticked() {
+    linkGroup
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    nodeGroup
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y);
+
+    labelGroup
+      .attr('x', d => d.x + 12)
+      .attr('y', d => d.y + 4);
+  }
+}
+
+// ============================================================
+// Tooltip
+// ============================================================
+const tooltipEl = document.getElementById('tooltip');
+
+function showTooltip(event, d) {
+  const links = d._links ? d._links.slice(0, 8) : [];
+  const linkStr = links.length > 0 ? `→ ${links.slice(0, 5).join(', ')}${links.length > 5 ? ` +${links.length-5}` : ''}` : '';
+  const tagStr = d.tags && d.tags.length > 0
+    ? d.tags.map(t => `<span class="tt-tag">${t}</span>`).join('')
+    : '';
+
+  tooltipEl.innerHTML = `
+    <div class="tt-title">${d.fullTitle || d.name}</div>
+    <div class="tt-type">📂 ${d.type}  ·  ${d.path || ''}</div>
+    ${linkStr ? `<div class="tt-links">${linkStr}</div>` : ''}
+    ${tagStr ? `<div class="tt-tags">${tagStr}</div>` : ''}
+  `;
+  tooltipEl.style.display = 'block';
+  moveTooltip(event);
+
+  // Highlight connected links and labels
+  linkGroup
+    .attr('class', l => (l.source.id === d.id || l.target.id === d.id) ? 'link highlighted' : 'link');
+  labelGroup
+    .attr('class', l => (l.id === d.id ||
+      edges.some(e => (e.source.id === d.id && e.target.id === l.id) || (e.target.id === d.id && e.source.id === l.id)))
+      ? 'node-label highlighted' : 'node-label');
+
+  nodeGroup.attr('opacity', l =>
+    (l.id === d.id ||
+      edges.some(e => (e.source.id === d.id && e.target.id === l.id) || (e.target.id === d.id && e.source.id === l.id)))
+    ? 1 : 0.15);
+}
+
+function moveTooltip(event) {
+  const x = event.clientX + 15;
+  const y = event.clientY + 15;
+  tooltipEl.style.left = Math.min(x, window.innerWidth - 320) + 'px';
+  tooltipEl.style.top = Math.min(y, window.innerHeight - 150) + 'px';
+}
+
+function hideTooltip() {
+  tooltipEl.style.display = 'none';
+  linkGroup.attr('class', 'link');
+  labelGroup.attr('class', 'node-label');
+  nodeGroup.attr('opacity', 0.85);
+}
+
+// ============================================================
+// Search / Filter
+// ============================================================
+let filterTimeout;
+
+function filterGraph(query) {
+  clearTimeout(filterTimeout);
+  filterTimeout = setTimeout(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      nodeGroup.attr('opacity', 0.85);
+      linkGroup.attr('opacity', 1);
+      labelGroup.attr('opacity', 1).attr('class', 'node-label');
+      return;
+    }
+    nodeGroup.attr('opacity', d => {
+      const match = d.name.toLowerCase().includes(q) || (d.tags || []).some(t => t.includes(q));
+      return match ? 1 : 0.05;
+    });
+    linkGroup.attr('opacity', l =>
+      (l.source.name && l.source.name.toLowerCase().includes(q)) ||
+      (l.target.name && l.target.name.toLowerCase().includes(q)) ? 1 : 0.05);
+    labelGroup.attr('opacity', d =>
+      d.name.toLowerCase().includes(q) ? 1 : 0.05);
+  }, 200);
+}
+
+// ============================================================
+// Window resize
+// ============================================================
+window.addEventListener('resize', () => {
+  if (!simulation) return;
+  simulation.force('center', d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+});
+
+// ============================================================
+// Error state
+// ============================================================
+function showError() {
+  document.getElementById('loading').innerHTML =
+    '⚠️ 无法加载 wiki 数据。<br><br>' +
+    '请确保 wiki 已正确配置，或使用 Obsidian 的 Graph View。<br>' +
+    '<small style="color:#888">位置: C:\\Users\\ChangHui\\wiki</small>';
+}
+
+// ============================================================
+// Start
+// ============================================================
+buildGraph();
+</script>
+</body>
+</html>
