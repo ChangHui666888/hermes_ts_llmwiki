@@ -1,0 +1,15 @@
+{
+  "attachmentFolderPath": "raw/assets",
+  "newFileLocation": "current",
+  "useMarkdownLinks": true,
+  "showLineNumber": true,
+  "spellcheck": true,
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "relative",
+  "promptDelete": false,
+  "tabSize": 2,
+  "communityPlugins": [
+    "dataview",
+    "obsidian-git"
+  ]
+}

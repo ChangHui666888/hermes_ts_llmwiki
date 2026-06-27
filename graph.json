@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "type": "knowledge-graph",
+    "description": "Machine-readable graph of wiki pages and their [[wikilink]] connections",
+    "last_updated": "2026-06-27",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "SCHEMA",
+      "type": "meta",
+      "title": "Wiki Schema",
+      "path": "SCHEMA.md",
+      "tags": []
+    },
+    {
+      "id": "index",
+      "type": "meta",
+      "title": "Wiki Index",
+      "path": "index.md",
+      "tags": []
+    },
+    {
+      "id": "log",
+      "type": "meta",
+      "title": "Wiki Log",
+      "path": "log.md",
+      "tags": []
+    }
+  ],
+  "edges": [
+    {"source": "index", "target": "SCHEMA", "type": "navigates"},
+    {"source": "log", "target": "SCHEMA", "type": "references"}
+  ]
+}
