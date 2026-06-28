@@ -8,7 +8,15 @@
 - Structure created: SCHEMA.md, index.md, log.md, graph.json
 - Directories: raw/, entities/, concepts/, comparisons/, queries/
 
-## [2026-06-28] update | Index, Schema, and Cron fix
-- Updated `index.md` — added all 11 existing pages (5 entities, 5 topics)
-- Updated `SCHEMA.md` — added `session`, `topic` types and Sessions/Topics tags to taxonomy
-- Re-registered `wiki-sync` cron job (every 30m, no-agent) — previous job failed due to Windows path encoding
+## [2026-06-28] ingest | Hermes Agent Developer Guide — Architecture Knowledge Base
+- Created 8 concept pages from Hermes Agent developer docs:
+  - `concepts/hermes-architecture.md` — System architecture overview
+  - `concepts/hermes-agent-loop.md` — Agent loop internals
+  - `concepts/hermes-prompt-assembly.md` — Prompt assembly system
+  - `concepts/hermes-context-compression.md` — Context compression & caching
+  - `concepts/hermes-gateway-internals.md` — Gateway internals
+  - `concepts/hermes-session-storage.md` — Session storage (SQLite + FTS5)
+  - `concepts/hermes-provider-runtime.md` — Provider runtime resolution
+  - `concepts/hermes-programmatic-integration.md` — ACP / TUI Gateway / API Server
+- Updated `index.md` — Concepts section now lists 8 pages, total pages: 19
+- Sources: hermes-agent.nousresearch.com/docs/developer-guide/ (8 pages)

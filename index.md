@@ -2,7 +2,7 @@
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-06-28 | Total pages: 11
+> Last updated: 2026-06-28 | Total pages: 19
 
 ## Entities
 
@@ -14,7 +14,14 @@
 
 ## Concepts
 
-<!-- No concepts yet -->
+- [Hermes Agent Architecture](concepts/hermes-architecture.md) — Top-level system architecture, key files, component overview
+- [Hermes Agent Loop Internals](concepts/hermes-agent-loop.md) — Core AIAgent conversation loop, API modes, turn lifecycle, tool execution
+- [Hermes Prompt Assembly](concepts/hermes-prompt-assembly.md) — Cached system prompt layers, SOUL.md, context files, platform hints, ephemeral layers
+- [Context Compression and Caching](concepts/hermes-context-compression.md) — Dual compression system, 4-phase algorithm, prompt caching markers, configuration
+- [Hermes Gateway Internals](concepts/hermes-gateway-internals.md) — Gateway architecture, message flow, authorization, hooks, cron bridge, deployment
+- [Hermes Session Storage](concepts/hermes-session-storage.md) — SQLite schema (sessions/messages/FTS5), migrations, session lineage, cost tracking
+- [Provider Runtime Resolution](concepts/hermes-provider-runtime.md) — Provider resolution precedence, supported providers, Anthropic/Codex paths, auxiliary routing
+- [Hermes Programmatic Integration](concepts/hermes-programmatic-integration.md) — ACP, TUI Gateway JSON-RPC, OpenAI-compatible API server protocols
 
 ## Comparisons
 
