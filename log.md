@@ -8,20 +8,20 @@
 - Structure created: SCHEMA.md, index.md, log.md, graph.json
 - Directories: raw/, entities/, concepts/, comparisons/, queries/
 
-## [2026-06-28] ingest | Hermes Agent Developer Guide — Extension & Plugin Knowledge Base
-- Created 12 concept pages from Hermes Agent extension/plugin developer docs:
-  - `concepts/hermes-adding-tools.md` — Adding built-in core tools
-  - `concepts/hermes-adding-providers.md` — Adding built-in inference providers
-  - `concepts/hermes-platform-adapters.md` — Adding messaging platform adapters
-  - `concepts/hermes-memory-provider-plugin.md` — Memory provider plugins
-  - `concepts/hermes-context-engine-plugin.md` — Context engine plugins
-  - `concepts/hermes-model-provider-plugin.md` — Model provider plugins (plugin path)
-  - `concepts/hermes-image-gen-provider.md` — Image generation provider plugins
-  - `concepts/hermes-video-gen-provider.md` — Video generation provider plugins
-  - `concepts/hermes-web-search-provider.md` — Web search provider plugins
-  - `concepts/hermes-plugin-llm-access.md` — Plugin LLM access (ctx.llm)
-  - `concepts/hermes-creating-skills.md` — Creating skills (SKILL.md format)
-  - `concepts/hermes-extending-cli.md` — Extending the CLI (TUI hooks)
-- Organized under new "Extending Hermes" subheading in index.md Concepts section
-- Updated `index.md` — total pages: 31
-- Sources: hermes-agent.nousresearch.com/docs/developer-guide/ (12 pages)
+## [2026-06-28] ingest | Hermes Agent Guides — Usage & Workflow Knowledge Base
+- Created 13 guide pages from Hermes Agent user guides:
+  - `guides/hermes-mcp.md` — Use MCP with Hermes
+  - `guides/hermes-soul.md` — Use SOUL.md with Hermes
+  - `guides/hermes-voice-mode.md` — Use Voice Mode with Hermes
+  - `guides/hermes-build-plugin.md` — Build a Hermes Plugin
+  - `guides/hermes-cron-automation.md` — Automate with Cron
+  - `guides/hermes-cron-script-only.md` — Script-Only Cron Jobs
+  - `guides/hermes-automation-blueprints.md` — Automation Blueprints
+  - `guides/hermes-cron-troubleshooting.md` — Cron Troubleshooting
+  - `guides/hermes-skills-guide.md` — Working with Skills
+  - `guides/hermes-delegation-patterns.md` — Delegation Patterns
+  - `guides/hermes-github-pr-review.md` — GitHub PR Review Agent
+  - `guides/hermes-webhook-pr-review.md` — Webhook GitHub PR Review
+  - `guides/hermes-migrate-openclaw.md` — Migrate from OpenClaw
+- Added new "Guides" section to index.md — total pages: 44
+- Sources: hermes-agent.nousresearch.com/docs/guides/ (13 pages)

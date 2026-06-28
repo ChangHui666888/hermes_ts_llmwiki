@@ -2,7 +2,7 @@
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-06-28 | Total pages: 31
+> Last updated: 2026-06-28 | Total pages: 44
 
 ## Entities
 
@@ -41,6 +41,22 @@
 ## Comparisons
 
 <!-- No comparisons yet -->
+
+## Guides
+
+- [Use MCP with Hermes](guides/hermes-mcp.md) — MCP server setup, tool filtering, WSL2 Chrome bridge
+- [Use SOUL.md with Hermes](guides/hermes-soul.md) — Agent identity/persona, example styles, SOUL vs AGENTS.md
+- [Use Voice Mode with Hermes](guides/hermes-voice-mode.md) — CLI mic loop, Telegram/Discord voice replies, STT/TTS providers
+- [Build a Hermes Plugin](guides/hermes-build-plugin.md) — Plugin structure, schemas/handlers, hooks, bundled skills, shipped data
+- [Automate with Cron](guides/hermes-cron-automation.md) — Agent-powered cron, 5 real-world patterns, [SILENT] trick
+- [Script-Only Cron Jobs](guides/hermes-cron-script-only.md) — Zero-LLM-cost scripts, memory/disk watchdogs, delivery mapping
+- [Automation Blueprints](guides/hermes-automation-blueprints.md) — 3 trigger types, 8 blueprints (PR review, uptime, security audit, etc.)
+- [Cron Troubleshooting](guides/hermes-cron-troubleshooting.md) — Jobs not firing, delivery failures, skill loading issues
+- [Working with Skills](guides/hermes-skills-guide.md) — Finding, installing, creating, per-platform management, skills vs memory
+- [Delegation Patterns](guides/hermes-delegation-patterns.md) — Parallel research, code review, alternative comparison, multi-file refactoring
+- [GitHub PR Review Agent](guides/hermes-github-pr-review.md) — Tutorial: cron + gh CLI + skill + memory for automated PR review
+- [Webhook GitHub PR Review](guides/hermes-webhook-pr-review.md) — Real-time PR comments via GitHub webhooks, ngrok, security notes
+- [Migrate from OpenClaw](guides/hermes-migrate-openclaw.md) — hermes claw migrate, persona/memory/skills/config mapping
 
 ## Queries
 
