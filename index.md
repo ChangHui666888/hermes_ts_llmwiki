@@ -2,7 +2,7 @@
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-06-28 | Total pages: 19
+> Last updated: 2026-06-28 | Total pages: 31
 
 ## Entities
 
@@ -14,14 +14,29 @@
 
 ## Concepts
 
+- [Context Compression and Caching](concepts/hermes-context-compression.md) — Dual compression system, 4-phase algorithm, prompt caching markers, configuration
 - [Hermes Agent Architecture](concepts/hermes-architecture.md) — Top-level system architecture, key files, component overview
 - [Hermes Agent Loop Internals](concepts/hermes-agent-loop.md) — Core AIAgent conversation loop, API modes, turn lifecycle, tool execution
-- [Hermes Prompt Assembly](concepts/hermes-prompt-assembly.md) — Cached system prompt layers, SOUL.md, context files, platform hints, ephemeral layers
-- [Context Compression and Caching](concepts/hermes-context-compression.md) — Dual compression system, 4-phase algorithm, prompt caching markers, configuration
+- [Hermes Creating Skills](concepts/hermes-creating-skills.md) — SKILL.md format, frontmatter, conditional activation, blueprints, secure setup
+- [Hermes Extending the CLI](concepts/hermes-extending-cli.md) — 5 TUI extension hooks, wrapper CLI, widgets, keybindings, slash commands
 - [Hermes Gateway Internals](concepts/hermes-gateway-internals.md) — Gateway architecture, message flow, authorization, hooks, cron bridge, deployment
-- [Hermes Session Storage](concepts/hermes-session-storage.md) — SQLite schema (sessions/messages/FTS5), migrations, session lineage, cost tracking
-- [Provider Runtime Resolution](concepts/hermes-provider-runtime.md) — Provider resolution precedence, supported providers, Anthropic/Codex paths, auxiliary routing
 - [Hermes Programmatic Integration](concepts/hermes-programmatic-integration.md) — ACP, TUI Gateway JSON-RPC, OpenAI-compatible API server protocols
+- [Hermes Prompt Assembly](concepts/hermes-prompt-assembly.md) — Cached system prompt layers, SOUL.md, context files, platform hints, ephemeral layers
+- [Hermes Session Storage](concepts/hermes-session-storage.md) — SQLite schema (sessions/messages/FTS5), migrations, session lineage, cost tracking
+
+### Extending Hermes
+
+- [Adding Tools (Built-in)](concepts/hermes-adding-tools.md) — Tool structure, schema, registry, async handlers, toolset integration
+- [Adding Inference Providers](concepts/hermes-adding-providers.md) — Built-in provider layers, api_mode abstraction, file checklist
+- [Adding Platform Adapters](concepts/hermes-platform-adapters.md) — Messaging platform plugins, BasePlatformAdapter, register_platform()
+- [Memory Provider Plugins](concepts/hermes-memory-provider-plugin.md) — MemoryProvider ABC, lifecycle hooks, config schema, plugin entry point
+- [Context Engine Plugins](concepts/hermes-context-engine-plugin.md) — ContextEngine ABC, engine tools, compression lifecycle
+- [Model Provider Plugins](concepts/hermes-model-provider-plugin.md) — Plugin path, ProviderProfile, auto-wiring, discovery order
+- [Image Gen Provider Plugins](concepts/hermes-image-gen-provider.md) — ImageGenProvider ABC, text/image-to-image, generate() pattern
+- [Video Gen Provider Plugins](concepts/hermes-video-gen-provider.md) — VideoGenProvider ABC, text/image-to-video routing, FAL family pattern
+- [Web Search Provider Plugins](concepts/hermes-web-search-provider.md) — WebSearchProvider ABC, search/extract, fixed response shape
+- [Plugin LLM Access (ctx.llm)](concepts/hermes-plugin-llm-access.md) — 4 methods, structured extraction, trust gate security, audit logging
+- [Provider Runtime Resolution](concepts/hermes-provider-runtime.md) — Provider resolution precedence, supported providers, Anthropic/Codex paths, auxiliary routing
 
 ## Comparisons
 
