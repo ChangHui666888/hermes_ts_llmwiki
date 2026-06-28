@@ -1,7 +1,7 @@
 ---
 title: Wiki Schema
 created: 2026-06-27
-updated: 2026-06-27
+updated: 2026-06-28
 ---
 
 # Wiki Schema
@@ -23,7 +23,7 @@ Personal knowledge base — AI/ML concepts, coding notes, and project intelligen
 title: Page Title
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-type: entity | concept | comparison | query | summary
+type: entity | concept | comparison | query | summary | session | topic
 tags: [from taxonomy]
 sources: [raw/articles/source-name.md]
 ---
@@ -38,6 +38,8 @@ and their `[[wikilinks]]` connections. Updated automatically after each wiki cha
 - People/Orgs: person, company, lab, open-source
 - Techniques: optimization, fine-tuning, inference, alignment, data
 - Meta: comparison, timeline, controversy, prediction
+- Sessions: session, conversation, chat-log, transcript
+- Topics: topic, aggregation, knowledge, summary
 
 ## Integration
 This wiki is backed by Git and viewable in Obsidian. Changes are tracked via Git commits.
