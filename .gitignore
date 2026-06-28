@@ -5,10 +5,14 @@ Thumbs.db
 *.swo
 *~
 
-# Obsidian
-.obsidian/workspace
+# Obsidian - track config files, ignore everything else
+.obsidian/workspace*
 .obsidian/cache
+.obsician/*.base
+.obsidian/*.canvas
+.obsidian/appearance.json
 .obsidian/plugins/*/data.json
+.obsidian/graph.json
 
 # Temp
 tmp/
