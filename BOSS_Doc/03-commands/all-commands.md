@@ -1,0 +1,289 @@
+# 命令速查
+
+## Hermes
+
+```bash
+hermes config show
+hermes config set model.default deepseek-v4-pro
+hermes config set model.provider deepseek
+```
+
+## Cron
+
+```powershell
+# 创建（注意：必须 "every 30m" 非 "30m"）
+hermes cron add "every 5m"  --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+
+# 管理
+hermes cron list
+hermes cron run <id>
+hermes cron remove <id>
+```
+
+## RSS
+
+```bash
+python ~/.hermes/scripts/rss-scanner.py
+sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+rm ~/.hermes/rss-scanner-state.json       # 重置隔离
+cat ~/.hermes/rss-scanner-report.json     # 查看报告
+```
+
+## Pipeline
+
+```bash
+cd ~/.hermes/scripts
+python news-pipeline.py                   # 手动运行
+
+# 日志
+cat logs/news-pipeline.log
+# PowerShell: Get-Content .\logs\news-pipeline.log -Tail 50
+
+# 报告
+cat ~/.hermes/news-pipeline-report.json
+```
+
+## Docker（云主机）
+
+```bash
+ssh administrator@100.107.117.23
+cd news-intel-platform
+docker compose ps
+docker compose up -d
+docker compose logs api
+```
+## 完整使用方法
+
+### 环境
+
+```bash
+本地: Windows 11, Python 3.11, git-bash
+Hermes: ~/AppData/Local/hermes
+云主机: 100.107.117.23 (administrator)
+```
+
+---
+
+### 一、Cron 管理
+
+```bash
+# 列出所有作业
+hermes cron list
+
+# 手动触发
+hermes cron run <job_id>
+
+# 删除
+hermes cron remove <job_id>
+
+# 暂停/恢复
+hermes cron pause <job_id>
+hermes cron resume <job_id>
+```
+
+**创建命令**：
+
+```powershell
+# RSS 扫描 (每5分钟)
+hermes cron add "every 5m" --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+
+# News Pipeline (每30分钟)
+hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+```
+
+**Windows Task Scheduler**：
+
+```powershell
+schtasks /create /tn "Hermes-Git-Backup" /tr "C:\Users\ChangHui\AppData\Local\hermes\scripts\git-backup.sh" /sc daily /st 12:00 /f
+schtasks /create /tn "Hermes-Full-Backup" /tr "C:\Users\ChangHui\AppData\Local\hermes\scripts\full-backup.sh" /sc daily /st 18:00 /f
+```
+
+---
+
+### 二、RSS
+
+```bash
+# 手动运行
+python ~/AppData/Local/hermes/scripts/rss-scanner.py
+
+# 查询
+sqlite3 ~/.hermes/rss-archive.db "SELECT source,title,date FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+
+# 按分类
+sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE category='通讯社' LIMIT 10"
+
+# 关键词搜索
+sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE title LIKE '%Trump%Iran%' LIMIT 10"
+
+# 今日新增
+sqlite3 ~/.hermes/rss-archive.db "SELECT COUNT(*) FROM rss_articles WHERE date(created_at)=date('now','localtime')"
+
+# 查看报告
+cat ~/.hermes/rss-scanner-report.json
+
+# 重置隔离
+rm ~/.hermes/rss-scanner-state.json
+```
+
+---
+
+### 三、Pipeline
+
+```bash
+cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
+
+# 完整运行 (评分 + 增强 + 推送云端)
+export NEWS_API_BASE=http://100.107.117.23:8001
+python news-pipeline.py
+
+# 指定参数
+python news-pipeline.py --hours 2 --limit 100
+
+# 只评分 (不推送)
+python -m news_intel.pipeline --hours 2
+
+# 评分 + 抓全文
+python -m news_intel.pipeline --hours 2 --fetch
+
+# 查本地 DB
+sqlite3 news_intel/news_intel.db "SELECT tier,COUNT(*) FROM news_intelligence GROUP BY tier"
+sqlite3 news_intel/news_intel.db "SELECT extraction_method,COUNT(*) FROM news_content GROUP BY 1"
+
+# 查看报告
+cat ~/.hermes/news-pipeline-report.json
+
+# 查看日志
+cat ~/AppData/Local/hermes/scripts/logs/news-pipeline.log
+# PowerShell: Get-Content .\logs\news-pipeline.log -Tail 50
+```
+
+---
+
+### 四、事件聚合 (L8)
+
+```bash
+cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
+
+# 手动验证 (显示事件)
+python test_aggregator.py --hours 24 --window 12 --limit 50
+
+# 验证 + 生成 Insight
+python test_aggregator.py --hours 24 --window 12 --limit 50 --insight
+
+# Python API
+python -c "
+from news_intel.aggregator import aggregate_events
+from news_intel.generator import generate_for_event
+# ... 加载 articles ...
+events = aggregate_events(articles, window_hours=6)
+for ev in events:
+    insight = generate_for_event(ev)
+"
+```
+
+---
+
+### 五、Docker (云主机)
+
+```bash
+ssh administrator@100.107.117.23
+cd news-intel-platform
+
+# 启动/停止
+docker compose up -d
+docker compose down
+
+# 状态
+docker compose ps
+docker compose logs api --tail 20
+
+# 重建
+git pull
+docker compose build --no-cache api
+docker compose build --no-cache web
+docker compose up -d
+
+# 数据库
+docker compose exec postgres psql -U news_admin -d news_intel -c "SELECT COUNT(*) FROM articles"
+docker compose exec postgres psql -U news_admin -d news_intel -c "\dt"
+
+# API 测试
+curl http://localhost:8001/health
+curl http://localhost:8001/news
+curl http://localhost:8001/news/hot
+```
+
+---
+
+### 六、备份
+
+```bash
+# 手动 Git 备份
+cd ~/AppData/Local/hermes
+git add -A && git commit -m "manual backup" && git push
+
+# 手动全量备份
+bash ~/AppData/Local/hermes/scripts/full-backup.sh
+
+# 一键恢复
+双击 C:\Users\ChangHui\AppData\Local\hermes\scripts\restore.bat
+# 两次输入 YES 确认
+
+# 查看备份
+ls F:/hermes-backup/
+
+# 日志
+cat ~/AppData/Local/hermes/scripts/logs/full-backup.log
+cat ~/AppData/Local/hermes/scripts/logs/git-backup.log
+```
+
+---
+
+### 七、数据库查询
+
+```bash
+# 本地 SQLite
+sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+sqlite3 news_intel/news_intel.db "SELECT tier,COUNT(*),AVG(score_total) FROM news_intelligence GROUP BY tier"
+sqlite3 news_intel/news_intel.db "SELECT extraction_method,COUNT(*) FROM news_content GROUP BY 1"
+
+# 云 PostgreSQL
+ssh administrator@100.107.117.23
+docker compose -f ~/news-intel-platform/docker-compose.yml exec postgres \
+  psql -U news_admin -d news_intel -c "SELECT COUNT(*) FROM articles"
+```
+
+---
+
+### 八、Web 访问
+
+```
+前端:    http://100.107.117.23
+API文档: http://100.107.117.23:8001/docs
+```
+
+---
+
+### 九、模型管理
+
+```bash
+hermes config show                        # 查看配置
+hermes config set model.default deepseek-v4-pro
+hermes config set model.provider deepseek
+```
+
+---
+
+### 十、Wiki
+
+```
+C:\Users\ChangHui\wiki\BOSS_Doc\
+├── README.md                              # 索引
+├── 01-architecture/system-architecture.md # 架构+参数
+├── 02-deployment/cloud-deploy.md          # 云部署
+├── 02-deployment/backup-restore.md        # 备份恢复
+├── 03-commands/all-commands.md            # 命令速查
+├── 04-config/cron-jobs.md                 # 计划任务
+└── 05-troubleshooting/cron-debug.md       # 排障
+```

@@ -2,7 +2,7 @@
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-06-28 | Total pages: 44
+> Last updated: 2026-07-14 | Total pages: 45
 
 ## Entities
 
@@ -63,6 +63,8 @@
 <!-- No queries yet -->
 
 ## Topics
+
+- [News Intelligence Pipeline 运维手册](topics/news-intelligence-pipeline.md) — Cron 定时任务、抓取流水线、云端部署、维护命令
 
 - [AI Agent](topics/ai-agent.md) — Aggregated knowledge: AI Agent concepts, tools, and providers
 - [Hermes Agent](topics/hermes-agent.md) — Aggregated knowledge: Hermes Agent capabilities and configuration

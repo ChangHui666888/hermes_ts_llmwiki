@@ -3,6 +3,11 @@
 > Chronological record of all wiki actions. Append-only.
 > Format: `## [YYYY-MM-DD] action | subject`
 
+## [2026-07-14] create | News Intelligence Pipeline 运维手册
+- Created `topics/news-intelligence-pipeline.md` — 运维手册
+- Documents: Cron 定时任务 auto-pipeline (每15分钟), 6步级联, 创建/维护命令, 云端部署路径, 统计查询
+- Updated index.md: total pages 44→45
+
 ## [2026-06-27] create | Wiki initialized
 - Domain: Personal knowledge base (AI/ML, coding, projects)
 - Structure created: SCHEMA.md, index.md, log.md, graph.json
