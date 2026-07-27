@@ -1,26 +1,25 @@
 ---
-id: topic_hermes-agent
-title: "Hermes Agent"
+id: topic_topic-大模型配置检查
+title: "Topic: 大模型配置检查"
 created: 2026-07-27
 updated: 2026-07-27
 type: topic
 tags: [hermes, topic, knowledge]
 links:
-  - entities/hermes-mcp配置检查
-  - entities/hermes架构与功能分析
+  - entities/大模型配置检查
   - skill:DeepSeek
   - skill:MoE Inference
-session_count: 2
+session_count: 1
 ---
 
-# Hermes Agent
+# Topic: 大模型配置检查
 
 > **Knowledge Layer — 自动生成的主题节点**
 
 ## 概述
 
 本主题自动从 Hermes 会话数据中提取生成。
-关联 2 个会话，涵盖以下技能和实体。
+关联 1 个会话，涵盖以下技能和实体。
 
 ## 关联技能 (Skills)
 
@@ -29,8 +28,7 @@ session_count: 2
 
 ## 关联会话 (Sessions)
 
-  - [[entities/hermes-mcp配置检查|hermes-mcp配置检查]]
-  - [[entities/hermes架构与功能分析|hermes架构与功能分析]]
+  - [[entities/大模型配置检查|大模型配置检查]]
 
 ## 来源
 

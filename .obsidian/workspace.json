@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "BOSS_Doc/02-deployment/过程记录/流程.md",
+                "file": "BOSS_Doc/03-commands/all-commands.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "流程"
+              "title": "all-commands"
             }
           }
         ]
@@ -185,19 +185,22 @@
   },
   "active": "eaf86098b012fda1",
   "lastOpenFiles": [
+    "RSS-Digest/2026-07-27.md",
+    "RSS-Digest/2026-07-17.md",
+    "BOSS_Doc/02-deployment/backup-restore.md",
+    "BOSS_Doc/01-architecture/system-architecture.md",
+    "BOSS_Doc/02-deployment/cloud-deploy.md",
+    "BOSS_Doc/03-commands/all-commands.md",
+    "BOSS_Doc/02-deployment/过程记录/流程.md",
     "topics/news-intelligence-pipeline.md",
     "RSS-Digest/2026-07-16.md",
     "RSS-Digest/2026-07-15.md",
     "BOSS_Doc/04-config/cron-jobs.md",
-    "BOSS_Doc/02-deployment/过程记录/流程.md",
     "BOSS_Doc/02-deployment/过程记录/旧目录.md",
     "BOSS_Doc/02-deployment/过程记录/架构图.md",
-    "BOSS_Doc/01-architecture/system-architecture.md",
     "BOSS_Doc/01-architecture/phase1-event-asset.md",
-    "BOSS_Doc/02-deployment/cloud-deploy.md",
     "BOSS_Doc/05-troubleshooting/cron-debug.md",
     "BOSS_Doc/05-troubleshooting/rss-quarantine.md",
-    "BOSS_Doc/03-commands/all-commands.md",
     "BOSS_Doc/02-deployment/过程记录/未命名.md",
     "RSS-Digest/2026-07-14.md",
     "BOSS_Doc/02-deployment/过程记录/News Intelligence Platform — 各阶段输入-输出字段详解 v4.3.md",
@@ -208,9 +211,6 @@
     "BOSS_Doc/02-deployment/过程记录/V4.2.1 聚合规则（生产版本）.md",
     "BOSS_Doc/02-deployment/过程记录/News Intelligence Platform — 实际业务流程图 v4.3.md",
     "BOSS_Doc/02-deployment/过程记录/News Intelligence Platform — 优化后完整工作流旧.md",
-    "BOSS_Doc/02-deployment/过程记录/Phase 1 升级方案 v1.md",
-    "BOSS_Doc/02-deployment/过程记录/Phase 1 升级完成报告-test_aggregator.md",
-    "BOSS_Doc/02-deployment/过程记录/V4.3 完成 P0-P1-P2 全部修复.md",
     "未命名 6.canvas",
     "未命名 2.base",
     "未命名 1.base",

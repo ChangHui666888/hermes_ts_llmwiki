@@ -1,36 +1,32 @@
 ---
-id: topic_hermes-agent
-title: "Hermes Agent"
+id: topic_topic-多智能体协同系统
+title: "Topic: 多智能体协同系统"
 created: 2026-07-27
 updated: 2026-07-27
 type: topic
 tags: [hermes, topic, knowledge]
 links:
-  - entities/hermes-mcp配置检查
-  - entities/hermes架构与功能分析
-  - skill:DeepSeek
-  - skill:MoE Inference
-session_count: 2
+  - entities/多智能体协同系统-prd-落地决策
+  - skill:Claude
+session_count: 1
 ---
 
-# Hermes Agent
+# Topic: 多智能体协同系统
 
 > **Knowledge Layer — 自动生成的主题节点**
 
 ## 概述
 
 本主题自动从 Hermes 会话数据中提取生成。
-关联 2 个会话，涵盖以下技能和实体。
+关联 1 个会话，涵盖以下技能和实体。
 
 ## 关联技能 (Skills)
 
-  - [[DeepSeek]]
-  - [[MoE Inference]]
+  - [[Claude]]
 
 ## 关联会话 (Sessions)
 
-  - [[entities/hermes-mcp配置检查|hermes-mcp配置检查]]
-  - [[entities/hermes架构与功能分析|hermes架构与功能分析]]
+  - [[entities/多智能体协同系统-prd-落地决策|多智能体协同系统-prd-落地决策]]
 
 ## 来源
 

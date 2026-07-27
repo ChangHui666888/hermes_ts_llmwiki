@@ -1,15 +1,14 @@
 ---
 id: topic_research
 title: "Research"
-created: 2026-06-28
-updated: 2026-06-28
+created: 2026-07-27
+updated: 2026-07-27
 type: topic
 tags: [hermes, topic, knowledge]
 links:
-  - entities/ai-agent发展趋势与工作流革命
-  - skill:Gemma
-  - skill:Google AI
-  - skill:Provider: google
+  - entities/hermes架构与功能分析
+  - skill:DeepSeek
+  - skill:MoE Inference
 session_count: 1
 ---
 
@@ -24,18 +23,17 @@ session_count: 1
 
 ## 关联技能 (Skills)
 
-  - [[Gemma]]
-  - [[Google AI]]
-  - [[Provider: google]]
+  - [[DeepSeek]]
+  - [[MoE Inference]]
 
 ## 关联会话 (Sessions)
 
-  - [[entities/ai-agent发展趋势与工作流革命|ai-agent发展趋势与工作流革命]]
+  - [[entities/hermes架构与功能分析|hermes架构与功能分析]]
 
 ## 来源
 
 - 数据源: Hermes state.db (SQLite)
 - 生成管线: llm-wiki-pipeline.py v2
-- 生成时间: 2026-06-28
+- 生成时间: 2026-07-27
 
 > 编辑此页面以完善知识内容并添加更多 [[SCHEMA|交叉引用]]。
