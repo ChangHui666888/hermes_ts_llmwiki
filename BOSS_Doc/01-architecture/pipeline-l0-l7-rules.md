@@ -153,6 +153,13 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | ~~`crawl.video_workers`~~ | 2 | 🗑️ 遗留 (Step 3.6 移除后不消费, 与文章共享主批 worker 池) |
 | ~~`crawl.video_timeout`~~ | 420 | 🗑️ 遗留 (并入主批后由 pipeline.batch_timeout 兜底) |
 
+### ⚠️ Playwright sync greenlet 线程冲突 (2026-08-01 修复)
+- **根因**: Playwright sync API 非线程安全且 greenlet 线程绑定；并发批次多 worker 同时操作共享 Chromium → greenlet 冲突 → browser 全失败
+  (实测: 并发 1/26 vs 串行 6/6)
+- **修复**: `fetch_browser` 提交到 `_BROWSER_EXECUTOR`(专用单线程)，所有 page/goto 同线程执行
+- **实测**: 26 视频强制 browser → 无崩溃, 14/26 真转写 (AlJazeera/Bloomberg DataDome/France24)
+- **代价**: browser 串行化 ~22s/条；6 条/轮视频预算内可接受
+
 ### 视频内容清洗 (_clean_video_content)
 
 jina 对视频页抓的是**整页 Markdown**（含相关视频卡片/导航/追踪），真实转写只在页面前部：
