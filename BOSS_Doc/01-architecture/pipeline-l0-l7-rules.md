@@ -116,7 +116,7 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | browser 额外冷却 | 5.0s |
 | 级联总超时 | 60s (cascade_timeout) |
 | 跳过昂贵 | skip_expensive: browser+computer_use |
-| 跳过 URL 模式 | `/videos/ /video/ /watch? youtube /photos/ /gallery/` |
+| 跳过 URL 模式 | `/watch? youtube /photos/ /gallery/` (视频 URL 走专用链路, 见下) |
 
 ### browser 策略性能基准 (2026-07-31)
 
@@ -131,11 +131,30 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 - **可靠性**：Bloomberg 3 次采样 2 成功 (1440字)，1 次触发 DataDome 验证页 — 指纹伪装非 100%，约 1/3 概率被挑战
 - **基准脚本**：`scripts/benchmark_browser_fetch.py`；耗时探针 `scripts/probe_browser_timing.py`
 
+### 视频抓取链路 (Step 3.6, 2026-07-31 新增)
+
+视频 URL 不再硬跳过，改为 auto-pipeline 独立子批 `Step 3.6 VIDEO_FETCH`：
+
+- **入口职责**：`auto-pipeline.py` 只查候选 URL → 调 `batch.py --video` 子进程 → 落库；抓取逻辑全在 `core/fetchers.py` (extract_single `video_allow`) / `batch.py` (`--video` 标志)
+- **两层过滤 → 一层**：Step 3 主批 SQL 仍排除视频；`extract_single` 仅当 `video_allow=True` 且 URL 匹配 `crawl.video_patterns` 时放行，走 `crawl.video_strategy` (browser+stealth 抓转写)
+- **永远跳过**：`/watch?` `youtube.com` `/photos/` `/gallery/`
+- **预算模型**：`video_batch_size=6` × browser 单条约 20s ÷ `video_workers=2` 并发 ≈ 60-90s 增量，子批超时上限 5 分钟，总轮次 < 15 分钟
+- **只抓 A/B 级**：score ≥ `crawl.video_min_score`(60)
+
+| 配置参数 | 默认 | 说明 |
+|:-----|:---:|:-----|
+| `crawl.video_enabled` | true | 视频子批总开关 |
+| `crawl.video_batch_size` | 6 | 每轮最多视频数 |
+| `crawl.video_workers` | 2 | 并发 worker |
+| `crawl.video_min_score` | 60 | 最低评分 (A/B 级) |
+| `crawl.video_strategy` | [browser,archive,jina,tavily] | 视频级联链 |
+| `crawl.video_patterns` | [/video/, /videos/] | 视频 URL 识别 |
+
 ### 域名画像 (22)
 
 ```
-wsj.com:      DataDome → browser→archive→google_cache→search [failing: scrapling]
-bloomberg.com: DataDome → archive→jina→tavily→search [failing: direct,scrapling,browser]
+wsj.com:      DataDome → archive→google_cache→jina→tavily→browser→search [failing: scrapling]
+bloomberg.com: DataDome → archive→google_cache→jina→tavily→browser→search [failing: direct,scrapling]
 reuters.com:  DataDome → archive→jina→tavily→search [failing: scrapling,browser]
 ft.com:       DataDome → browser→archive→search [failing: scrapling]
 cnbc.com:     Cloudflare → direct→scrapling→archive→search
