@@ -137,6 +137,8 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 
 - **入口职责**：`auto-pipeline.py` 只查候选 URL → 调 `batch.py --video` 子进程 → 落库；抓取逻辑全在 `core/fetchers.py` (extract_single `video_allow`) / `batch.py` (`--video` 标志)
 - **两层过滤 → 一层**：Step 3 主批 SQL 仍排除视频；`extract_single` 仅当 `video_allow=True` 且 URL 匹配 `crawl.video_patterns` 时放行，走 `crawl.video_strategy` (browser+stealth 抓转写)
+- **Step 3.5 恢复也排除视频**（searxng/tavily 查询加 NOT LIKE），视频只由 Step 3.6 专属处理，避免抢跑浪费预算
+- **已知修复 (2026-07-31)**：Step 3.6 SQL 参数顺序错位（score 与 like 参数位置颠倒）曾导致永远 0 候选，已修正为 `(min_score, *like_params, batch_size)`
 - **永远跳过**：`/watch?` `youtube.com` `/photos/` `/gallery/`
 - **预算模型**：`video_batch_size=6` × browser 单条约 20s ÷ `video_workers=2` 并发 ≈ 60-90s 增量，子批超时上限 5 分钟，总轮次 < 15 分钟
 - **只抓 A/B 级**：score ≥ `crawl.video_min_score`(60)
