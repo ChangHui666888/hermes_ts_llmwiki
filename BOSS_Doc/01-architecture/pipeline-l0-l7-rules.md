@@ -165,6 +165,12 @@ jina 对视频页抓的是**整页 Markdown**（含相关视频卡片/导航/追
 - **局限**: jina 拿不到 CBS 视频转写 (JS 渲染, 仅~500字简介); 真转写来自 browser 策略
 - **历史数据重清洗**: `scripts/reclean_video_content.py` 一次性脚本 (幂等/备份/--dry-run), 对清洗器部署前存储的噪音行批量重清洗
 
+### ⚠️ 配置中心 settings 列类型坑 (2026-07-31)
+- `settings.value` 列实际是 **TEXT** (ORM 声明 JSONB 但表结构为 text)，SQLAlchemy 读回是 **JSON 字符串**而非 list
+- `admin_config._flat_from_db` 必须归一化字符串编码数组 → list，否则前端 `.map()` 崩
+  (`e.strategy.map is not a function`)
+- 域名策略已单一来源 `config/domain_strategies.json` (本地 loader 与后端 admin_config 共享)
+
 ### 域名画像 (22)
 
 ```
