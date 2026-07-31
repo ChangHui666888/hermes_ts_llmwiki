@@ -14,6 +14,7 @@ News Intelligence Platform 操作手册。
 | [🗄️ 数据库](01-architecture/database.md) | **最新** PostgreSQL 20表/ER图/常用查询 |
 | [Phase 1 事件资产](01-architecture/phase1-event-asset.md) | 第一阶段定位、Schema、8大卖点、7模块、KPI |
 | [五维评分规则](01-architecture/scoring-rules.md) | 五维评分细则 (Source/Impact/Entity/Market/Velocity) |
+| [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 |
 
 ### 02-deployment — 部署运维
 
