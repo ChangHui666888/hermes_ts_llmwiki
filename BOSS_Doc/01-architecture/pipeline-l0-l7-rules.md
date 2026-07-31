@@ -131,28 +131,27 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 - **可靠性**：Bloomberg 3 次采样 2 成功 (1440字)，1 次触发 DataDome 验证页 — 指纹伪装非 100%，约 1/3 概率被挑战
 - **基准脚本**：`scripts/benchmark_browser_fetch.py`；耗时探针 `scripts/probe_browser_timing.py`
 
-### 视频抓取链路 (Step 3.6, 2026-07-31 新增)
+### 视频抓取链路 (并入 Step 3, 2026-07-31)
 
-视频 URL 不再硬跳过，改为 auto-pipeline 独立子批 `Step 3.6 VIDEO_FETCH`：
+视频 URL 不再硬跳过，**并入 Step 3 主批与文章并行抓取**（免去级联等待）：
 
-- **入口职责**：`auto-pipeline.py` 只查候选 URL → 调 `batch.py --video` 子进程 → 落库；抓取逻辑全在 `core/fetchers.py` (extract_single `video_allow`) / `batch.py` (`--video` 标志)
-- **两层过滤 → 一层**：Step 3 主批 SQL 仍排除视频；`extract_single` 仅当 `video_allow=True` 且 URL 匹配 `crawl.video_patterns` 时放行，走 `crawl.video_strategy` (browser+stealth 抓转写)
-- **Step 3.5 恢复也排除视频**（searxng/tavily 查询加 NOT LIKE），视频只由 Step 3.6 专属处理，避免抢跑浪费预算
-- **已知修复 (2026-07-31)**：Step 3.6 SQL 参数顺序错位（score 与 like 参数位置颠倒）曾导致永远 0 候选，已修正为 `(min_score, *like_params, batch_size)`
+- **入口职责**：`auto-pipeline.py` Step 3 候选 = 文章(batch_size) + 视频(video_batch_size, score≥video_min_score) 合并
+- **自动路由**：`batch.py` extract_url 用 `is_video_url` 自动识别 → 视频走 `crawl.video_strategy` (browser+stealth 抓转写)，文章走域名级联
+- **同一批次/进程**：一个 batch.py 子进程、一个 Chromium、一个限速器；视频与文章在同一 worker 池并发
+- **Step 3.5 恢复排除视频**（searxng/tavily 加 NOT LIKE），视频只由 Step 3 处理
 - **永远跳过**：`/watch?` `youtube.com` `/photos/` `/gallery/`
-- **预算模型**：`video_batch_size=6` × browser 单条约 20s ÷ `video_workers=2` 并发 ≈ 60-90s 增量，子批超时上限 5 分钟，总轮次 < 15 分钟
 - **只抓 A/B 级**：score ≥ `crawl.video_min_score`(60)
 
 | 配置参数 | 默认 | 说明 |
 |:-----|:---:|:-----|
-| `crawl.video_enabled` | true | 视频子批总开关 |
-| `crawl.video_batch_size` | 6 | 每轮最多视频数 |
-| `crawl.video_workers` | 2 | 并发 worker |
+| `crawl.video_enabled` | true | 视频抓取总开关 |
+| `crawl.video_batch_size` | 6 | 每轮最多视频数 (并入主批) |
 | `crawl.video_min_score` | 60 | 最低评分 (A/B 级) |
-| `crawl.video_timeout` | 420 | 视频子批总超时 (browser 挂起+兜底单条最坏 ~110s) |
 | `crawl.video_max_content` | 20000 | 视频内容清洗后最大长度 (兜底) |
 | `crawl.video_strategy` | [browser,archive,jina,tavily] | 视频级联链 |
 | `crawl.video_patterns` | [/video/, /videos/] | 视频 URL 识别 |
+| ~~`crawl.video_workers`~~ | 2 | 🗑️ 遗留 (Step 3.6 移除后不消费, 与文章共享主批 worker 池) |
+| ~~`crawl.video_timeout`~~ | 420 | 🗑️ 遗留 (并入主批后由 pipeline.batch_timeout 兜底) |
 
 ### 视频内容清洗 (_clean_video_content)
 
