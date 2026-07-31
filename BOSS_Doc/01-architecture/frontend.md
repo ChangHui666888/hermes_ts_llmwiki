@@ -32,7 +32,7 @@ frontend/src/
 │   │   ├── sources/page.tsx  # 来源注册表 (可排序表格)
 │   │   ├── status/page.tsx   # Pipeline 状态 (运行日志+统计)
 │   │   └── pipeline/page.tsx  # Pipeline 配置
-│   └── config/page.tsx    # 配置中心 (9 Tab)
+│   └── config/page.tsx    # 配置中心 (9 Tab) — 源列表副标题动态显示总数 (不再硬编码)
 ├── lib/
 │   ├── auth.tsx           # Auth Context (ready状态防竞态)
 │   ├── country-coords.ts  # 完整世界国家坐标库 (195国)
