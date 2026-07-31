@@ -135,15 +135,15 @@ Day 7  结果
 
 ### 当前实现状态
 
-| 模块 | 状态 | 实现 |
-|:--:|:--:|------|
-| 1 Source Intelligence | ✅ 已实现 | `scorer.py` Source Authority (source_scores.json, 70+源) |
-| 2 Document Understanding | ✅ 已实现 | L6 enhance_qwen (Qwen3) + L4 extractor (规则) |
-| 3 Entity Extraction | ✅ 已实现 | L1 entity_weights.json + L6 Qwen3 entities |
-| 4 Event Extraction | ✅ 已实现 | V4.3 `aggregator.py` (SAEO fingerprint + Event-Centric) |
-| 5 Event Resolution | ✅ 已实现 | Phase 1/2 clustering + Phase 3 filter |
-| 6 Event Lifecycle | ⚠️ 部分 | `start_time`/`last_time` 已跟踪, Stage/Status 待实现 |
-| 7 Quality Control | ⚠️ 部分 | `coherence` 已加入, Source cross-validation 待实现 |
+|            模块            |  状态   | 实现                                                      |
+| :----------------------: | :---: | ------------------------------------------------------- |
+|  1 Source Intelligence   | ✅ 已实现 | `scorer.py` Source Authority (source_scores.json, 70+源) |
+| 2 Document Understanding | ✅ 已实现 | L6 enhance_qwen (Qwen3) + L4 extractor (规则)             |
+|   3 Entity Extraction    | ✅ 已实现 | L1 entity_weights.json + L6 Qwen3 entities              |
+|    4 Event Extraction    | ✅ 已实现 | V4.3 `aggregator.py` (SAEO fingerprint + Event-Centric) |
+|    5 Event Resolution    | ✅ 已实现 | Phase 1/2 clustering + Phase 3 filter                   |
+|    6 Event Lifecycle     | ⚠️ 部分 | `start_time`/`last_time` 已跟踪, Stage/Status 待实现          |
+|    7 Quality Control     | ⚠️ 部分 | `coherence` 已加入, Source cross-validation 待实现            |
 
 ---
 

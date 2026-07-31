@@ -19,7 +19,11 @@
 hermes cron add "every 5m"  --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
 hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
 
-hermes cron create "every 5m" --script "news-pipeline.py" --no-agent --deliver "local" --name "news-pipeline"
+
+hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"
+
+
+hermes cron create "every 5m" --script "rss-scanner.py" --no-agent --deliver "local" --name "rss-scanner"
 ```
 
 ## Windows Task Scheduler（固定时间）

@@ -184,11 +184,34 @@ for ev in events:
 
 ---
 
-### 五、Docker (云主机)
+### 五、部署 & API 测试（news-platform-v8）
+
+```bash
+cd ~/.hermes-web-ui/coding-agent/workspace/default/global/search-engine-v2/scripts/news-platform-v8
+
+# API 全量测试（实时，连云主机）
+python test_api.py
+
+# Mock 模式（离线，无需网络）
+python test_api.py --mock
+
+# 指定测试路径
+python test_api.py --endpoint /api/v1/dashboard
+
+# 包含管理端 + 内部端点测试
+python test_api.py --admin --internal
+
+# 自动部署到云主机
+python deploy-vps.py                    # 全部服务
+python deploy-vps.py --service backend  # 只重建后端
+python deploy-vps.py --check            # 只检查状态
+```
+
+### 七、Docker (云主机)
 
 ```bash
 ssh administrator@100.107.117.23
-cd news-intel-platform
+cd /home/administrator/news-platform-v8
 
 # 启动/停止
 docker compose up -d
@@ -216,7 +239,7 @@ curl http://localhost:8001/news/hot
 
 ---
 
-### 六、备份
+### 八、备份
 
 ```bash
 # 手动 Git 备份
@@ -240,7 +263,7 @@ cat ~/AppData/Local/hermes/scripts/logs/git-backup.log
 
 ---
 
-### 七、数据库查询
+### 九、数据库查询
 
 ```bash
 # 本地 SQLite
@@ -256,7 +279,7 @@ docker compose -f ~/news-intel-platform/docker-compose.yml exec postgres \
 
 ---
 
-### 八、Web 访问
+### 十、Web 访问
 
 ```
 前端:    http://100.107.117.23
@@ -265,7 +288,7 @@ API文档: http://100.107.117.23:8001/docs
 
 ---
 
-### 九、模型管理
+### 十一、模型管理
 
 ```bash
 hermes config show                        # 查看配置
@@ -275,7 +298,7 @@ hermes config set model.provider deepseek
 
 ---
 
-### 十、Wiki
+### 十二、Wiki
 
 ```
 C:\Users\ChangHui\wiki\BOSS_Doc\

@@ -1,8 +1,0 @@
-{
-	"nodes":[
-		{"id":"24dd11af2d4b5f59","x":400,"y":-260,"width":250,"height":60,"color":"4","type":"text","text":"伊朗"},
-		{"id":"d9eb074f6713281b","x":-840,"y":-230,"width":250,"height":60,"color":"2","type":"text","text":"美国"},
-		{"id":"b9f13b1d3c83cb8c","x":-280,"y":-260,"width":250,"height":130,"color":"1","type":"text","text":"石油"}
-	],
-	"edges":[]
-}

@@ -1,0 +1,194 @@
+# 后端 — News Platform V8 (FastAPI)
+
+> 最后更新: 2026-07-29
+> 技术栈: Python 3.12 · FastAPI 0.133.1 · SQLAlchemy 2.0 · PostgreSQL 16
+> 部署: Docker 容器 (`news-platform-v8-backend-1`, 338MB 镜像)
+> 网络: **仅 Tailscale 内网 (100.107.117.23)，非公网服务**
+
+## 架构总览
+
+```
+FastAPI 应用入口: apps/api/main.py
+  ├── Sentinel V1 路由 (6 endpoints): dashboard / events / sources / search / map
+  ├── 旧版路由 (17 endpoints): news / internal / auth / admin / ads / categories
+  └── 根端点 (1 endpoint): /
+
+V1 标准约束 (2026-07-29 起):
+  - 所有端点使用 Depends(get_db) 依赖注入（无手动 session 管理）
+  - Pydantic 模型验证请求/响应
+  - HTTP 异常一致性 (404/401/403)
+  - 无硬编码 mock 数据
+```
+
+## 全部 API 端点 (30+)
+
+### 公开端点 (无需认证)
+
+| 方法  | 路径                   | 模块              | 说明                                     |
+| --- | -------------------- | --------------- | -------------------------------------- |
+| GET | `/`                  | main.py         | 服务信息 `{"service": "News Platform V8"}` |
+| GET | `/news`              | news.py         | 文章列表 (分页, 支持 category/tier/source 筛选) |
+| GET | `/news/hot`          | news.py         | Top 10 热门文章 (按 score_total 降序)         |
+| GET | `/news/latest`       | news.py         | 最新 20 篇文章 (按 published_at 降序)          |
+| GET | `/news/search`       | news.py         | 文章搜索 (title + summary_cn ilike)        |
+| GET | `/news/{id}`         | news.py         | 文章详情 (无 token → 公开字段; VIP/Admin → 全文, summary 自动回退) |
+| GET | `/categories`        | categories.py   | 文章分类计数                                 |
+| GET | `/dashboard`         | dashboard_v1.py | 仪表盘 (真实 KPI + Hot Events + 地图事件)       |
+| GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选)   |
+| GET | `/events/{event_id}` | events_v1.py    | 事件 Dossier 详情                          |
+| GET | `/sources`           | sources_v1.py   | 来源注册表 (真实 event_count/article_count/权威度) |
+| GET | `/search`            | search_v1.py    | 事件全文搜索 (title + summary ilike)         |
+| GET | `/map/events`        | map_v1.py       | 地理事件标记 (50 条, 含国家/置信度)                 |
+| GET | `/ads/random`        | ads.py          | 随机广告 (按 position 筛选)                   |
+| GET | `/api/v1/entities/{name}` | entities.py | **实体画像** (国家归属+关联网络+相关事件) |
+
+### 认证端点
+
+| 方法 | 路径 | 模块 | 说明 |
+|------|------|------|------|
+| POST | `/auth/login` | auth.py | 登录 → JWT Token (HS256, 7天过期) |
+| POST | `/auth/register` | auth.py | 注册新用户 (bcrypt 密码) |
+| GET | `/auth/me` | auth.py | 当前用户信息 (需 Bearer Token) |
+
+### 管理端点 (需 admin 权限)
+
+| 方法 | 路径 | 模块 | 说明 |
+|------|------|------|------|
+| GET | `/admin/dashboard` | admin.py | 管理统计 (文章/用户/广告) |
+| GET | `/admin/pipeline/status` | admin.py | **Pipeline 状态** (DB统计+事件分布+最近活动) |
+| GET | `/admin/pipeline/config` | admin_config.py | 配置列表(9组~70项, 分组返回+元信息) |
+| GET | `/admin/pipeline/config/seed` | admin_config.py | 种子配置(不含DB覆盖,对比差异) |
+| GET | `/admin/pipeline/config/export` | admin_config.py | 完整配置导出 (admin) |
+| GET | `/admin/pipeline/config/export-internal` | admin_config.py | 内部配置导出 (INTERNAL_TOKEN, 本地agent轮询用) |
+| PUT | `/admin/pipeline/config/{key}` | admin_config.py | 更新单条配置 (保存后实时推送本地) |
+| POST | `/admin/pipeline/config/batch` | admin_config.py | 批量更新配置 |
+| POST | `/admin/pipeline/config/reset` | admin_config.py | 重置配置到默认值 |
+| GET | `/admin/rss/sources` | rss_sources.py | RSS 源列表 (94源, 配置覆盖) |
+| POST | `/admin/rss/sources` | rss_sources.py | **添加 RSS 源** |
+| PUT | `/admin/rss/sources/{name}` | rss_sources.py | **编辑 RSS 源** |
+| DELETE | `/admin/rss/sources/{name}` | rss_sources.py | **删除 RSS 源** |
+| POST | `/admin/rss/sources/{name}/toggle` | rss_sources.py | **启用/禁用 RSS 源** |
+| GET | `/admin/rss/profiles` | rss_sources.py | 域名抓取策略 (22域名) |
+
+### 内部端点 (需 INTERNAL_TOKEN)
+
+| 方法 | 路径 | 模块 | 说明 |
+|------|------|------|------|
+| POST | `/internal/news/batch` | internal.py | Pipeline 推送文章 (批量, ON CONFLICT url DO UPDATE) |
+| POST | `/internal/events/batch` | internal.py | Pipeline 推送事件 (批量, ON CONFLICT 更新全部字段) |
+| POST | `/internal/fetch_stats` | fetch_stats.py | Pipeline 推送抓取策略统计 |
+| GET | `/internal/admin/fetch_stats` | fetch_stats.py | 查看抓取策略统计汇总 (admin JWT) |
+| POST | `/internal/deploy` | deploy.py | HTTP 触发部署 (git pull + docker rebuild) |
+
+### 前端管理页路由 (nginx 精确匹配)
+
+| 路径 | 说明 |
+|:-----|:-----|
+| `/admin` | Admin Dashboard |
+| `/admin/sources` | 来源注册表 (可排序表格) |
+| `/admin/status` | Pipeline 状态页 |
+| `/admin/pipeline` | Pipeline 配置 |
+| `/config` | 配置中心 (9 Tab) |
+| `/entities/[name]` | 实体画像页 |
+
+## 认证机制
+
+```python
+# 双算法兼容密码验证
+def verify_password(password: str, hashed: str) -> bool:
+    if ":" in hashed and not hashed.startswith("$2"):  # 旧版 SHA256(salt+password)
+        return hashlib.sha256((salt + password).encode()).hexdigest() == h
+    return bcrypt.verify(password, hashed)              # 新版 bcrypt
+
+# JWT 签发 (HS256, 7天)
+def create_token(user_id: int, level: str) -> str:
+    return jwt.encode(
+        {"user_id": user_id, "level": level, 
+         "exp": datetime.utcnow() + timedelta(days=7)},
+        SECRET_KEY, algorithm="HS256",
+    )
+```
+
+## 数据模型 (18 个 ORM 表)
+
+参见 [database.md](database.md) 完整数据库文档。
+
+## 文章内容安全策略
+
+- **匿名用户**: 只能获取 `_public_fields()` — 不含 `content_md`, `analysis`, `key_points`
+- **VIP/Admin**: 通过 JWT 验证后获取完整内容
+- **公开字段**: id, url, title, summary_cn, source_name, source_domain, published_at, category, tier, score_total, tags, entities
+
+## Pipeline 数据接收
+
+```python
+# POST /internal/news/batch
+# 验证头: X-Internal-Token (环境变量 INTERNAL_TOKEN)
+# 批量插入 + UPSERT: ON CONFLICT (url) DO UPDATE
+
+# POST /internal/events/batch
+# 验证头: X-Internal-Token (环境变量 INTERNAL_TOKEN)
+# 批量插入 + UPSERT: ON CONFLICT (event_id) DO UPDATE
+# 事件使用 SQLAlchemy text() 原生 SQL 插入 (30 字段)
+```
+
+## 后端依赖
+
+```
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+pydantic>=2.0
+python-jose[cryptography]>=3.3    (JWT)
+python-multipart>=0.0.12
+passlib[bcrypt]>=1.7              (密码哈希)
+python-dotenv>=1.0
+httpx>=0.27
+```
+
+## API 响应格式
+
+```json
+// 列表响应
+{ "total": 512, "page": 1, "limit": 20, "items": [...] }
+
+// 事件 Dossier 响应 (GET /events/{event_id})
+{
+  "event_id": "EVT-20260709-011",
+  "title": "...",
+  "event_type": "Military",
+  "stage": "active",
+  "confidence": 0.91,
+  "coherence": 69.5,
+  "subject": { "name": "", "type": "Other" },
+  "action": { "type": "ATTACKS", "detail": "..." },
+  "object": { "name": "Iran", "type": "Country" },
+  "location": { "country": "United States" },
+  "source": { "primary_source": "SRC_DW_NEWS", "source_count": 6 },
+  "actors": [...],
+  "keywords": ["Military", "Energy"],
+  "related_entities": [...],
+  "evidence": [{"quote": "...", "source": "DW News"}],
+  "source_chain": [{"role": "break", "source_name": "DW News"}],
+  "timeline": [{"time": "...", "update": "...", "source": "..."}],
+  "llm_analysis": null
+}
+```
+
+## Nginx 路由映射
+
+```
+/api/v1/dashboard       → backend:8000/dashboard
+/api/v1/events/*        → backend:8000/events/*
+/api/v1/sources         → backend:8000/sources
+/api/v1/search          → backend:8000/search
+/api/v1/map/events      → backend:8000/map/events
+/internal/*             → backend:8000/internal/* (Pipeline 推送)
+/auth/*                 → backend:8000/auth/*
+/admin/*                → backend:8000/admin/*
+/news                   → backend:8000/news
+/categories             → backend:8000/categories
+/ads/*                  → backend:8000/ads/
+/*                      → frontend:3000 (Next.js)
+```

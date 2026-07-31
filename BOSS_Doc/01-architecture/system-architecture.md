@@ -1,6 +1,11 @@
 # News Intelligence Platform — 完整业务工作流
 
-> 生成时间: 2026-07-11 | 版本: V4 frozen
+> 生成时间: 2026-07-11 | 版本: V4 frozen | 最后更新: 2026-07-29
+>
+> **注意: 各子系统有独立详细文档**
+> - [🎨 前端详情](frontend.md) — Next.js 16, 12 页面, 15+ 组件
+> - [⚙️ 后端详情](backend.md) — FastAPI, 23 端点, 18 ORM 表
+> - [🗄️ 数据库详情](database.md) — PostgreSQL, 20 表, ER 图, 查询示例
 
 ---
 
@@ -37,7 +42,7 @@ search-engine-v2/scripts/
 │
 ├── news-intel-platform/     旧版 Web (已冻结，不运行)
 │   ├── api/                 FastAPI + PostgreSQL + JWT auth
-│   ├── web/                 Vue.js + Vite + nginx
+│   ├── web/                 Vue.js + Vite + nginx (已冻结，不运行)
 │   └── docker-compose.yml   3 容器 (postgres + api + web) → 全部 Down 9h+
 │
 └── news-intel-web/          Sentinel V1 (当前运行)
