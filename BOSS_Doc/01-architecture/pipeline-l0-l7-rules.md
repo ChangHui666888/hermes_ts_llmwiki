@@ -150,8 +150,19 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | `crawl.video_workers` | 2 | 并发 worker |
 | `crawl.video_min_score` | 60 | 最低评分 (A/B 级) |
 | `crawl.video_timeout` | 420 | 视频子批总超时 (browser 挂起+兜底单条最坏 ~110s) |
+| `crawl.video_max_content` | 20000 | 视频内容清洗后最大长度 (兜底) |
 | `crawl.video_strategy` | [browser,archive,jina,tavily] | 视频级联链 |
 | `crawl.video_patterns` | [/video/, /videos/] | 视频 URL 识别 |
+
+### 视频内容清洗 (_clean_video_content)
+
+jina 对视频页抓的是**整页 Markdown**（含相关视频卡片/导航/追踪），真实转写只在页面前部：
+
+- `[![Image` 相关视频卡片行 → 直接截断 (CBS 200k→~0.5k)
+- 导航标题 (`## Live Now`/`## About` 等) → 段落截断
+- 追踪/广告 URL 行过滤 + 内嵌图片引用移除
+- 实测: CBS 200k→0.5-7k(96-99%↓) | AlJazeera 11.5k→5.2k(时间戳全保留) | BBC 12.4k→9.6k(时间戳全保留)
+- **局限**: jina 拿不到 CBS 视频转写 (JS 渲染, 仅~500字简介); 真转写来自 browser 策略
 
 ### 域名画像 (22)
 
