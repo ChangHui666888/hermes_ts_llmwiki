@@ -118,6 +118,19 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | 跳过昂贵 | skip_expensive: browser+computer_use |
 | 跳过 URL 模式 | `/videos/ /video/ /watch? youtube /photos/ /gallery/` |
 
+### browser 策略性能基准 (2026-07-31)
+
+| 版本 | 平均耗时 | 最慢 | 说明 |
+|:-----|:----:|:----:|:-----|
+| 修复前 | **87.7s** | 109.4s | 9 个 content selector 串行 8s 等待，最坏 72s |
+| 修复后 | **18.6s** | 19.8s | 逗号多 selector 单次等待 (上限 8s)，4.7× 加速 |
+
+- **瓶颈**：`wait_for_selector` 逐个 selector 串行等待 (8s × 9 = 最坏 72s)，视频页无 `article` 匹配时最明显
+- **修复**：合并为逗号分隔的 CSS 列表 `page.wait_for_selector("article, [role='main'], ...", timeout=8000)`，任一匹配即返回
+- **对照**：`fetch_direct` HTTP 直连 9-19s，但 DataDome/404 下全部取不到正文
+- **可靠性**：Bloomberg 3 次采样 2 成功 (1440字)，1 次触发 DataDome 验证页 — 指纹伪装非 100%，约 1/3 概率被挑战
+- **基准脚本**：`scripts/benchmark_browser_fetch.py`；耗时探针 `scripts/probe_browser_timing.py`
+
 ### 域名画像 (22)
 
 ```
