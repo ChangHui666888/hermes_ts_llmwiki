@@ -153,12 +153,20 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | ~~`crawl.video_workers`~~ | 2 | 🗑️ 遗留 (Step 3.6 移除后不消费, 与文章共享主批 worker 池) |
 | ~~`crawl.video_timeout`~~ | 420 | 🗑️ 遗留 (并入主批后由 pipeline.batch_timeout 兜底) |
 
-### ⚠️ Playwright sync greenlet 线程冲突 (2026-08-01 修复)
-- **根因**: Playwright sync API 非线程安全且 greenlet 线程绑定；并发批次多 worker 同时操作共享 Chromium → greenlet 冲突 → browser 全失败
+### ⚠️ Playwright sync greenlet 线程冲突 (2026-08-01 修复+优化)
+- **根因**: Playwright sync API 非线程安全且 greenlet 线程绑定；并发批次多 worker 共享 Chromium → greenlet 冲突 → browser 全失败
   (实测: 并发 1/26 vs 串行 6/6)
-- **修复**: `fetch_browser` 提交到 `_BROWSER_EXECUTOR`(专用单线程)，所有 page/goto 同线程执行
-- **实测**: 26 视频强制 browser → 无崩溃, 14/26 真转写 (AlJazeera/Bloomberg DataDome/France24)
-- **代价**: browser 串行化 ~22s/条；6 条/轮视频预算内可接受
+- **修复(最终)**: `_PerThreadBrowsers` 每线程独立 Chromium — 各 worker 线程自有 Playwright 实例, greenlet 安全且可并发
+- **实测** (26 视频强制 browser):
+
+  | 模式 | 成功 | 耗时 | greenlet |
+  |------|:---:|:---:|:---:|
+  | 共享浏览器并发(原始) | 1/26 | ~100s | ✅崩溃 |
+  | 单线程串行 executor | 14/26 | 590s | ❌ |
+  | **每线程独立 Chromium** | **13/26** | **143s** | ❌ |
+
+- **代价**: max_workers 个 Chromium (~500MB/个), 5 worker 峰值 ~2.5GB 内存
+- 转写质量: AlJazeera 7-8 时间戳 / Bloomberg(DataDome) 12-18 / France24 2-3
 
 ### 视频内容清洗 (_clean_video_content)
 
