@@ -149,6 +149,7 @@ direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
 | `crawl.video_batch_size` | 6 | 每轮最多视频数 |
 | `crawl.video_workers` | 2 | 并发 worker |
 | `crawl.video_min_score` | 60 | 最低评分 (A/B 级) |
+| `crawl.video_timeout` | 420 | 视频子批总超时 (browser 挂起+兜底单条最坏 ~110s) |
 | `crawl.video_strategy` | [browser,archive,jina,tavily] | 视频级联链 |
 | `crawl.video_patterns` | [/video/, /videos/] | 视频 URL 识别 |
 
