@@ -1,0 +1,374 @@
+# Pipeline L0-L7 加工规则 — 基于代码逻辑
+
+> 严格依据实际代码参数，非概要描述
+> 最后更新: 2026-07-31
+
+---
+
+## L0 — RSS 采集 (rss-scanner.py)
+
+### 网络配置
+
+| 参数 | 值 | 代码位置 |
+|:-----|:---|:---------|
+| 源总数 | 98 (10 类) | FEEDS |
+| 并发 workers | 14 | MAX_WORKERS |
+| 超时: hot/warm/cold | 6s / 10s / 15s | HOT/TIMEOUT/COLD_TIMEOUT |
+| SOCKS5 代理 | `socks5://127.0.0.1:10808` | PROXY |
+| 路由规则 | `region==intl` → 代理 / `cn` → 直连 | needs_proxy() |
+| User-Agent | `rss-scanner/3.2-final` | USER_AGENT |
+| HTTP/2 | 启用 | create_client() |
+| 隔离阈值 | 连续失败 ≥3 → 隔离 1800s | update_health() |
+
+### 解析规则
+
+| 规则 | 值 |
+|:-----|:---|
+| description 截断 | 300 字符 |
+| 去重键 | SHA256(源+URL+标题前40字) |
+| 增量游标 | 每源 last_seen (首个 link) |
+| 报告截断 | new_articles[:50], errors[:30] |
+| Wiki 日报 | 每日写入 ~/wiki/RSS-Digest/ |
+
+### 分类规则 (categorize_feed)
+
+```
+通讯社: Reuters/AP/Bloomberg/AFP
+国家媒体: BBC/CNN/NBC/CBS/NYT/NPR...
+金融媒体: FT/WSJ/CNBC/MarketWatch...
+科技媒体: TechCrunch/The Verge/Wired...
+地缘媒体: Guardian/DW/Al Jazeera...
+政府机构: White House/Fed/SEC/UN...
+科研: arXiv/OpenAI/GitHub...
+实时: Hacker News/Reddit
+X/Nitter: 18 源
+中文央媒: 人民网/新华网/央视...
+```
+
+---
+
+## L1 — 五维评分 (scorer.py)
+
+### 评分公式 (总分100)
+
+```
+score_total = source(20) + impact(30) + entity(20) + market(20) + velocity(10)
+```
+
+### 各维度规则
+
+| 维度 | 满分 | 方法 | 上限 |
+|:-----|:----:|:-----|:----:|
+| Source | 20 | source_scores.json 查表, 未知=5 | — |
+| Impact | 30 | event_keywords.json 5领域, **同类取最高** (非累加) | min(30) |
+| Entity | 20 | entity_weights.json 查表 | min(20) |
+| Market | 20 | asset_graph.json 实体/关键词→资产 | min(20) |
+| Velocity | 10 | Jaccard 指纹 ±30min | ≥10源=10, ≥5=5, ≥2=2, <2=0 |
+
+### Tier 判定
+
+```
+A: score ≥ 90 → DeepSeek
+B: 60 ≤ score < 90 → Qwen3
+C: score < 60 → Python
+```
+
+### Velocity 指纹
+
+```
+窗口: 30min
+Jaccard 阈值: ≥0.5
+指纹词数: 8 (英文>1字符 + 中文)
+停用词: 38 个
+```
+
+---
+
+## L2 — 全文抓取 (fetchers.py + cascade.py)
+
+### 级联顺序与成本
+
+```
+direct(1) → archive(1) → google_cache(1) → jina(2) → scrapling(2)
+  → tavily(3) → browser(3) → search_snippet(1)
+```
+
+| 策略 | 成本 | 超时 | 说明 |
+|:-----|:----:|:----:|:-----|
+| direct | 1 | 20s | httpx + trafilatura |
+| archive | 1 | 20s | web.archive.org |
+| google_cache | 1 | 20s | webcache |
+| search_snippet | 1 | 10s | SearXNG 摘要兜底 |
+| scrapling | 2 | 30s | TLS 指纹 (硬编码45s) |
+| jina | 2 | 15s | r.jina.ai |
+| searxng_alt | 2 | 10s | 替代报道源 (需标题相关性校验) |
+| tavily | 3 | 10s | AI 摘要 |
+| browser | 3 | 30s | Playwright |
+| computer_use | 5 | — | 未实现 |
+
+### 全局参数
+
+| 参数 | 值 |
+|:-----|:---|
+| MIN_CONTENT_LEN | 200 字符 |
+| 限速默认 | 1.0s/域名 |
+| 友好域名 | reuters/apnews/bbc/aljazeera 0.5s |
+| browser 额外冷却 | 5.0s |
+| 级联总超时 | 60s (cascade_timeout) |
+| 跳过昂贵 | skip_expensive: browser+computer_use |
+| 跳过 URL 模式 | `/videos/ /video/ /watch? youtube /photos/ /gallery/` |
+
+### 域名画像 (22)
+
+```
+wsj.com:      DataDome → browser→archive→google_cache→search [failing: scrapling]
+bloomberg.com: DataDome → archive→jina→tavily→search [failing: direct,scrapling,browser]
+reuters.com:  DataDome → archive→jina→tavily→search [failing: scrapling,browser]
+ft.com:       DataDome → browser→archive→search [failing: scrapling]
+cnbc.com:     Cloudflare → direct→scrapling→archive→search
+investing.com: Cloudflare → jina→tavily→search [failing: 大部分]
+bbc.com/apnews: 无反爬 → direct
+... (22 域名)
+```
+
+### 代理路由
+
+```
+境外域名 → SOCKS5 (127.0.0.1:10808)
+国内域名 (.cn/.com.cn/人民网等) → 直连
+```
+
+---
+
+## L3 — 结构抽取 (extractor.py)
+
+### 字段抽取规则
+
+| 字段 | 规则 |
+|:-----|:-----|
+| 标题 | Markdown H1 |
+| 日期 | URL路径年 → ISO → "Published" → 中文日期 → 兜底当天 |
+| 作者 | 前 300 字符 "By/Author" 正则 |
+| 摘要 | 前 2-3 语义句 (150 字符) |
+| 要点 | 信号词(said/暴涨/percent)+数字+实体动作 加权 Top5 |
+
+### 性能
+
+```
+0.78ms/篇 (1282 篇/秒)
+纯规则, 零 LLM
+```
+
+---
+
+## L4 — 三级增强 (enhancers.py)
+
+### Tier 路由
+
+```
+C (<60):  Python 规则 (零成本)
+B (60-89): Qwen3-1.7B 本地
+A (≥90):  DeepSeek V4 Flash
+```
+
+### Tier C — Python 规则
+
+| 参数 | 值 |
+|:-----|:---|
+| 摘要截断 | 100 字符 |
+| 句子数 | 前 2 句 (中文>5字, 英文>10字) |
+| 标签 | 32 关键词 → 18 标签 |
+| 股票代码映射 | NVDA→NVIDIA, TSLA→Tesla 等 8 个 |
+| 默认分类 | general |
+
+### Tier B — Qwen3 本地
+
+| 参数 | 值 |
+|:-----|:---|
+| API | `http://127.0.0.1:1234/v1` |
+| 模型 | `qwen3-1.7b-instruct` |
+| 超时 | 60s |
+| max_tokens (标签/实体) | 200 |
+| max_tokens (合并) | 500 |
+| 输入截断 | 600 字符 |
+| 降级策略 | **首次失败→全局跳过** Qwen |
+
+### Tier A — DeepSeek
+
+| 参数 | 值 |
+|:-----|:---|
+| API | `https://api.deepseek.com/v1` |
+| 模型 | `deepseek-v4-flash` |
+| 超时 | 45s |
+| max_tokens | 800 |
+| temperature | 0.1 |
+| 内容截断 | 前 3000 字符 / 前 8 段 |
+| 降级策略 | 无 Key/失败 → Python 规则 |
+| 产出 | event/impact/market_signal/risk_level/forecast |
+
+### 失败降级链
+
+```
+DeepSeek 失败 → Qwen3 失败 → Python 规则 (逐级降级)
+```
+
+---
+
+## L5 — 事件聚合 (aggregator.py)
+
+### 指纹构建 (build_fingerprint)
+
+```
+subject: 加权最高实体 (hub×0.3, 权重≥0.15)
+action:  20 类动作计数排序
+object:  加权最高实体 (排除 subject)
+topic:   12 类关键词
+country: entities.countries[0]
+participants: 参与者集合
+```
+
+### 评分 (fingerprint_score)
+
+| 维度 | 满分 | 规则 |
+|:-----|:----:|:-----|
+| 国家硬约束 | — | 国家不同 → **0** |
+| **主题硬约束** | — | **主主题不同 → 0** |
+| Action | 25 | 动作相同且非OTHER |
+| Subject | 10-25 | 相同 + 稀有度加权 |
+| Object | 10-30 | 相同 + 稀有度加权 |
+| Primary Topic | 10 | 主主题相同 |
+| Secondary Topic | 5 | 仅副主题相同 |
+| Event Type | 10 | 类型相同 |
+| Participants | 5-10 | ≥2 重叠=10, 1=5 |
+
+### 聚类阈值
+
+```
+EVENT_THRESHOLD: 60 (配置中心 aggregate.event_threshold)
+MERGE_THRESHOLD: 75
+时间窗口: 24-48h
+最少文章数: 2
+```
+
+### 三阶段
+
+```
+Phase 1: 文章→事件 (score≥60)
+Phase 2: 事件→合并 (score≥75)
+Phase 3: 过滤 (≥2文章) + 计算 impact
+```
+
+### 置信度公式
+
+```
+confidence = 0.4×源权威 + 0.3×凝聚度 + 0.2×来源多样性 + 0.1×文章数量
+```
+
+### 阶段分类
+
+```
+≤2h: breaking | ≤24h: developing | ≤168h: active | ≤720h: stable | >720h: closed
+```
+
+### Impact 等级
+
+```
+≥85: HIGH | 60-84: MEDIUM | <60: LOW
+(凝聚度<75 且 HIGH → 降级 MEDIUM)
+```
+
+### SAO 质心 (多数决定)
+
+```
+subject/action/object/topic = 簇内多数 (占>50% 才生效, 否则回落种子)
+```
+
+### 实体规范化
+
+```
+国家别名: US→United States, UK→United Kingdom, Russia→Russian Federation
+人物别名: 川普/特朗普→Trump, 普京→Putin, 泽连斯基→Zelensky (新增)
+机构: White House→US Government, Kremlin→Russian Gov...
+```
+
+---
+
+## L6 — 云端同步 (auto-pipeline.py)
+
+### 7 步流程
+
+```
+Step 0:   清理占位行 (retry≥3 且无内容)
+Step 0.5: 积压报告 (Tier 分布 + 耗尽数)
+Step 1:   Sync + 评分 (--hours 2, timeout 240s)
+Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
+Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
+Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
+Step 4:   聚合 (300 篇, window 48h)
+Step 5+6: 云同步 + 内容推送 (并行)
+```
+
+### 推送参数
+
+| 参数 | 值 |
+|:-----|:---|
+| 事件分块 | 50/批 |
+| 内容分块 | 200/批 |
+| HTTP 超时 | 60s |
+| INTERNAL_TOKEN | 环境变量/配置 |
+| 重试 | 连续 3 次失败→跳过剩余 |
+
+### 进程锁
+
+```
+LOCK_FILE + BATCH_TIMEOUT(600s)
+已有实例在跑 → 跳过
+```
+
+### Cron 调度
+
+```
+auto-pipeline: 每 15min (平均耗时 103s, 最大 190s)
+rss-scanner:   每 5min
+config-agent:  每 5min 保活
+```
+
+---
+
+## L7 — Web 展示
+
+### 数据源
+
+| 页面 | API | 数据 |
+|:-----|:----|:-----|
+| Dashboard | /api/v1/dashboard | 指标 + hot_events + map_events |
+| Event 列表 | /api/v1/events | 分页 + 筛选 |
+| Event 详情 | /api/v1/events/{id} | 全字段 Dossier |
+| 地图 | /api/v1/map/events | 50 条地理标记 |
+| 来源 | /api/v1/sources | 真实 event_count/权威度 |
+| 文章 | /news* | 列表/详情/搜索 |
+| 实体画像 | /api/v1/entities/{name} | 国家+关联+事件 |
+
+### 前端渲染
+
+```
+Dark Theme (bg #080B12)
+12+ 页面, 15+ 组件
+Next.js 16 App Router
+```
+
+---
+
+## 参数来源 (配置中心联动)
+
+| 层 | 可配置参数 | 配置键 |
+|:---|:-----------|:-------|
+| L0 | 并发/超时/隔离/代理 | rss.* |
+| L1 | 五维权重/Velocity 窗口/Jaccard | scoring.* |
+| L2 | 超时/限速/最小内容/级联 | crawl.* |
+| L4 | Tier 阈值/Qwen/DeepSeek | ai.* |
+| L5 | EVENT/MERGE/时间窗口 | aggregate.* |
+| L6 | Batch/Workers/分块/同步窗口 | pipeline.* |
+| 域名 | 22 域名策略链 | crawl.domain.* |
+
+**配置流**: 配置中心 → settings 表 → 本地 agent 轮询 → pipeline-config.json → loader → 各模块

@@ -15,6 +15,7 @@ News Intelligence Platform 操作手册。
 | [Phase 1 事件资产](01-architecture/phase1-event-asset.md) | 第一阶段定位、Schema、8大卖点、7模块、KPI |
 | [五维评分规则](01-architecture/scoring-rules.md) | 五维评分细则 (Source/Impact/Entity/Market/Velocity) |
 | [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 |
+| [Pipeline L0-L7 规则](01-architecture/pipeline-l0-l7-rules.md) | 基于代码的加工规则/参数/阈值 |
 
 ### 02-deployment — 部署运维
 
