@@ -30,11 +30,13 @@ schtasks /create /tn "Hermes-Full-Backup" /tr "C:\Users\ChangHui\AppData\Local\h
 
 ```
 F:\hermes-backup\
+├── restore.bat                   ← 一键恢复脚本 (常驻备份盘, 每次备份自动刷新)
 ├── hermes_YYYY-MM-DD_HH-MM\      ← 每个备份为一个日期目录
 │   ├── backup.ok                 ← 完成标记 (恢复时只认带此标记的备份)
 │   ├── config.yaml               ← 配置
 │   ├── .env                      ← 环境变量/密钥
 │   ├── scripts\                  ← 全部脚本
+│   ├── .hermes-home\             ← ~/.hermes 用户目录 (rss-archive.db + config-agent 配置)
 │   └── ...                       ← hermes 全目录镜像 (已排除 node/cache/.git 等)
 ├── logs\
 │   └── full-backup.log           ← 全量备份日志
@@ -84,6 +86,17 @@ F:\hermes-backup\
 
 > 注意：`hermes-agent/`（Python venv）不备份。本机恢复无碍（venv 还在），但**迁移到新机器**需先重装 Hermes 本体再恢复此备份。
 
+### 用户目录 `~/.hermes`（v5 起纳入备份）
+
+备份到每个备份目录内的 `.hermes-home\` 子目录，恢复时还原到 `%USERPROFILE%\.hermes`。
+
+| 内容 | 说明 |
+|------|------|
+| `rss-archive.db` | RSS 归档库（27MB，delete 模式，拷贝即一致） |
+| `rss-scanner-state.json` / `rss-scanner-report.json` | RSS 扫描去重/健康状态 |
+| `config.yaml` / `.env` / `pipeline-config.json` | config-agent 配置与凭据 |
+| `scripts/`、`skills/`、`plans/`、`logs/` 等 | 用户目录下的其它数据 |
+
 ## 日志
 
 ```
@@ -114,15 +127,21 @@ F:\hermes-backup\logs\
 
 ### 方案 A：一键恢复（推荐）
 
-双击：`C:\Users\ChangHui\AppData\Local\hermes\scripts\restore.bat`
+双击：**`F:\hermes-backup\restore.bat`**（常驻备份盘，主目录被删后也能用；脚本目录内的副本 `C:\Users\ChangHui\AppData\Local\hermes\scripts\restore.bat` 亦可）
+
+v3 恢复主目录 **和** 用户目录 `~/.hermes`：
 
 1. 自动定位最新有效备份（有 `backup.ok`）
 2. **第一次确认**：输入 `YES`
 3. **第二次确认**：再次输入 `YES`
-4. 仅停止 `hermes-gateway.exe`
-5. 备份当前版本 → `%LOCALAPPDATA%\hermes_old_yyyyMMdd`
-6. `/MIR` 镜像恢复（删除多余文件）
-7. 手动重启 Hermes
+4. 停止 `hermes-gateway.exe`
+5. 备份当前主目录 → `%LOCALAPPDATA%\hermes_old_yyyyMMdd`
+6. `/MIR` 镜像恢复主目录（删除多余文件，排除 `.hermes-home`）
+7. 备份当前用户目录 → `%USERPROFILE%\.hermes_old_yyyyMMdd`
+8. 恢复 `.hermes-home` → `%USERPROFILE%\.hermes`（rss-archive.db + config-agent 配置）
+9. 手动重启 Hermes
+
+> 若两目录已被整体删除：主目录 venv（`hermes-agent/`）不在备份内，需**先重装 Hermes 本体**，再执行本恢复；`~/.hermes` 由步骤 8 恢复。
 
 ### 方案 B：命令行全量恢复（可脚本化/远程）
 
@@ -201,4 +220,4 @@ Test-NetConnection 127.0.0.1 -Port 9119    # dashboard 端口
 | robocopy 退出码 ≥8 | 备份/恢复失败，看日志尾部 `FATAL` 行 |
 | 找不到有效备份（无 `backup.ok`） | 说明该备份未完整完成，选更早日期目录 |
 | 恢复后 gateway 起不来 | 端口被占用 → `netstat -ano \| findstr 8890` 找 PID 结束；或 `state.db` 损坏（数据库恢复见下） |
-| 只需恢复数据库 | 从备份拷 `state.db`、`kanban.db`、`rss-archive.db` 到对应位置即可 |
+| 只需恢复数据库 | 主库从备份根目录拷 `state.db`、`kanban.db`；RSS 库在 `\.hermes-home\rss-archive.db` → 拷回 `%USERPROFILE%\.hermes\` |
