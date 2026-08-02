@@ -45,6 +45,45 @@ F:\hermes-backup\
 > full-backup 排除项：`node, cache, audio_cache, image_cache, sessions, sandboxes, lsp, mcp-installs, gateway-service, hermes-agent, bin, .git, __pycache__, bk, 新建文件夹`；文件：`*.pyc *.log *.lock *.pid *.rar state.db-shm state.db-wal` 等。
 > `.env`、`auth.json`、`config.yaml` **会**被备份，恢复后无需重新配置。
 
+## 备份内容清单（源项目备份了哪些文件）
+
+> 依据最新备份实测（`hermes_2026-08-02_13-50`，324MB / 3258 文件）。恢复目标为 `%LOCALAPPDATA%\hermes`，与源目录 `C:\Users\ChangHui\AppData\Local\hermes` 结构一致。
+
+### 顶层备份的文件
+
+| 文件 | 说明 | 大小 |
+|------|------|:--:|
+| `config.yaml` / `.bak` / `config.yaml.corrupt.*.bak` | 主配置 + 历史配置备份 | ~50KB |
+| `.env` | 环境变量/密钥（**会**备份，恢复后无需重配） | 24KB |
+| `auth.json` | 认证凭据池 | 2KB |
+| `state.db` | 主状态库（WAL 模式，备份前已 checkpoint） | 39MB |
+| `kanban.db` / `rss-archive.db` / `verification_evidence.db` | 各业务库 | ~150KB |
+| `channel_directory.json`、`processes.json`、`gateway_state.json` | 运行时配置/状态 | <1KB |
+| `SOUL.md`、`.gitignore`、`.hermes_history`、`backup.ok` | 系统文件/完成标记 | — |
+
+### 顶层备份的目录
+
+| 目录 | 说明 | 大小 |
+|------|------|:--:|
+| `profiles/` | **4 个 profile**（c0orchestrator/devteam/medteam/outside-deepdeek），含各 profile 的 config.yaml、auth.json、state.db、news_intel.db、cron/、memories/ 等 | 200MB |
+| `workspace/` | 工作区（system/pipelines 等） | 55MB |
+| `skills/` | 技能库（search-engine-v2 等） | 17MB |
+| `state-snapshots/` | 历史状态快照 | 14MB |
+| `cron/`、`kanban/`、`memories/`、`plugins/`、`pending/` | 调度/看板/记忆/插件/待处理 | <1MB |
+| `scripts/`、`hooks/`、`platforms/`、`pairing/`、`runtime/`、`logs/`、`backup-state/` | 脚本/钩子/平台/配对/运行时/日志/备份状态 | <200KB |
+
+### 被排除的内容（不备份）
+
+| 类型 | 项目 |
+|------|------|
+| 可重装/可再生成 | `node`、`node_modules`、`cache`、`audio_cache`、`image_cache`、`sessions`、`sandboxes`、`lsp`、`mcp-installs`、`gateway-service`、`hermes-agent`(venv)、`bin`、`__pycache__`、`.git` |
+| 运行时 churn | `*.lock`、`*.pid`、`*.log`、`*.pyc`、`gateway.lock/pid`、`.update_check` |
+| 数据库 sidecar | `*.db-shm`、`*.db-wal`（一致性由 WAL checkpoint 保证） |
+| 临时/冗余 | `*.rar`（`search-engine-v2.rar` 与解压目录重复）、`bk/`、`新建文件夹/` |
+| 模型缓存 | `models_dev_cache.json`、`provider_models_cache.json`、`ollama_cloud_models_cache.json` |
+
+> 注意：`hermes-agent/`（Python venv）不备份。本机恢复无碍（venv 还在），但**迁移到新机器**需先重装 Hermes 本体再恢复此备份。
+
 ## 日志
 
 ```
