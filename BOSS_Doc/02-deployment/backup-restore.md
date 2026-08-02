@@ -72,7 +72,7 @@ F:\hermes-backup\
 | `skills/` | 技能库（search-engine-v2 等） | 17MB |
 | `state-snapshots/` | 历史状态快照 | 14MB |
 | `cron/`、`kanban/`、`memories/`、`plugins/`、`pending/` | 调度/看板/记忆/插件/待处理 | <1MB |
-| `scripts/`、`hooks/`、`platforms/`、`pairing/`、`runtime/`、`logs/`、`backup-state/` | 脚本/钩子/平台/配对/运行时/日志/备份状态 | <200KB |
+| `scripts/`、`hooks/`、`platforms/`、`pairing/`、`runtime/`、`logs/`、`backup-state/` | 脚本/钩子/平台/配对/运行时/日志/备份状态（含启动器 `hermes-start.cmd`、`hermes-wiki.cmd`、`wiki-start.cmd`、`wiki-push.cmd`） | <200KB |
 
 ### 被排除的内容（不备份）
 

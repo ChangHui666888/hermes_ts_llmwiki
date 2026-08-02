@@ -1,6 +1,6 @@
 # 本地开发环境
 
-> 最后更新: 2026-07-29
+> 最后更新: 2026-08-02
 
 ## 工作站信息
 
@@ -43,6 +43,24 @@
 
 > 注意：Hermes Cron 在 `~/.hermes/scripts/` 按文件名引用脚本，不支持完整路径。
 > 开发版脚本在项目 `scripts/hermes-cron/` 中，改完后需用 `deploy-cron.py --apply` 部署回去。
+
+### 脚本统一管理（2026-08-02 优化）
+
+> 约定：**所有 Hermes 相关脚本统一放在 `C:\Users\ChangHui\AppData\Local\hermes\scripts\`**，不再散落到用户主目录根。
+> 主目录根（`C:\Users\ChangHui\`）只保留系统/工具点目录与数据目录（如 `wiki\`），不放任何脚本。
+
+| 脚本 | 用途 | 备份覆盖 |
+|------|------|:--:|
+| `scripts\hermes-start.cmd` | 开机自启：Gateway + Dashboard（后台） | ✅ git + F: 全量 |
+| `scripts\hermes-wiki.cmd` | Wiki+Hermes 启动中心（更新图谱 + 注册 wiki-sync cron + 启动 hermes） | ✅ git + F: 全量 |
+| `scripts\wiki-start.cmd` | 更新图谱 + 打开 Obsidian + Graph | ✅ git + F: 全量 |
+| `scripts\wiki-push.cmd` | 一键推送 wiki 到 git | ✅ git + F: 全量 |
+| `scripts\git-backup.sh` / `full-backup.sh` / `restore.bat` 等 | 备份/恢复体系 | ✅ git + F: 全量 |
+
+**开机自启链路**：Startup 文件夹 `hermes-start.vbs` → `%LOCALAPPDATA%\hermes\scripts\hermes-start.cmd`
+（若调整脚本路径，必须同步更新该 vbs。）
+
+> 备注：`content-factory/` 个人项目已移至 `Documents\content-factory\`。
 
 ---
 
@@ -98,7 +116,7 @@
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
-| RSS 数据库 | `~/.hermes/rss-archive.db` | 98 源原始 RSS 文章 |
+| RSS 数据库 | `~/.hermes/rss-archive.db` | 94 源原始 RSS 文章 |
 | 状态文件 | `~/.hermes/rss-scanner-state.json` | 死源隔离 + 去重游标 |
 | 报告文件 | `~/.hermes/rss-scanner-report.json` | 每次扫描统计 |
 
