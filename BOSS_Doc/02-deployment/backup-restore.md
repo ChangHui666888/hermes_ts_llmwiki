@@ -58,6 +58,11 @@ F:\hermes-backup\logs\
 ## 备份校验
 
 - 全量备份完成后生成 `backup.ok` 标记，恢复时仅选择有此标记的备份。
+- `full-backup.sh` 在 robocopy 前会对所有 WAL 模式的 `.db`（state.db、kanban.db、news_intel.db 等）执行 `wal_checkpoint(TRUNCATE)`，确保拷出的数据库完整；`*.db-shm / *.db-wal` 一律不备份。
+- 校验备份内数据库完整性（`immutable=1` 只读，不会改写备份）：
+  ```powershell
+  python -c "import sqlite3;c=sqlite3.connect('file:F:/hermes-backup/hermes_2026-08-02_13-40/state.db?immutable=1',uri=True);print(c.execute('PRAGMA integrity_check').fetchone()[0]);c.close()"
+  ```
 - 快速体检：
   ```powershell
   Get-ChildItem F:\hermes-backup\hermes_* -Directory |
