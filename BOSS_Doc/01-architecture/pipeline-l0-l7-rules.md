@@ -1,4 +1,4 @@
-# Pipeline L0-L7 加工规则 — 基于代码逻辑
+# Pipeline L0-L8 加工规则 — 基于代码逻辑
 
 > 严格依据实际代码参数，非概要描述
 > 最后更新: 2026-07-31
@@ -272,6 +272,65 @@ DeepSeek 失败 → Qwen3 失败 → Python 规则 (逐级降级)
 
 ---
 
+## L4.5 — Fact 抽取 (fact_pipeline.py, Schema V1.0, 2026-08-03)
+
+> auto-pipeline Step 4.5: 混合抽取器（多线程）→ `/internal/facts/batch` → fact/fact_entity 表。
+> ⚠️ 需系统 Python311（gliner/transformers/torch）+ LM Studio Qwen 在线。
+
+### 混合策略（串联并联）
+
+```
+并发: A(规则,喂GLiNER实体,毫秒) + C(GLiNER实体,1s)   ← 廉价, 并联
+串行决策(验证门):
+  1. A 验证: subject+object(取A/GLiNER最优) 至少一个在标题 且 action有效 → A (毫秒)
+  2. C 验证: GLiNER 主体类(person/org)+客体类(country) score≥0.4 → C (1s)
+  3. 否则 B(Qwen noThink) → 兜底 (2.2s/篇)
+→ Canonicalizer v0.4 → fact + fact_entity 入库
+```
+
+### 各抽取器参数
+
+| 组 | 参数 | 值 | 说明 |
+|:--:|:-----|:---|:-----|
+| A | IDF 语料 | 800 篇池 | subject/object 提取 |
+| A | 实体来源 | **GLiNER 注入** | 替代 pipeline 规则实体 (subject 0→24%, object→98%) |
+| C | GLiNER threshold | 0.35 | 实体锚定 |
+| B | prompt | **noThink** (直接回答JSON,禁止思考) | 8.5× 提速 (18.6s→2.2s) |
+| B | max_tokens | 300 | 思考模式需 800 才有 content; noThink 300 即可 |
+
+### Canonicalizer v0.4 规则
+
+- **动作本体 ~23 类**: 语义优先级 (SANCTIONS 100 > ELECTS 50), 高信息量抢占
+- **标题上下文**: 仅当动作文本优先级 <70 才覆盖 (修 Oil jumped→SURGES 误判)
+- **客体联合**: verb+object → action (impose...sanctions → SANCTIONS)
+- **实体 Role 模型**: split_entities 拆分复合主体 ("US and Saudi"→[CTRY_US, ORG_SAUDI])
+
+### 输入一致性 (2026-08-03, Phase A)
+
+> 旧指纹与 Fact 指纹必须消费**同一文本 + 同一 NER 源**, 否则 subject/action 比对失真。
+
+```
+统一文本 _get_text (aggregator.py): title + description + content_md (HTML过滤, 截断)
+  ⚠️ 实测 summary_cn 在本地库退化(~18字符), 不再作为主摘要源; description 是可靠英文摘要
+GLiNER / Qwen 改用同一 _get_text (fact_pipeline.py) — 之前只读 summary_cn 被"饿"着
+共享 GLiNER 实体: 经 aggregate_events(ner_by_article) 注入 legacy 指纹 (同一 NER 源)
+```
+
+### 实测（50 篇）
+
+```
+A 验证通过 → 100% 准确 (title_hit)   | 纯新闻 B 占比 74% (内容复杂度下限)
+B noThink → 2.2s/篇, 覆盖100%, 语义可比 (偶发幻觉→由验证门拦截)
+事实入库: fact 行 + fact_entity 行 (Role: SUBJECT/OBJECT/...)
+```
+
+### 相关文档
+
+- 设计: `references/fact-schema-v1.md` · 调优: `references/fact-extractor-tuning.md`
+- 脚本: `scripts/news_intel/fact_pipeline.py` (多线程, --verbose 明细)
+
+---
+
 ## L5 — 事件聚合 (aggregator.py)
 
 ### 指纹构建 (build_fingerprint)
@@ -284,6 +343,33 @@ topic:   12 类关键词
 country: entities.countries[0]
 participants: 参与者集合
 ```
+
+### Fused 指纹 (Phase A, 2026-08-03 方案 A)
+
+> 有 fact 的文章用 **build_fused_fingerprint** — 每字段取最优源; 无 fact 回退 legacy。
+> 聚合入口 `aggregate_events(fp_mode="fused"|"fact"|"legacy", ner_by_article=GLiNER实体)`。
+
+```
+subject/object ← fact (role=SUBJECT/OBJECT, 落地优先)
+action         ← fact(非 OTHER) 否则 legacy (修复 fact 快路径 51% OTHER → 过度切分)
+event_type     ← fact(action_event_type) 否则 legacy
+country        ← legacy 优先, fact location 兜底 (恢复国家硬约束)
+primary_topic  ← legacy 固定 (12 类词表一致, 防主题硬约束失效)
+participants   ← 并集 (legacy + fact subj/obj)
+anchor         ← 重算 (OTHER 不锚定)
+```
+
+**验证 (100/300/800 篇真实新闻, 共享 GLiNER NER)**:
+
+| 指标 | fused | legacy |
+|:-----|:-----:|:------:|
+| subject 非空率 | **100%** | 33-47% |
+| country 非空率 | **96%** | 74-77% |
+| 事件级 OTHER 残留 | 6-12% | 10-16% |
+| 退化检查 (过合并/过切分) | ✅ (最大事件2%, 无单篇) | ✅ |
+
+- 主事件稳定: 伊朗 "President Trump→Iran" 随语料 5→8→17 篇增长
+- 遗留 (fact 抽取层): 来源名当主语 (Al Jazeera), 泛主体 (governments/individuals) — 待独立小修
 
 ### 评分 (fingerprint_score)
 
@@ -363,6 +449,17 @@ Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
 Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
 Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
 Step 4:   聚合 (300 篇, window 48h)
+Step 4.5: Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch
+Step 5+6: 云同步 + 内容推送 (并行)
+
+Step 0:   清理占位行 (retry≥3 且无内容)
+Step 0.5: 积压报告 (Tier 分布 + 耗尽数)
+Step 1:   Sync + 评分 (--hours 2, timeout 240s)
+Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
+Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
+Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
+Step 4: Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch----
+Step 4.6:   聚合 (300 篇, window 48h)
 Step 5+6: 云同步 + 内容推送 (并行)
 ```
 
