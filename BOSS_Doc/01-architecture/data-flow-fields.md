@@ -1,7 +1,7 @@
 # 数据库业务流 — 每环节字段映射
 
 > 清晰展示: 每个 Pipeline 阶段产生哪些字段，表间关系如何流转
-> 最后更新: 2026-07-31
+> 最后更新: 2026-08-03
 
 ---
 
@@ -161,6 +161,9 @@ events (事件)
 
 **产出**: 单条事实 + 参与者角色（支持多主体/多客体: "Trump, DOJ"→2 SUBJECT）
 **实测**: 纯新闻 B 占比 74%、快路径(A/C) 26%、B noThink 2.2s/篇 (8.5×提速)
+
+**输入一致性 (2026-08-03)**: GLiNER/Qwen 用统一 `_get_text` (title + description + content_md, summary_cn 退化~18字符不再主源) — 与聚合指纹消费同一文本, 防 subject/action 比对失真。
+**媒体源排除 (2026-08-03)**: `canonicalizer.is_media_source()` 词边界匹配 — Al Jazeera/CBS/BBC 等 57 媒体自我指涉不当事主体 (机构源 Fed/ECB/UN/OpenAI 保留)。
 
 ### L5 — 事件聚合 → `event_registry` 表
 

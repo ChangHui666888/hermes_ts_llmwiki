@@ -1,6 +1,6 @@
 # 后端 — News Platform V8 (FastAPI)
 
-> 最后更新: 2026-07-29
+> 最后更新: 2026-08-03
 > 技术栈: Python 3.12 · FastAPI 0.133.1 · SQLAlchemy 2.0 · PostgreSQL 16
 > 部署: Docker 容器 (`news-platform-v8-backend-1`, 338MB 镜像)
 > 网络: **仅 Tailscale 内网 (100.107.117.23)，非公网服务**
@@ -121,7 +121,10 @@ def create_token(user_id: int, level: str) -> str:
     )
 ```
 
-## 数据模型 (18 个 ORM 表)
+## 数据模型 (22 个 ORM 模型, 2026-08-03)
+
+后端 ORM 模型: Source/Article/Event/Entity/User/Ad/Category/Tag/Asset/Subscription/Insight/Setting/Log/ArticleCategory/ArticleTag/ArticleEntity/EventArticle/**EventArticleOverride**/**EventArticleExclusion**/**Fact**/**FactEntity**/EventEntity。
+(VPS 实际 25 表; event_relations/alembic_version 不在后端 ORM。)
 
 参见 [database.md](database.md) 完整数据库文档。
 

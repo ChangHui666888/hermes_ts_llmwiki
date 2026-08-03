@@ -32,7 +32,7 @@ frontend/src/
 │   │   ├── sources/page.tsx  # 来源注册表 (可排序表格)
 │   │   ├── status/page.tsx   # Pipeline 状态 (运行日志+统计)
 │   │   └── pipeline/page.tsx  # Pipeline 配置
-│   └── config/page.tsx    # 配置中心 (9 Tab) — 源列表副标题动态显示总数 (不再硬编码)
+│   └── config/page.tsx    # 配置中心 (12 主Tab: RSS/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/数据模型; 实体管理含国家领导/商界人物/企业机构子类) — 源列表副标题动态显示总数
 ├── lib/
 │   ├── auth.tsx           # Auth Context (ready状态防竞态)
 │   ├── country-coords.ts  # 完整世界国家坐标库 (195国)

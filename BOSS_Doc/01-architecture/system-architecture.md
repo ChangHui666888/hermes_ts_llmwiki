@@ -1,11 +1,13 @@
 # News Intelligence Platform — 完整业务工作流
 
-> 生成时间: 2026-07-11 | 版本: V4 frozen | 最后更新: 2026-07-29
+> 生成时间: 2026-07-11 | 版本: V4 frozen (历史编号) | 最后更新: 2026-08-03
+>
+> ⚠️ **本文档的 L0-L9 是旧 V4 编号（L8=事件聚合）。当前权威分层文档是 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md)（L0-L7: RSS→评分→抓取→抽取→增强→L4.5 Fact→聚合→同步→Web）。** 事件聚合现为 L5 (V4.4+), Fact 层为 L4.5。下文历史段落保留作参考。
 >
 > **注意: 各子系统有独立详细文档**
 > - [🎨 前端详情](frontend.md) — Next.js 16, 12 页面, 15+ 组件
-> - [⚙️ 后端详情](backend.md) — FastAPI, 23 端点, 18 ORM 表
-> - [🗄️ 数据库详情](database.md) — PostgreSQL, 20 表, ER 图, 查询示例
+> - [⚙️ 后端详情](backend.md) — FastAPI, 30+ 端点, 22 ORM 模型
+> - [🗄️ 数据库详情](database.md) — PostgreSQL, 25 表, ER 图, 查询示例
 
 ---
 

@@ -1,6 +1,6 @@
 # 数据库 — PostgreSQL 16
 
-> 最后更新: 2026-07-31
+> 最后更新: 2026-08-03
 > 版本: PostgreSQL 16-alpine · 大小: 15 MB
 > 连接: `postgresql://news_admin:news_pass@postgres:5432/news_intel`
 
@@ -152,20 +152,26 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | 密码 | `news_pass` |
 | 容器 | `news-platform-v8-postgres-1` (healthcheck: pg_isready) |
 | 数据卷 | `news-intel-platform_pgdata` (Docker volume, external) |
-| 表数量 | 20 |
+| 表数量 | **25** (2026-08-03 实查; 含 Fact 层 fact/fact_entity + alembic_version) |
 | Pool | 连接池 10, 最大溢出 20 |
 
-## 数据量统计
+## 数据量统计 (2026-08-03 VPS 实查)
 
 | 表 | 行数 | 说明 |
 |----|:----:|------|
-| events | **125** | 事件 Dossier (聚合优化后精确事件) |
-| articles | **1349** | 文章 (Tier A=10, B=1337, C=1) |
+| events | **385** | 事件 Dossier (持续增长, 每日 pipeline 更新) |
+| articles | **1719** | 文章 (Tier A=10, B=1650, C=58, 空=1) |
+| fact | **11** | Fact 层 (Step 4.5 混合抽取, 每轮增量) |
+| fact_entity | **22** | Fact 参与者 (Role 模型) |
 | sources | 24 | RSS 来源注册 |
+| entities | 35 | 实体注册 |
+| settings | 21 | 配置中心 KV |
+| event_article_override | 16 | 手动聚合归属 (事件校对) |
+| event_relations | 0 | 事件关系 (预置, 未启用) |
 | users | 3 | 管理员/免费用户 |
 | fetch_stats | ~ 数百 | 抓取策略统计 |
 
-## 完整表结构 (20 表)
+## 完整表结构 (25 表)
 
 ### 1. events — 事件 Dossier (核心表)
 
@@ -264,7 +270,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 
 **用户数据**: admin@newsintel.com(admin), test@free.com(free), admin@test.com(admin)
 
-### 5–20. 关联表
+### 5–25. 关联表
 
 | 表 | 列 | 说明 |
 |----|-----|------|
@@ -273,7 +279,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | **tags** | id, name (UNIQUE) | 标签库 |
 | **ads** | id, title, image_url, link_url, position, is_active | 广告管理 |
 | **assets** | id, type, symbol, name, exchange | 金融资产 |
-| **settings** | id, key (UNIQUE), value(JSONB), updated_at | Pipeline 配置 (KV) |
+| **settings** | id, key (UNIQUE), value(TEXT→ORM JSON), updated_at | Pipeline 配置 (KV) ⚠️ 值实际为 TEXT 字符串 |
 | **logs** | id, level, message, created_at | 系统日志 |
 | **insights** | id, event_id(FK), content(JSONB) | LLM 深度洞察 |
 | **fetch_stats** | domain, source_name, strategy, ok_count, fail_count, run_at | 抓取统计 |
@@ -283,35 +289,44 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | **article_entity** | article_id(FK), entity_id(FK), relevance_score | 文章-实体 (M:N) |
 | **event_article** | event_id(FK), article_id(FK) | 事件-文章 (M:N) |
 | **event_entity** | event_id(FK), entity_id(FK) | 事件-实体 (M:N) |
+| **event_relations** | parent_event_id, child_event_id, relation_type, confidence | 事件关系 (预置表, 0 行, 未来 event_relationship 复用) |
+| **event_article_override** | event_id, article_url, created_at/by | 手动聚合归属 (见上 §手动聚合表) |
+| **event_article_exclusion** | event_id, article_url, created_at/by | 手动剔除 (见上 §手动聚合表) |
+| **fact** | 见上 §Fact 层表 | Fact 层 (DDL: references/fact-schema-v1.md) |
+| **fact_entity** | 见上 §Fact 层表 | Fact 参与者 (Role 模型) |
+| **alembic_version** | version_num | Alembic migration 版本 (Fact 表迁移 0001) |
 
-## 事件类型分布
+## 事件类型分布 (2026-08-03 实查, 总计 385)
 
 | 类型 | 数量 | 占比 |
 |------|:----:|:----:|
-| General | 161 | 31.4% |
-| Finance | 89 | 17.4% |
-| Politics | 67 | 13.1% |
-| Military | 57 | 11.1% |
-| Diplomacy | 53 | 10.4% |
-| Economic | 33 | 6.4% |
-| Legal | 32 | 6.3% |
-| Leadership | 20 | 3.9% |
+| Politics | 97 | 25.2% |
+| Military | 90 | 23.4% |
+| General | 74 | 19.2% |
+| Finance | 49 | 12.7% |
+| Leadership | 23 | 6.0% |
+| Economic | 19 | 4.9% |
+| Diplomacy | 18 | 4.7% |
+| Legal | 15 | 3.9% |
 
-## 事件阶段分布
+> ⚠️ 分布随 pipeline 增长变化, 属 point-in-time 快照
+
+## 事件阶段分布 (2026-08-03)
 
 | 阶段 | 数量 | 说明 |
 |------|:----:|------|
-| developing | 324 | 发展中 (63%) |
-| active | 133 | 活跃中 |
-| stable | 55 | 已稳定 |
+| breaking | 326 | 突发 (85%) |
+| active | 39 | 活跃中 |
+| stable | 15 | 已稳定 |
+| developing | 5 | 发展中 |
 
-## 文章 Tier 分布
+## 文章 Tier 分布 (2026-08-03)
 
 | Tier | 数量 | 平均分 | 增强方式 |
 |:----:|:----:|:------:|----------|
 | A | 10 | 88 | DeepSeek V4 Flash |
-| B | 924 | 70 | Qwen3-1.7B |
-| C | 1 | 50 | Python 规则 |
+| B | 1650 | 70 | Qwen3-1.7B |
+| C | 58 | 50 | Python 规则 |
 | (空) | 1 | 0 | 未评分 |
 
 ## 常用查询
@@ -375,5 +390,8 @@ sources ──→ articles ──→ events
 本地 news_intel.db (SQLite)
   → POST /internal/news/batch  (articles 表, 分块 50 篇/批)
   → POST /internal/events/batch (events 表, 30 字段/事件)
+  → POST /internal/facts/batch  (fact + fact_entity, Step 4.5 混合抽取)
   → POST /internal/fetch_stats  (fetch_stats 表, 策略统计)
 ```
+
+> ⚠️ 事件聚合目前跑 legacy 指纹 (auto-pipeline Step 4 未传 facts_by_article); fused 指纹已实现并验证 (100/300/800篇), 接线待下一步。

@@ -1,7 +1,7 @@
-# Pipeline L0-L8 加工规则 — 基于代码逻辑
+# Pipeline L0-L7 加工规则 — 基于代码逻辑
 
 > 严格依据实际代码参数，非概要描述
-> 最后更新: 2026-07-31
+> 最后更新: 2026-08-03
 
 ---
 
@@ -449,20 +449,12 @@ Step 1:   Sync + 评分 (--hours 2, timeout 240s)
 Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
 Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
 Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
-Step 4:   聚合 (300 篇, window 48h)
+Step 4:   聚合 (300 篇, window 48h)  ← ⚠️ 目前不传 facts, 跑 legacy 指纹
 Step 4.5: Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch
 Step 5+6: 云同步 + 内容推送 (并行)
-
-Step 0:   清理占位行 (retry≥3 且无内容)
-Step 0.5: 积压报告 (Tier 分布 + 耗尽数)
-Step 1:   Sync + 评分 (--hours 2, timeout 240s)
-Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
-Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
-Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
-Step 4: Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch----
-Step 4.6:   聚合 (300 篇, window 48h)
-Step 5+6: 云同步 + 内容推送 (并行)
 ```
+
+> ⚠️ **fused 指纹接线状态 (2026-08-03)**: `build_fused_fingerprint` 已实现并验证 (100/300/800篇), 但 auto-pipeline Step 4 调用 `aggregate_events(rows, window_hours=48)` **未传 facts_by_article** → 生产当前实际跑 legacy 指纹。接线 (Step 4.5 产出的 facts 反哺 Step 4 聚合) 是下一步, 需先加载本地 fact 表或传事实集。
 
 ### 推送参数
 
