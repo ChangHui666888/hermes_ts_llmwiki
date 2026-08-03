@@ -27,20 +27,24 @@ V1 标准约束 (2026-07-29 起):
 | 方法  | 路径                   | 模块              | 说明                                     |
 | --- | -------------------- | --------------- | -------------------------------------- |
 | GET | `/`                  | main.py         | 服务信息 `{"service": "News Platform V8"}` |
-| GET | `/news`              | news.py         | 文章列表 (分页, 支持 category/tier/source 筛选) |
+| GET | `/news`              | news.py         | 文章列表 (分页, 支持 category/tier/source 筛选, `sort=time_desc\|time_asc\|score_desc\|score_asc`, 默认 time_desc) |
 | GET | `/news/hot`          | news.py         | Top 10 热门文章 (按 score_total 降序)         |
 | GET | `/news/latest`       | news.py         | 最新 20 篇文章 (按 published_at 降序)          |
 | GET | `/news/search`       | news.py         | 文章搜索 (title + summary_cn ilike)        |
 | GET | `/news/{id}`         | news.py         | 文章详情 (无 token → 公开字段; VIP/Admin → 全文, summary 自动回退) |
 | GET | `/categories`        | categories.py   | 文章分类计数                                 |
-| GET | `/dashboard`         | dashboard_v1.py | 仪表盘 (真实 KPI + Hot Events + 地图事件)       |
-| GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选)   |
+| GET | `/dashboard`         | dashboard_v1.py | 仪表盘 (KPI 含 `total_events` 全量; `stage_breakdown` 阶段分布; `event_type_breakdown` 类型分布 + Hot Events + 地图事件) |
+| GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选, `sort=first_seen_desc\|first_seen_asc\|last_updated_*\|confidence_*`, 默认 first_seen_desc, NULL 排末尾) |
 | GET | `/events/{event_id}` | events_v1.py    | 事件 Dossier 详情                          |
 | GET | `/sources`           | sources_v1.py   | 来源注册表 (真实 event_count/article_count/权威度) |
 | GET | `/search`            | search_v1.py    | 事件全文搜索 (title + summary ilike)         |
-| GET | `/map/events`        | map_v1.py       | 地理事件标记 (50 条, 含国家/置信度)                 |
+| GET | `/map/events`        | map_v1.py       | 地理事件标记 (`limit` 默认50/最大1000, 返回 `total` 带地点事件总数, 不再静默截断) |
 | GET | `/ads/random`        | ads.py          | 随机广告 (按 position 筛选)                   |
-| GET | `/api/v1/entities/{name}` | entities.py | **实体画像** (国家归属+关联网络+相关事件) |
+| GET | `/api/v1/entities` | entities.py | **实体列表** (按事件出现次数排序, 来自事件 subject/object/actors + KB) |
+| GET | `/api/v1/entities/{name}` | entities.py | **实体画像** (国家归属+关联网络+相关事件+统计 event_count/article_count) |
+| GET | `/admin/entities` | entities.py | **实体管理**: 当前 KB + 校验报告 |
+| POST | `/admin/entities/save` | entities.py | **实体管理**: 保存整份 KB (校验→写 JSON+生成 py, 热生效; dry_run 仅校验) |
+| POST | `/admin/entities/git-sync` | entities.py | **实体管理**: 容器内 git 提交推送实体文件 (safe.directory+身份) |
 
 ### 认证端点
 
@@ -69,6 +73,13 @@ V1 标准约束 (2026-07-29 起):
 | DELETE | `/admin/rss/sources/{name}` | rss_sources.py | **删除 RSS 源** |
 | POST | `/admin/rss/sources/{name}/toggle` | rss_sources.py | **启用/禁用 RSS 源** |
 | GET | `/admin/rss/profiles` | rss_sources.py | 域名抓取策略 (22域名) |
+| GET | `/admin/curation/events` | event_curation.py | **手动聚合** 事件列表(含聚合/覆盖/剔除数) |
+| GET | `/admin/curation/events/{id}` | event_curation.py | 事件"被聚合的文章"(自动+手动-排除, 含勾选态) |
+| GET | `/admin/curation/articles` | event_curation.py | 文章列表/搜索 (`subject`实体/`object`实体/`action`动作词/`keyword`全文) |
+| POST | `/admin/curation/batch` | event_curation.py | **批量提交** add/remove override + exclude/unexclude (单事务) |
+| POST | `/admin/curation/events` | event_curation.py | 多选文章 → 自动生成元数据 → 新建事件并归入全部 |
+| POST | `/admin/curation/assign` | event_curation.py | (兼容) 单篇归入 |
+| DELETE | `/admin/curation/assign` | event_curation.py | (兼容) 移除手动归属 |
 
 ### 内部端点 (需 INTERNAL_TOKEN)
 
@@ -76,6 +87,7 @@ V1 标准约束 (2026-07-29 起):
 |------|------|------|------|
 | POST | `/internal/news/batch` | internal.py | Pipeline 推送文章 (批量, ON CONFLICT url DO UPDATE) |
 | POST | `/internal/events/batch` | internal.py | Pipeline 推送事件 (批量, ON CONFLICT 更新全部字段) |
+| POST | `/internal/facts/batch` | internal.py | **Fact Layer V1.0** 推送 fact + fact_entity (混合抽取器产出, ON CONFLICT + 实体替换) |
 | POST | `/internal/fetch_stats` | fetch_stats.py | Pipeline 推送抓取策略统计 |
 | GET | `/internal/admin/fetch_stats` | fetch_stats.py | 查看抓取策略统计汇总 (admin JWT) |
 | POST | `/internal/deploy` | deploy.py | HTTP 触发部署 (git pull + docker rebuild) |
@@ -88,7 +100,7 @@ V1 标准约束 (2026-07-29 起):
 | `/admin/sources` | 来源注册表 (可排序表格) |
 | `/admin/status` | Pipeline 状态页 |
 | `/admin/pipeline` | Pipeline 配置 |
-| `/config` | 配置中心 (9 Tab) |
+| `/config` | 配置中心 (12 Tab, 含"事件校对"+"实体管理"+"数据模型") |
 | `/entities/[name]` | 实体画像页 |
 
 ## 认证机制

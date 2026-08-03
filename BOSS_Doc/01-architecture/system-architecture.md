@@ -316,6 +316,39 @@ generate_for_event() — 自动路由:
 
 ---
 
+## L10 — Fact Layer (混合抽取, Schema V1.0, 2026-08-03)
+
+> 事实层是 News Intelligence 的原创核心模型（OpenCTI 无 donor）。抽取器=LLM(Qwen noThink) + GLiNER + Canonicalizer。
+
+### 混合策略（串联并联）
+```
+并发: A(规则,喂GLiNER实体,毫秒) + C(GLiNER,1s)
+串行:
+  1. A 验证: subject+object 在标题 且 action有效 → A(毫秒)
+  2. C 验证: GLiNER 主体类+客体类 score≥0.4 → C(1s)
+  3. 否则 B(Qwen noThink) → 兜底 (2.2s/篇, 8.5×提速)
+→ Canonicalizer v0.4 → fact + fact_entity 入库
+```
+
+### 数据流
+```
+article → GLiNER(实体锚定,串行) → ThreadPool[快路径A/C | B noThink] → Canonicalizer → fact/fact_entity
+本地 pipeline Step 4.5 → POST /internal/facts/batch → VPS fact + fact_entity 表
+```
+
+### 实测（50篇）
+- B(Qwen) mean 1.13 通过93.3% (人工评审) → 主抽取器
+- A验证通过 100% 准确; 纯新闻 B 占比 74% (内容复杂度下限)
+- B noThink: 18.6s → 2.2s (8.5×), 覆盖100% 质量可比
+- 调优: A喂GLiNER实体(subject 0→24%), Canonicalizer v0.4(标题仅覆盖弱动作)
+
+### 文档
+- 规划: `references/data-model-upgrade-plan.md` · 实验: `references/fact-layer-experiment-design.md`
+- Schema: `references/fact-schema-v1.md` · 调优: `references/fact-extractor-tuning.md`
+- 抽取器: `scripts/news_intel/fact_pipeline.py`(多线程) · 迁移: `migrations/versions/0001_fact_tables.py`
+
+---
+
 ## Pipeline 运行时
 
 | 参数 | 值 | 位置 |

@@ -160,6 +160,27 @@ cat ~/AppData/Local/hermes/scripts/logs/news-pipeline.log
 
 ---
 
+### 三.5、Fact Layer (L10, Schema V1.0)
+
+```bash
+# 手动执行 (⚠️ 需系统 Python311, 有 gliner/transformers/torch; LM Studio Qwen 在线)
+C:\Users\ChangHui\AppData\Local\Programs\Python\Python311\python.exe ^
+  news_intel/fact_pipeline.py --limit 50 --api http://100.107.117.23 --workers 4 --verbose
+
+# 完整日志到文件
+... > fact_run.log 2>&1
+
+# 查 VPS fact 数据
+docker exec news-platform-v8-postgres-1 psql -U news_admin -d news_intel -c "SELECT id,article_id,action_type,action_event_type,location FROM fact ORDER BY id DESC LIMIT 10"
+docker exec news-platform-v8-postgres-1 psql -U news_admin -d news_intel -c "SELECT fact_id,entity_id,role FROM fact_entity LIMIT 10"
+```
+
+参数: `--db` 本地DB(默认profile) / `--limit N` 篇数 / `--api` VPS地址 / `--workers N` 并发线程 / `--verbose` 每篇明细日志
+输出: `[load]→[GLiNER]串行→[extract]多线程→[push]→[save]`，推送成功 `{"ok":N,"fail":0}` 即入库。
+详细设计: `references/fact-schema-v1.md` + `references/fact-extractor-tuning.md`。
+
+---
+
 ### 四、事件聚合 (L8)
 
 ```bash

@@ -75,15 +75,18 @@ frontend/src/
 
 | 路径 | 页面 | 说明 |
 |------|------|------|
-| `/` | Dashboard | 态势感知中心：5 指标、世界地图、Hot Events、热度图、情报流 |
+| `/` | Dashboard | 态势感知中心：6 指标(含 Total Events 全量)、By Type 类型分布(点击过滤 /events)、世界地图、Hot Events、热度图、情报流；事件卡片含 国家/实体/时间线/更新时间 |
 | `/articles` | 文章列表 | Hot(6篇) + Latest(12篇) + 分类标签云 |
 | `/articles/[id]` | 文章详情 | VIP/Admin 可见全文 content_md |
 | `/articles/category/[name]` | 分类筛选 | 按分类查看文章 |
-| `/events` | 事件列表 | 分页 20/页、按 type/stage/country 筛选 |
+| `/articles/list` | 全部文章 | 分页 20/页、排序下拉 (最新/最热, `?sort=`) |
+| `/events` | 事件列表 | 分页 20/页、type/stage/country 筛选 + 排序下拉 (首次/更新/置信度, `?sort=`) |
 | `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph |
+| `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
+| `/entities/[name]` | 实体画像 | 关联网络 + 相关事件 + 统计(事件数/文章数) |
 | `/search` | 搜索 | 事件全文搜索 (debounce 300ms, 2 字符起搜) |
 | `/sources` | 来源注册表 | 24 来源的权威度柱状图 |
-| `/map` | 地理监控 | MapLibre GL 地图 + 5 区域/6 类型筛选 |
+| `/map` | 地理监控 | MapLibre GL 地图 + 5 区域/6 类型筛选；标题 `N of M` (M=带地点事件总数)，"All"可显示全部 |
 | `/login` | 登录 | JWT 认证 |
 | `/admin` | 管理 | 文章/用户/广告统计 |
 | `/admin/pipeline` | Pipeline 配置 | 键值对配置管理 |

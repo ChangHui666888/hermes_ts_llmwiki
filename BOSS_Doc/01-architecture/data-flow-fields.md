@@ -5,22 +5,25 @@
 
 ---
 
-## 一、总览：七层数据流
+## 一、总览：八层数据流
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       数据生产 Pipeline (本地)                            │
 │                                                                         │
 │  L0 RSS采集 ─→ L1 五维评分 ─→ L2 全文抓取 ─→ L3 结构抽取                  │
-│  L4 三级增强 ─→ L5 事件聚合 ─→ L6 云端同步 ─→ L7 Web展示                  │
+│  L4 三级增强 ─→ L4.5 Fact层 ─→ L5 事件聚合 ─→ L6 云端同步 ─→ L7 Web展示   │
 │                                                                         │
 │  数据库表:                                                               │
-│  rss_articles → news_intelligence → news_content → event_registry        │
-│                    (SQLite)             (SQLite)     (SQLite)            │
-│                            ↓ POST /internal/*                           │
-│                    PostgreSQL: sources → articles → events              │
+│  rss_articles → news_intelligence → news_content → fact/fact_entity     │
+│                    (SQLite)        (SQLite)  → event_registry           │
+│                            ↓ POST /internal/*                          │
+│                    PostgreSQL: sources → articles → fact → events       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+**L4.5 Fact 层 (Schema V1.0, 2026-08-03)** — 混合抽取器产出单条事实（SAO + 实体角色）：
+`article → GLiNER(实体锚定) + Qwen(noThink 语义) → Canonicalizer → fact/fact_entity`
 
 ---
 
@@ -40,7 +43,16 @@ articles (文章)
   │  analysis, key_points, fetch_strategy, fetch_cost
   │  └── 来自 news_intelligence + news_content
   │
-  │  article_id (FK)
+  │  article_id (FK, 本地id无FK; article_url 关联)
+  ▼
+fact (事实, Schema V1.0)
+  │  id, article_id, article_url, action_type, action_event_type,
+  │  action_detail, event_time, location, confidence, evidence_type
+  │  └── 来自 L4.5 混合抽取器 (GLiNER+Qwen+Canonicalizer)
+  │
+  └── fact_entity (事实参与者, Role模型)
+       fact_id, entity_id, entity_name, entity_type, role(SUBJECT/OBJECT/...)
+  │
   ▼
 events (事件)
   │  event_id, title, summary, event_type, stage,
@@ -122,6 +134,34 @@ events (事件)
 
 **产出**: LLM 增强的分析字段
 
+### L4.5 — Fact 层 (Schema V1.0) → `fact` + `fact_entity` 表
+
+混合抽取器（多线程）: `GLiNER(实体锚定,串行) → ThreadPool[A/C快路径 | B Qwen noThink兜底] → Canonicalizer`
+
+| fact 字段 | 来源 | 说明 |
+|:-----|:-----|:-----|
+| id | 系统 | 自增 |
+| article_id | 本地 pipeline | 本地文章 id（无 FK; 用 article_url 关联 VPS） |
+| article_url | RSS | 文章 URL |
+| action_type | Canonicalizer | 规范动作本体 (~23类: SANCTIONS/ATTACKS/EXPORT_CONTROL...) |
+| action_event_type | Canonicalizer | 事件类别 (Military/Finance/Economic...) |
+| action_detail | Qwen 原话 | 原始动作文本 |
+| event_time | Qwen + 清洗 | 端点 `_clean_time` 清洗非时间戳 |
+| location | Qwen/GLiNER | 地点 |
+| confidence | 预留 | 不公式化 |
+| evidence_type | 默认 | Told/Induced/Deduced/Witnessed |
+
+| fact_entity 字段 | 来源 | 说明 |
+|:-----|:-----|:-----|
+| fact_id | 系统 | 事实 FK |
+| entity_id | Canonicalizer | 稳定 id (CTRY_/PERS_/COMP_/ORG_/LOC_/ENT_) |
+| entity_name | Canonicalizer | 规范名（别名归一） |
+| entity_type | GLiNER/推断 | Country/Person/Company/Organization/Location/Other |
+| role | Canonicalizer | SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER |
+
+**产出**: 单条事实 + 参与者角色（支持多主体/多客体: "Trump, DOJ"→2 SUBJECT）
+**实测**: 纯新闻 B 占比 74%、快路径(A/C) 26%、B noThink 2.2s/篇 (8.5×提速)
+
 ### L5 — 事件聚合 → `event_registry` 表
 
 | 字段 | 来源 | 说明 |
@@ -181,6 +221,20 @@ sources.name → articles.source_name (冗余存储)
 ```
 
 **字段流转**: sources 的 name/type 被 articles 冗余
+
+### articles → fact → fact_entity (1 对 多)
+
+```
+articles (本地 id)
+  │  article_id (本地 id, 无 FK)
+  ▼
+fact (1 条事实 = 1 篇文章的 1 个 SAO 断言)
+  │  fact_id (FK)
+  ▼
+fact_entity (事实参与者, Role 模型: 1 条事实多个 SUBJECT/OBJECT)
+```
+> 本地 pipeline 的 article_id 与 VPS articles.id 不匹配 → fact 用 article_url 关联 VPS 文章（未来）。
+> 事件侧: fact → event_fact(未来) → events（Schema V1.0 规划）。
 
 ### articles → events (多对多)
 

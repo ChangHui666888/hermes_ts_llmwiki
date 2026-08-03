@@ -27,10 +27,10 @@
 | actors | ✅ | 参与者角色 |
 | keywords | ❌ | 未直接展示 (可做标签云) |
 | related_entities | ✅ | 关联实体 |
-| evidence | ✅ | 证据引用 |
-| source_chain | ✅ | 来源链 |
-| timeline | ✅ | 时间线 |
-| llm_analysis | ✅ | AI 分析面板 |
+| evidence | ✅ | 证据引用 (聚合器生成, description 优先 + summary_cn 回退, 去重) |
+| source_chain | ✅ | 来源链 (每源一节点, BREAK/FOLLOW) |
+| timeline | ✅ | 时间线 (每篇不同文章一节点, 按 URL 去重) |
+| llm_analysis | ✅ | AI 分析面板 (规则版: event_summary/risk/market/significance, 100% 覆盖) |
 | article_ids | ❌ | 内部关联, 未展示 |
 | doc_refs | ❌ | 引用文档, 未展示 |
 | first_seen/last_updated | ✅ | 时间 |
@@ -41,34 +41,40 @@
 
 ### articles 表 (31 列) — 前端使用/未用/扩展
 
-| 字段 | 前端使用 | 说明 |
-|:-----|:--------:|:-----|
-| id/url | ✅ | 标识/链接 |
-| title | ✅ | 标题 |
-| summary_cn | ✅ | 中文摘要 (自动回退正文前200字) |
-| summary | ❌ | 英文摘要, 未展示 |
-| content_md | ✅ | 全文 (VIP/Admin) |
-| content_len | ❌ | 内部 |
-| source_name/domain | ✅ | 来源 |
-| published_at | ✅ | 发布时间 |
-| category | ✅ | 分类 |
-| tier | ✅ | 级别徽章 |
-| score_total | ✅ | 评分 |
-| score_breakdown | ❌ | 五维明细, 未展示 |
-| tags | ✅ | 标签 |
-| entities | ✅ | 实体 |
-| analysis | ✅ | AI 分析 (VIP) |
-| key_points | ❌ | 要点, 未展示 |
-| importance/importance_level | ❌ | 重要度, 未展示 |
-| fetch_strategy/fetch_cost | ❌ | 抓取策略, 运维用 |
-| extraction_method | ❌ | 抽取方式 |
-| language | ❌ | 语言 |
-| status/is_published | ✅ | 查询过滤用 |
-| is_duplicate | ❌ | 去重标记 |
-| source_id | ❌ | FK |
-| created_at/updated_at/fetched_at | ❌ | 时间戳 |
+| 字段                               | 前端使用 | 说明                 |
+| :------------------------------- | :--: | :----------------- |
+| id/url                           |  ✅   | 标识/链接              |
+| title                            |  ✅   | 标题                 |
+| summary_cn                       |  ✅   | 中文摘要 (自动回退正文前200字) |
+| summary                          |  ❌   | 英文摘要, 未展示          |
+| content_md                       |  ✅   | 全文 (VIP/Admin)     |
+| content_len                      |  ❌   | 内部                 |
+| source_name/domain               |  ✅   | 来源                 |
+| published_at                     |  ✅   | 发布时间               |
+| category                         |  ✅   | 分类                 |
+| tier                             |  ✅   | 级别徽章               |
+| score_total                      |  ✅   | 评分                 |
+| score_breakdown                  |  ❌   | 五维明细, 未展示          |
+| tags                             |  ✅   | 标签                 |
+| entities                         |  ✅   | 实体                 |
+| analysis                         |  ✅   | AI 分析 (VIP)        |
+| key_points                       |  ❌   | 要点, 未展示            |
+| importance/importance_level      |  ❌   | 重要度, 未展示           |
+| fetch_strategy/fetch_cost        |  ❌   | 抓取策略, 运维用          |
+| extraction_method                |  ❌   | 抽取方式               |
+| language                         |  ❌   | 语言                 |
+| status/is_published              |  ✅   | 查询过滤用              |
+| is_duplicate                     |  ❌   | 去重标记               |
+| source_id                        |  ❌   | FK                 |
+| created_at/updated_at/fetched_at |  ❌   | 时间戳                |
 
 ## 🔮 扩展方向
+
+> 🗺 **数据模型升级**（2026-08-03）：
+> - **Fact Schema V1.0 已冻结** → 仓库 `references/fact-schema-v1.md`（fact + fact_entity 完整 DDL）
+> - 规划 → `references/data-model-upgrade-plan.md`；实验 → `references/fact-layer-experiment-design.md`
+> - 目标 10 表（source/article/entity/entity_alias/fact/event/event_fact/event_relationship/story/story_event）；抽取器=LLM(Qwen)+Canonicalizer v0.3
+> - 关键: `event_relations` 表已存在(VPS)可复用为 event_relationship；Fact 层为 News Intelligence 原创核心模型；Confidence 分层不先验公式化。
 
 | 扩展 | 字段 | 状态 | 用途 |
 |:-----|:-----|:-----|:-----|
@@ -87,6 +93,55 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
                     → POST /internal/news/batch → articles 表 (31字段)
 前端 → /api/v1/* 只读查询
 ```
+
+## 手动聚合表 (2026-08-02 新增)
+
+**event_article_override** — 管理员手动将文章(按URL)归入事件。独立于自动聚合，Pipeline 重跑 upsert 事件时不触碰此表；读取侧 `/events/{id}` 合并生效（move 语义：被归到其他事件的 URL 从本事件证据中排除）。
+
+| 字段 | 说明 |
+|:-----|:-----|
+| event_id | 目标事件 (不强外键, 避免事件删除阻塞) |
+| article_url | 文章 URL (唯一标识, 与 articles.url 对应) |
+| created_at / created_by | 归属时间 / 操作者 |
+
+**event_article_exclusion** — 管理员剔除的自动聚合文章（按URL，持久生效）。自动聚合文章的 `article_ids` 是本地 SQLite id 无法映射 VPS，故以事件证据/引用的 URL 作为"自动文章"的展示与剔除对象。读取侧合并：自动证据 − exclusion + override。
+
+| 字段 | 说明 |
+|:-----|:-----|
+| event_id | 事件 |
+| article_url | 被剔除的文章 URL |
+| created_at / created_by | 剔除时间 / 操作者 |
+
+## Fact 层表 (2026-08-03 新增, Schema V1.0)
+
+**fact** — 单条事实（混合抽取器产出: LLM(Qwen noThink) + GLiNER + Canonicalizer）。
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| id | `SERIAL PK` | 自增 |
+| article_id | `INTEGER` | 本地 pipeline 文章 id（无 FK, 与 VPS articles.id 不匹配; 用 article_url 关联） |
+| article_url | `VARCHAR(2048)` | 文章 URL（未来按 URL 关联 VPS 文章） |
+| action_type | `VARCHAR(50) NOT NULL` | 规范动作本体 (SANCTIONS/ATTACKS/EXPORT_CONTROL... ~23类) |
+| action_event_type | `VARCHAR(20)` | 事件类别 (Military/Finance/...) |
+| action_detail | `TEXT` | 原始动作文本 (LLM 原话) |
+| event_time | `TIMESTAMP` | 事件时间 (端点 _clean_time 清洗) |
+| location | `VARCHAR(200)` | 地点 |
+| confidence | `FLOAT` | 预留, 不公式化 |
+| evidence_type | `VARCHAR(20)` | Told/Induced/Deduced/Witnessed, 默认 Told |
+| created_at | `TIMESTAMP` | 入库时间 |
+
+**fact_entity** — 事实参与者（Role 模型, 支持多主体/多客体）。
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| fact_id | `INTEGER FK→fact` | 事实 |
+| entity_id | `VARCHAR(100) NOT NULL` | 稳定 id (CTRY_/PERS_/COMP_/ORG_/LOC_/ENT_) |
+| entity_name | `VARCHAR(200)` | 规范名 |
+| entity_type | `VARCHAR(20)` | Country/Person/Company/Organization/Location/Other |
+| role | `VARCHAR(20) NOT NULL` | SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER |
+
+**数据流**: 本地 pipeline Step 4.5（混合抽取器, 多线程）→ POST `/internal/facts/batch` → fact + fact_entity。
+完整 DDL 与设计: 仓库 `references/fact-schema-v1.md` + `migrations/versions/0001_fact_tables.py`。
 
 ## 总览
 
