@@ -304,6 +304,7 @@ DeepSeek 失败 → Qwen3 失败 → Python 规则 (逐级降级)
 - **标题上下文**: 仅当动作文本优先级 <70 才覆盖 (修 Oil jumped→SURGES 误判)
 - **客体联合**: verb+object → action (impose...sanctions → SANCTIONS)
 - **实体 Role 模型**: split_entities 拆分复合主体 ("US and Saudi"→[CTRY_US, ORG_SAUDI])
+- **排除新闻来源名** (2026-08-03): `is_media_source()` — Al Jazeera/CBS/BBC 等媒体自我指涉不当事主体; 词边界匹配防 'dw' 误伤 'dow'; 机构源(Fed/ECB/UN/OpenAI)保留
 
 ### 输入一致性 (2026-08-03, Phase A)
 
@@ -369,7 +370,7 @@ anchor         ← 重算 (OTHER 不锚定)
 | 退化检查 (过合并/过切分) | ✅ (最大事件2%, 无单篇) | ✅ |
 
 - 主事件稳定: 伊朗 "President Trump→Iran" 随语料 5→8→17 篇增长
-- 遗留 (fact 抽取层): 来源名当主语 (Al Jazeera), 泛主体 (governments/individuals) — 待独立小修
+- 遗留 (fact 抽取层): 泛主体 (governments/individuals/facebook) — 待独立小修; **来源名当主语已修复** (2026-08-03 is_media_source, 100篇验证 Al Jazeera 事件消失)
 
 ### 评分 (fingerprint_score)
 
