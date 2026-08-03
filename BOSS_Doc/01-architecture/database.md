@@ -394,4 +394,4 @@ sources ──→ articles ──→ events
   → POST /internal/fetch_stats  (fetch_stats 表, 策略统计)
 ```
 
-> ⚠️ 事件聚合目前跑 legacy 指纹 (auto-pipeline Step 4 未传 facts_by_article); fused 指纹已实现并验证 (100/300/800篇), 接线待下一步。
+> ✅ fused 指纹已接线 (2026-08-03): auto-pipeline Step 4 抽 fact → Step 4.5 聚合用 facts_by_article (payload 桥接), 无 facts 文章回退 legacy。VPS fact/fact_entity 表随每轮增量。

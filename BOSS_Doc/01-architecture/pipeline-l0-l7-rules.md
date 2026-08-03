@@ -449,12 +449,12 @@ Step 1:   Sync + 评分 (--hours 2, timeout 240s)
 Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
 Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
 Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
-Step 4:   聚合 (300 篇, window 48h)  ← ⚠️ 目前不传 facts, 跑 legacy 指纹
-Step 4.5: Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch
+Step 4:   Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 4) → /internal/facts/batch
+Step 4.5: 聚合 (300 篇, window 48h, **fused 指纹**, facts 反哺)
 Step 5+6: 云同步 + 内容推送 (并行)
 ```
 
-> ⚠️ **fused 指纹接线状态 (2026-08-03)**: `build_fused_fingerprint` 已实现并验证 (100/300/800篇), 但 auto-pipeline Step 4 调用 `aggregate_events(rows, window_hours=48)` **未传 facts_by_article** → 生产当前实际跑 legacy 指纹。接线 (Step 4.5 产出的 facts 反哺 Step 4 聚合) 是下一步, 需先加载本地 fact 表或传事实集。
+> ✅ **fused 接线已完成 (2026-08-03)**: Step 4 (Fact 抽取) 在聚合**之前**执行, 产出的 payload 存 `news_intel/fact_pipeline_payload.json`; Step 4.5 聚合调 `_load_facts_payload()` 加载 → `aggregate_events(rows, window_hours=48, facts_by_article=...)`。有 facts 的文章用 fused 指纹, 无 facts (50 篇预算外/无正文) 回退 legacy。payload 按 article_id 匹配聚合批次, 陈旧/缺失安全回退。
 
 ### 推送参数
 
