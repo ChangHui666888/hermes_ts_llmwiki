@@ -58,6 +58,21 @@ schtasks /query /tn "Hermes-Git-Backup"
 schtasks /run  /tn "Hermes-Git-Backup"
 ```
 
+## Pipeline 推送可靠性 (2026-08-06)
+
+本地 auto-pipeline Step 5+6 推送 VPS 增加可靠性：
+
+- **失败重试 2 次**（3s/6s 退避）——VPS 按 event_id upsert，重试幂等安全
+- **超时细分**：`httpx.Timeout(connect=20, read=90, write=20)`，避免整请求 60s 一刀切
+- **chunk 收缩**：events 50→20、content 200→100，降低跨太平洋链路上的单请求超时概率
+
+## C 级 Backlog 清理 (2026-08-06)
+
+- 脚本: `scripts/news_intel/cleanup_backlog.py`
+- 作用: 清理 N 天前 C 级 (<60 分) 文章，减小 news_intel.db 体积、加速 Step 1 全量统计
+- 安全: 删除前备份（`VACUUM INTO` 到 .bak）+ 默认 `--dry-run`
+- 用法: `python news_intel/cleanup_backlog.py --days 7 [--dry-run]`
+
 ## 日志
 
 | Job | 日志路径 |

@@ -126,6 +126,7 @@
 |------|------|------|
 | 主数据库 | `profiles/.../search-engine-v2/scripts/news_intel/news_intel.db` | 评分 + 抓取 + 事件聚合 |
 | Pipeline 日志 | `profiles/.../search-engine-v2/scripts/pipeline.log` | auto-pipeline 运行日志 |
+| Backlog 清理 | `scripts/news_intel/cleanup_backlog.py` | C 级老文章归档清理（`--dry-run` 安全） |
 
 ### RSS 日报
 
