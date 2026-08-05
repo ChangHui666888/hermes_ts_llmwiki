@@ -1,0 +1,89 @@
+# Knowledge Base V1 — 全球实体关系知识库
+
+> 版本: V1 (Phase 1) · 2026-08-05
+> 定位: 所有新闻 (Reuters/Bloomberg/BBC/新华社/人民日报...) → Article → Fact → Canonicalizer → **Knowledge Base (统一世界)**
+> 目标: 中英统一、所有聚合/画像/关系建立在稳定 **Entity ID** 之上
+
+## 目录结构
+
+```
+knowledge_base/
+  countries.yaml      国家本体 (ISO ID: CTRY_CHN/USA/RUS...)
+  organizations.yaml  组织本体 (Federal Reserve/UN/NATO/国务院...)
+  companies.yaml      公司本体 (COMP_NVIDIA/TSMC/HUAWEI...)
+  people.yaml         人物本体 (PERS_TRUMP/XI/PUTIN...)
+  locations.yaml      位置本体 (LOC_BEIJING/Wall Street/Gaza...)
+  industries.yaml     行业本体 (GICS + AI/Semiconductor/Space...)
+  actions.yaml        动作本体 (ACT_ATTACKS/SANCTIONS/EXPORT_CONTROL...)
+  relations.yaml      关系本体 (REL_PART_OF/COMPETITOR/INVESTOR...)
+  event_types.yaml    事件类型 (EVT_MILITARY + subtypes)
+  entity_alias.yaml   中英别名映射 (特朗普→PERS_TRUMP, 中国→CTRY_CHN)
+  loader.py           YAML 加载器 + 别名→Entity ID 解析
+  generate_kb.py      (scripts/knowledge_base/) 种子生成器
+```
+
+## Entity ID 规范
+
+```
+CTRY_  国家(ISO alpha3)  COMP_  公司     PERS_  人物
+ORG_   组织             LOC_   位置     IND_   行业
+ACT_   动作             REL_   关系     EVT_   事件类型
+MODEL_ AI模型           TECH_  技术     LAW_   法律
+```
+
+例: `CTRY_CHN` / `COMP_NVIDIA` / `PERS_DONALD_TRUMP` / `ORG_FEDERAL_RESERVE` / `LOC_BEIJING`
+
+## 中英统一解析（三层归一）
+
+```
+原始新闻(中/英) → GLiNER/LLM 实体抽取 → AliasResolver(knowledge_base.loader) → Canonicalizer(Entity ID) → Fact
+```
+
+`loader.resolve("特朗普")` → `('PERS_TRUMP', 'Trump', 'Person')`
+`loader.resolve("中国")`   → `('CTRY_CHN', 'China', 'Country')`
+`loader.resolve("英伟达")`  → `('COMP_NVIDIA', 'NVIDIA', 'Company')`
+
+## Canonicalizer 接入
+
+- `news_intel/canonicalizer.resolve_entity` 已接入 KB：KB 别名命中 → 返回稳定 ID；未命中回退本地本体 (entity_weights.json + _ID_PREFIX)
+- **G1 (2026-08-06) `EXCHANGE:TICKER` 前缀剥离**: 输入含 `XXX:YYYY` (交易所代码:代号) 时剥离前缀用代号解析 → `NASDAQ:NVDA`→`COMP_NVIDIA`、`NYSE:AAPL`→`COMP_APPLE`；公司解析不再被交易所前缀污染
+- `aggregator._canonicalize` 兼容：`英伟达`→`NVIDIA`（跨语言聚合基础）
+
+## 维护
+
+- 种子生成: `python scripts/knowledge_base/generate_kb.py`（从 KB/ENTITY_CANONICAL/canonicalizer 迁移）
+- 扩量: 5000 公司 / 3000 人物 / 250 国家需后续 Wikidata/ISO 数据导入
+- **G1 (2026-08-06)**: `import_seed.py` 给既有 SEC 公司回填主 ticker (最短作主) + exchange，companies.yaml 7,972/8,038 带 ticker
+- 生产 profile 需同步 `knowledge_base/` + `canonicalizer.py`（dev-deploy-workflow）
+
+## 现状种子规模 (Phase 1 + 扩种)
+
+| 文件 | 数量 | 数据源 |
+|------|-----|--------|
+| countries | **249** | ISO 3166 (250国, 40+大国含 capital/currency) |
+| organizations | 12 | KB + 政府/军事转喻 |
+| companies | **8038** | SEC 10K美股(ticker 7972 回填) + KB 全球, 法定名归一去重 |
+| people | **18,790** | Wikidata 30国×6职业×DOB (两次导入并集) + 精选 128; **3,670 含中文别名** |
+| locations | 40 | canonicalizer 33城 + 地缘 |
+| industries | 25 | GICS + 扩展 |
+| actions | 26 | canonicalizer + 中文模式 |
+| relations | 36 | KB associations + 提案核心 |
+| event_types | 12 | TOPIC_SIGNALS + subtypes |
+| entity_alias | 85 | 中英别名 + 政府转喻 |
+
+扩种工具: `scripts/knowledge_base/import_seed.py` (ISO + SEC 下载, 幂等重跑)
+
+## 路线
+
+- **Phase 1 ✅** 本体 YAML + loader + Canonicalizer Entity ID
+- **Phase 2 ✅** ENTITY_CANONICAL 迁入知识库 (73/73 回归) + Aggregator 中英统一聚合
+  - ACTION_MAP 补中文模式 (发布/制裁/攻击/加息/出口管制) + 新增 APPOINTS/MEETS/RESIGNS/SIGNS/EXPORT_CONTROL
+  - fingerprint_score: 完全同主体(KB归一)+25; country/topic 硬约束对同主体放宽
+  - 实测 NVIDIA(EN)+英伟达(CN) 合并1事件; Fed+Iran 保护不破
+  - GOV 统一短 ID: Washington→ORG_US_GOVERNMENT, IRGC→ORG_IRGC, ECB→ORG_ECB
+- **Phase 3** 实体画像(国家/公司/人物/组织) + 关系网络 + Story 演化 + 跨语言聚合
+
+## ⚠️ 已知限制
+- 中文动作检测已支持 (英文regex + 中文模式); 中英聚合需实体+动作都命中
+- 主题分类对短英文标题有噪声 (GPU 无 chip → Diplomacy), 已通过同主体+25 缓解
+- loader 用 threading.RLock (Lock 会死锁); entity_alias(curated) 优先于 section
