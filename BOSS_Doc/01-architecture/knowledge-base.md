@@ -96,3 +96,18 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 - 中文动作检测已支持 (英文regex + 中文模式); 中英聚合需实体+动作都命中
 - 主题分类对短英文标题有噪声 (GPU 无 chip → Diplomacy), 已通过同主体+25 缓解
 - loader 用 threading.RLock (Lock 会死锁); entity_alias(curated) 优先于 section
+
+## 实验验证 (2026-08-06) — KB 可行性 A/B
+
+`experiments/kb_exp_001/` 四阶段验证 (不改生产逻辑, 107 别名/59 动作/6 事件组黄金集):
+
+| 阶段 | 指标 | KB OFF | KB ON | 提升 |
+|---|---|---|---|---|
+| Phase1 Alias | 总归一率 | 33.6% | **89.7%** | +56.1pp |
+| Phase1 Alias | 中文归一率 | 0% | **78.3%** | +78.3pp |
+| Phase2 Action | 动作归一(59变体) | — | **100%** | 中文动作补齐 |
+| Phase3 Event | 组内唯一ID(理想6) | 15 | **6** | 归并翻倍 |
+
+**实验发现并修复**: entity_alias 6 人物 CTRY_→PERS_ 前缀错; Federal Reserve 前缀+别名缺 Fed; Iran 双 ID; canonicalizer 中文动作归一失效 (_CN_ACTION)。
+
+**结论**: KB 对实体归并/动作归一/中文聚合提升显著, 可接入生产。
