@@ -59,6 +59,7 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 - **G6 (2026-08-06)**: locations 40 项全补 lat/lon (`generate_kb.LOC_COORDS` curated + locations.yaml 同步)，地图/画像可用坐标
 - **G3 (2026-08-06)**: actions 26→**81** (`generate_kb.ACTION_CATALOG`, 含 zh/past/noun); 引擎识别扩 46/44, `_OBJECT_JOINT` 加 RATE_CUT/HIKE; 回归 20+10 通过
 - **G7 (2026-08-06)**: `ontology_validator.py` 三层归一第三层 — ID 前缀↔类型 + 关系白名单, canonicalize 输出 `validation` 字段
+- **G2 (2026-08-06)**: `import_seed.COMPANY_HIERARCHY` 20 家核心公司补 parent/subsidiaries (Alphabet→Google/YouTube/Waymo/DeepMind, 阿里→蚂蚁/云, 字节→TikTok/抖音)
 - 生产 profile 需同步 `knowledge_base/` + `canonicalizer.py`（dev-deploy-workflow）
 
 ## 现状种子规模 (Phase 1 + 扩种)
@@ -67,7 +68,7 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 |------|-----|--------|
 | countries | **249** | ISO 3166 (250国, 40+大国含 capital/currency) |
 | organizations | 12 | KB + 政府/军事转喻 |
-| companies | **8038** | SEC 10K美股(ticker 7972 回填) + KB 全球, 法定名归一去重 |
+| companies | **8038** | SEC 10K美股(ticker 7972 回填) + KB 全球, G2 补 20 家层级 |
 | people | **18,790** | Wikidata 30国×6职业×DOB (两次导入并集) + 精选 128; **3,670 含中文别名** |
 | locations | 40 (全带坐标) | canonicalizer 33城 + 地缘, G6 补 lat/lon |
 | industries | 25 | GICS + 扩展 |
