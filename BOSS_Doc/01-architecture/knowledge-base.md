@@ -54,6 +54,7 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 - 种子生成: `python scripts/knowledge_base/generate_kb.py`（从 KB/ENTITY_CANONICAL/canonicalizer 迁移）
 - 扩量: 5000 公司 / 3000 人物 / 250 国家需后续 Wikidata/ISO 数据导入
 - **G1 (2026-08-06)**: `import_seed.py` 给既有 SEC 公司回填主 ticker (最短作主) + exchange，companies.yaml 7,972/8,038 带 ticker
+- **G6 (2026-08-06)**: locations 40 项全补 lat/lon (`generate_kb.LOC_COORDS` curated + locations.yaml 同步)，地图/画像可用坐标
 - 生产 profile 需同步 `knowledge_base/` + `canonicalizer.py`（dev-deploy-workflow）
 
 ## 现状种子规模 (Phase 1 + 扩种)
@@ -64,7 +65,7 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 | organizations | 12 | KB + 政府/军事转喻 |
 | companies | **8038** | SEC 10K美股(ticker 7972 回填) + KB 全球, 法定名归一去重 |
 | people | **18,790** | Wikidata 30国×6职业×DOB (两次导入并集) + 精选 128; **3,670 含中文别名** |
-| locations | 40 | canonicalizer 33城 + 地缘 |
+| locations | 40 (全带坐标) | canonicalizer 33城 + 地缘, G6 补 lat/lon |
 | industries | 25 | GICS + 扩展 |
 | actions | 26 | canonicalizer + 中文模式 |
 | relations | 36 | KB associations + 提案核心 |
