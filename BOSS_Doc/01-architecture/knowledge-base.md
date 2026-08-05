@@ -36,12 +36,14 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 ## 中英统一解析（三层归一）
 
 ```
-原始新闻(中/英) → GLiNER/LLM 实体抽取 → AliasResolver(knowledge_base.loader) → Canonicalizer(Entity ID) → Fact
+原始新闻(中/英) → GLiNER/LLM 实体抽取 → AliasResolver(knowledge_base.loader) → Canonicalizer(Entity ID) → OntologyValidator → Fact
 ```
 
 `loader.resolve("特朗普")` → `('PERS_TRUMP', 'Trump', 'Person')`
 `loader.resolve("中国")`   → `('CTRY_CHN', 'China', 'Country')`
 `loader.resolve("英伟达")`  → `('COMP_NVIDIA', 'NVIDIA', 'Company')`
+
+**G7 (2026-08-06)**: `news_intel/ontology_validator.py` 独立第三层 — 实体 ID 前缀↔类型一致性 (COMP_→Company/PERS_→Person...) + 关系 REL_ 白名单; canonicalize 输出带 `validation` 诊断字段 (不阻断聚合)
 
 ## Canonicalizer 接入
 
@@ -56,6 +58,7 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 - **G1 (2026-08-06)**: `import_seed.py` 给既有 SEC 公司回填主 ticker (最短作主) + exchange，companies.yaml 7,972/8,038 带 ticker
 - **G6 (2026-08-06)**: locations 40 项全补 lat/lon (`generate_kb.LOC_COORDS` curated + locations.yaml 同步)，地图/画像可用坐标
 - **G3 (2026-08-06)**: actions 26→**81** (`generate_kb.ACTION_CATALOG`, 含 zh/past/noun); 引擎识别扩 46/44, `_OBJECT_JOINT` 加 RATE_CUT/HIKE; 回归 20+10 通过
+- **G7 (2026-08-06)**: `ontology_validator.py` 三层归一第三层 — ID 前缀↔类型 + 关系白名单, canonicalize 输出 `validation` 字段
 - 生产 profile 需同步 `knowledge_base/` + `canonicalizer.py`（dev-deploy-workflow）
 
 ## 现状种子规模 (Phase 1 + 扩种)
