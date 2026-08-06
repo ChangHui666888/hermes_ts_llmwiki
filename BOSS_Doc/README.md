@@ -8,7 +8,7 @@ News Intelligence Platform 操作手册。
 
 | 文档 | 说明 |
 |------|------|
-| [系统架构](01-architecture/system-architecture.md) | 整体架构：Pipeline → FastAPI → PostgreSQL → Next.js |
+| [系统架构](01-architecture/system-architecture.md) | ⚠️ 整体架构 (V4 历史编号, 已冻结; 权威分层见 pipeline-l0-l7-rules.md) |
 | [🎨 前端](01-architecture/frontend.md) | **最新** Next.js 16 页面/组件/API调用/认证 |
 | [⚙️ 后端](01-architecture/backend.md) | **最新** FastAPI 23端点/数据模型/认证机制 |
 | [🗄️ 数据库](01-architecture/database.md) | **最新** PostgreSQL 20表/ER图/常用查询 |
@@ -17,6 +17,9 @@ News Intelligence Platform 操作手册。
 | [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 |
 | [Pipeline L0-L7 规则](01-architecture/pipeline-l0-l7-rules.md) | 基于代码的加工规则/参数/阈值 |
 | [🧩 实体库维护](01-architecture/entity-kb.md) | **最新** 实体库双源架构 + AI维护工作流 (wiki→JSON+py→部署) |
+| [知识库 KB](01-architecture/knowledge-base.md) | **最新** 全球实体关系知识库 (9本体YAML + 中英别名→Entity ID) |
+| [实体关系](01-architecture/entity-relationships.md) | **最新** 入库实体/关系全量 (KB 导入 + 事件派生) |
+| [升级交接](01-architecture/upgrade-handoff-2026-08-05.md) | 全量升级交接 (会话状态 + 遗留问题) |
 
 ### 02-deployment — 部署运维
 

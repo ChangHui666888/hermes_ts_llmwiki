@@ -8,10 +8,34 @@
 > - [🎨 前端详情](frontend.md) — Next.js 16, 12 页面, 15+ 组件
 > - [⚙️ 后端详情](backend.md) — FastAPI, 30+ 端点, 22 ORM 模型
 > - [🗄️ 数据库详情](database.md) — PostgreSQL, 25 表, ER 图, 查询示例
+> - [🧩 知识库](knowledge-base.md) — 全球实体关系 (9本体 YAML + 中英别名)
 
 ---
 
-## 总览
+## 当前架构 (2026-08-06, 权威)
+
+```
+本地 Windows (Hermes + cron)
+  rss-scanner (5m) → ~/.hermes/rss-archive.db (中文源 DW中文/RFI中文/BBC中文/人民网/中新网)
+  auto-pipeline (15m) 7步:
+    Step1 sync.py 水印游标 → news_intel.db (评分/tier)
+    Step2 RSS 描述兜底 → Step3 batch.py 级联抓全文
+    Step4 fact_pipeline (GLiNER + Qwen 事实抽取) → payload
+    Step4.5 aggregator (fused 指纹, 含中文聚合 v4.4.3)
+    Step4.6 event_normalizer (同标题合并)
+    Step5/6 HTTP POST → VPS (events + news content)
+  config-agent (5m): 配置中心 → 本地 pipeline-config.json
+    ↓ HTTP (Tailscale 内网 + Internal Token)
+VPS (100.107.117.23, Docker)
+  Nginx :80 → FastAPI :8000 /api/* /internal/* | Next.js :3000
+  PostgreSQL 25 表 (events/articles/fact/fact_entity/entities/entity_alias...)
+```
+
+关键演进 (2026-08-06): v4.4.3 中文聚合支持（中文源采集→Qwen事实抽取→推送 VPS; KB 中英别名归一; 保守跨语言匹配）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节。
+
+---
+
+## 总览 (V4 历史)
 
 ```
 L0 RSS采集 → L1 五维评分 → L2 三路分流 → L3 全文抓取 → L4 结构抽取

@@ -40,9 +40,12 @@
 | 名称 | 频率 | 脚本 | 状态 |
 |------|:----:|------|:----:|
 | rss-scanner | every 5m | `rss-scanner.py` | ✅ 活跃 |
+| auto-pipeline | every 15m | `auto-pipeline.py` | ✅ 活跃 |
+| config-agent | every 5m | `config-agent.py` | ✅ 活跃 (keepalive) |
 
 > 注意：Hermes Cron 在 `~/.hermes/scripts/` 按文件名引用脚本，不支持完整路径。
 > 开发版脚本在项目 `scripts/hermes-cron/` 中，改完后需用 `deploy-cron.py --apply` 部署回去。
+> cron 验证: `hermes cron list`（rss-scanner 5m / auto-pipeline 15m / config-agent 保活）。
 
 ### 脚本统一管理（2026-08-02 优化）
 
@@ -145,11 +148,12 @@
 │  rss-scanner.py (cron 5m)                                    │
 │    → httpx + feedparser → ~/.hermes/rss-archive.db          │
 │                                                              │
-│  auto-pipeline.py (cron 30m)                                 │
-│    → sync.py: 读取 rss-archive.db → 评分 → news_intel.db    │
-│    → batch.py: core/fetchers.py 全文抓取                    │
-│    → aggregator.py: 事件聚类                                 │
-│    → HTTP POST → 云主机 100.107.117.23                       │
+│  auto-pipeline.py (cron 15m)                                 │
+│    Step1 sync.py: rss-archive.db → 评分 → news_intel.db     │
+│    Step2 RSS 描述兜底 + Step3 batch.py 全文抓取 (级联)       │
+│    Step4 fact_pipeline: GLiNER+Qwen 事实抽取 (payload 文件)  │
+│    Step4.5 aggregator: 事件聚类 (fused 指纹)                 │
+│    Step5/6: HTTP POST → 云主机 (events + news content)       │
 └─────────────────────────────┬───────────────────────────────┘
                               │ HTTP (Tailscale 内网 + Internal Token)
                               ▼

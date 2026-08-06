@@ -48,7 +48,7 @@ cat ~/.hermes/news-pipeline-report.json
 
 ```bash
 ssh administrator@100.107.117.23
-cd news-intel-platform
+cd news-platform-v8
 docker compose ps
 docker compose up -d
 docker compose logs api
@@ -134,7 +134,7 @@ rm ~/.hermes/rss-scanner-state.json
 cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
 
 # 完整运行 (评分 + 增强 + 推送云端)
-export NEWS_API_BASE=http://100.107.117.23:8001
+export NEWS_API_BASE=http://100.107.117.23
 python news-pipeline.py
 
 # 指定参数
@@ -253,9 +253,9 @@ docker compose exec postgres psql -U news_admin -d news_intel -c "SELECT COUNT(*
 docker compose exec postgres psql -U news_admin -d news_intel -c "\dt"
 
 # API 测试
-curl http://localhost:8001/health
-curl http://localhost:8001/news
-curl http://localhost:8001/news/hot
+curl http://localhost/health
+curl http://localhost/news
+curl http://localhost/news/hot
 ```
 
 ---
@@ -294,7 +294,7 @@ sqlite3 news_intel/news_intel.db "SELECT extraction_method,COUNT(*) FROM news_co
 
 # 云 PostgreSQL
 ssh administrator@100.107.117.23
-docker compose -f ~/news-intel-platform/docker-compose.yml exec postgres \
+docker compose -f ~/news-platform-v8/docker-compose.yml exec postgres \
   psql -U news_admin -d news_intel -c "SELECT COUNT(*) FROM articles"
 ```
 
@@ -304,7 +304,7 @@ docker compose -f ~/news-intel-platform/docker-compose.yml exec postgres \
 
 ```
 前端:    http://100.107.117.23
-API文档: http://100.107.117.23:8001/docs
+API文档: http://100.107.117.23/docs
 ```
 
 ---

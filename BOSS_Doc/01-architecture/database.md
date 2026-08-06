@@ -155,21 +155,23 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | 表数量 | **25** (2026-08-03 实查; 含 Fact 层 fact/fact_entity + alembic_version) |
 | Pool | 连接池 10, 最大溢出 20 |
 
-## 数据量统计 (2026-08-03 VPS 实查)
+## 数据量统计 (2026-08-06 VPS 实查)
 
 | 表 | 行数 | 说明 |
 |----|:----:|------|
-| events | **385** | 事件 Dossier (持续增长, 每日 pipeline 更新) |
-| articles | **1719** | 文章 (Tier A=10, B=1650, C=58, 空=1) |
-| fact | **11** | Fact 层 (Step 4.5 混合抽取, 每轮增量) |
-| fact_entity | **22** | Fact 参与者 (Role 模型) |
+| events | **~200** | 事件 Dossier (`/api/v1/dashboard` total_events=200; `/api/v1/events` total=183, 差值因过滤条件)。注意: 事件数随重聚合波动 (历史曾 1008 错乱 → 重聚合后 112 → 现 ~200) |
+| articles | **增长中** | 文章 (08-03 为 1719; 本地 rss_raw 已达 21916, VPS 仅收有正文/描述的文章) |
+| fact | 随每轮增量 | Fact 层 (Step 4.5 混合抽取) |
+| fact_entity | 随每轮增量 | Fact 参与者 (Role 模型) |
 | sources | 24 | RSS 来源注册 |
-| entities | 35 | 实体注册 |
+| entities | **60** | 实体注册 (KB V1 导入 + 事件派生) |
 | settings | 21 | 配置中心 KV |
 | event_article_override | 16 | 手动聚合归属 (事件校对) |
 | event_relations | 0 | 事件关系 (预置, 未启用) |
 | users | 3 | 管理员/免费用户 |
 | fetch_stats | ~ 数百 | 抓取策略统计 |
+
+> Dashboard (`/api/v1/dashboard`) 实时指标: active_events=185, critical_events=15, today_updates=38, sources=24。
 
 ## 完整表结构 (25 表)
 
@@ -274,7 +276,9 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 
 | 表 | 列 | 说明 |
 |----|-----|------|
-| **entities** | id, name, type, country, importance | 实体注册表 |
+| **entities** | id, name, type, country, importance, aliases(JSONB), metadata(JSONB), confidence, first_seen, last_seen, created_at | 实体主数据 (v0.2 升级: +country/importance/confidence/first_seen/last_seen) |
+| **entity_alias** | id, entity_id(FK), alias, lang, created_at | 结构化别名 (中英/简称, 唯一 entity_id+alias) — v0.2 新增 |
+| **entity_relationship** | id, from_entity_id(FK), to_entity_id(FK), relation_type, confidence, description, evidence_count, first_seen, last_seen, created_at | 实体-实体关系 (KB associations 接入) — v0.2 新增 |
 | **categories** | id, name, parent_id | 分类层级 |
 | **tags** | id, name (UNIQUE) | 标签库 |
 | **ads** | id, title, image_url, link_url, position, is_active | 广告管理 |
@@ -289,7 +293,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | **article_entity** | article_id(FK), entity_id(FK), relevance_score | 文章-实体 (M:N) |
 | **event_article** | event_id(FK), article_id(FK) | 事件-文章 (M:N) |
 | **event_entity** | event_id(FK), entity_id(FK) | 事件-实体 (M:N) |
-| **event_relations** | parent_event_id, child_event_id, relation_type, confidence | 事件关系 (预置表, 0 行, 未来 event_relationship 复用) |
+| **event_relations** | id, parent_event_id, child_event_id, relation_type, confidence, start_time, end_time, evidence_count, created_at | 事件-事件关系 (v0.2 扩展 start/end_time+evidence_count; 同 subject 时间序派生 precedes) |
 | **event_article_override** | event_id, article_url, created_at/by | 手动聚合归属 (见上 §手动聚合表) |
 | **event_article_exclusion** | event_id, article_url, created_at/by | 手动剔除 (见上 §手动聚合表) |
 | **fact** | 见上 §Fact 层表 | Fact 层 (DDL: references/fact-schema-v1.md) |
@@ -311,14 +315,16 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 
 > ⚠️ 分布随 pipeline 增长变化, 属 point-in-time 快照
 
-## 事件阶段分布 (2026-08-03)
+## 事件阶段分布 (2026-08-06 VPS 实查, 样本 100/200)
 
-| 阶段 | 数量 | 说明 |
+| 阶段 | 样本数 | 说明 |
 |------|:----:|------|
-| breaking | 326 | 突发 (85%) |
-| active | 39 | 活跃中 |
-| stable | 15 | 已稳定 |
+| breaking | 87 | 突发 (主导) |
+| active | 8 | 活跃中 |
 | developing | 5 | 发展中 |
+| stable | 0 (样本) | 已稳定 (pipeline 重聚合后稳定事件较少) |
+
+> Dashboard: active_events=185, critical_events=15。
 
 ## 文章 Tier 分布 (2026-08-03)
 
@@ -395,3 +401,20 @@ sources ──→ articles ──→ events
 ```
 
 > ✅ fused 指纹已接线 (2026-08-03): auto-pipeline Step 4 抽 fact → Step 4.5 聚合用 facts_by_article (payload 桥接), 无 facts 文章回退 legacy。VPS fact/fact_entity 表随每轮增量。
+
+## 本地 news_intel.db (SQLite, 8 表, 2026-08-06 实查)
+
+路径: `search-engine-v2/scripts/news_intel/news_intel.db`（`db.py` DB_PATH）。数据量: rss_raw=21916, news_intelligence=21916, news_content=1528, event_registry=176, entity_registry=57, source_registry=36。
+
+| 表 | 行数 | 关键字段 |
+|----|:----:|----------|
+| **rss_raw** | 21916 | id PK, guid UNIQUE, source_name, source_domain, feed_url, article_url UNIQUE, title, description, published_at, category_raw, created_at (水印游标基准) |
+| **news_intelligence** | 21916 | id PK, raw_id FK→rss_raw, score_total/source/impact/entity/market/velocity (五维评分), tier (A≥90/B60-89/C<60), category, tags, entities(JSON), scored_at |
+| **news_content** | 1528 | id PK, intel_id FK, article_url UNIQUE, content_md/html, content_len, fetch_strategy, retry_count, fetch_at, summary_cn/en, key_points, extraction_method |
+| **event_registry** | 176 | event_id PK, title, subject_name/action_type/object_name, location_country, article_ids(JSON), source_count/article_count, confidence, coherence, stage, first_seen/last_updated |
+| **entity_registry** | 57 | entity_id PK, canonical_name, aliases, type, country, importance, first_seen/last_seen |
+| **source_registry** | 36 | source_id PK, name, authority, country, language |
+| **sync_state** | 1 | key PK (rss_last_synced_at), value (水印时间戳) |
+| **event_registry_bak** | 32 | 重聚合前备份 |
+
+> 说明: Fact 层在本地**无表**（fact/fact_entity 只在 VPS）。本地事实经 `fact_pipeline_payload.json` → `/internal/facts/batch` 推送 VPS。`sync_state` 水印为 `created_at >=` 游标（v4.4.3 修复边界漏同步）。
