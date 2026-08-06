@@ -520,3 +520,20 @@ Next.js 16 App Router
 | 域名 | 22 域名策略链 | crawl.domain.* |
 
 **配置流**: 配置中心 → settings 表 → 本地 agent 轮询 → pipeline-config.json → loader → 各模块
+
+---
+
+## v4.4.3 中文聚合支持 (2026-08-06)
+
+### Fact Layer (L4.5)
+- **GLiNER 多语言**: `GLINER_MODEL = urchade/gliner_multi-v2.1`（mdeberta 骨干, 支持中文）。未下载时自动回退 `gliner_small-v1`（`_get_gliner` local_files_only 快速失败）, 中文实体由 Qwen B 路径兜底。
+- **CJK 配额**: `load_articles` 按 `rr.id DESC`（插入序, 替代坏掉的 published_at）+ Python CJK 配额（≥20%）保证中文文章进 50 篇批。
+- **C 级 CJK GLiNER-only**: C 级中文只跑 GLiNER 出实体（禁 Qwen/不推送）, 输出 `ner_by_article.json` 供聚合器。
+- **离线回退**: 下载失败设 `HF_HUB_OFFLINE=1` 重试; multi 模型不可用时中文聚合仍可用（Qwen 兜底）。
+
+### 聚合 (L5)
+- **中文主题分类**: `TOPIC_SIGNALS` 12 类词表补充中文关键词（无人机/芯片/关税/出口管制 等）。
+- **CJK 信任门**: `build_fused_fingerprint` 对含 CJK 文章直接信任 fact 实体（英文 canonical 名不出现在中文正文）。
+- **保守跨语言匹配**: CJK↔非CJK 指纹对走 `_cross_lingual_score`——主体精确归一相同 + 同主题 → `CROSS_LINGUAL_THRESHOLD=50`（英语对仍 60）。仅主体精确匹配, 防"伊朗+军事"式误合并。
+- **聚合范围**: 含 C 级 CJK 文章（Python 层过滤, 避免 2 万篇英文 C 级噪音）。
+- **已知限制**: 中国聚焦故事多无英文同题报道 → 跨语言事件聚合数据受限; 有对应时（主体视角一致）可聚类。

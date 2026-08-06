@@ -183,3 +183,12 @@ Timeline: Day0→Day3→Day7
 | 信息降噪 | 10000篇新闻 → 100个事件 |
 | 事实结构化 | 文章 → 可计算事件 |
 | 持续积累 | 一次新闻 → 长期事件资产 |
+
+---
+
+## v4.4.3 中文事件聚合 (2026-08-06)
+
+- 中文文章现在走通：采集 → 入库评分 → Qwen 事实抽取 → 推送 VPS（`backfill_chinese_content.py` 补 RSS 描述为 content, content_len>0 可推送）。
+- 事件层：`aggregator.py` 加 `_cjk` 指纹标记 + 保守跨语言匹配（主体精确+同主题→50 分, 阈值 `aggregate.cross_lingual_threshold`）。
+- KB 中英别名归一：美国↔US→United States、五角大楼↔Pentagon、三星电子↔Samsung、SK海力士↔SK Hynix、中微↔AMEC 等（`knowledge_base/entity_alias.yaml`）。
+- **数据限制**: 中国聚焦故事（无人机管制/232条款/DUV光刻机/五角大楼战略）英文语料无同题 → 事件层受覆盖限制; 跨语言匹配在有同主体英文报道时生效。

@@ -111,3 +111,12 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 **实验发现并修复**: entity_alias 6 人物 CTRY_→PERS_ 前缀错; Federal Reserve 前缀+别名缺 Fed; Iran 双 ID; canonicalizer 中文动作归一失效 (_CN_ACTION)。
 
 **结论**: KB 对实体归并/动作归一/中文聚合提升显著, 可接入生产。
+
+---
+
+## v4.4.3 中英别名补充 (2026-08-06)
+
+- **CTRY_USA canonical 统一为 `United States`**（与 CTRY_UNITED_STATES 一致, 解锁中英同主体 +25 分）。
+- **ORG_EU canonical 置 `European Union`**。
+- 新增中文别名: 五角大楼/美国国防部→ORG_US_DOD, 华盛顿/白宫→ORG_US_GOVERNMENT, 商务部/工信部→ORG_CN_GOVERNMENT, 三星电子→COMP_SAMSUNG, SK海力士→COMP_SK_HYNIX, 中微→COMP_AMEC, 宝马→COMP_BMW, 阿斯麦→COMP_ASML。
+- 约定: curated `entity_alias.yaml` 别名优先于 section YAML 的 `name`; 中英归一以 canonical 名为准（fingerprint_score 按 canonical 字符串比较）。
