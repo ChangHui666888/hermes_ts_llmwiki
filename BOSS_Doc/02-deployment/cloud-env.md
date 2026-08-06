@@ -249,12 +249,13 @@ server {
 | 连接串 | `postgresql://news_admin:news_pass@postgres:5432/news_intel` |
 | 大小 | 15 MB |
 
-### 数据量
+### 数据量 (2026-08-06 VPS 实查)
 
 | 表 | 行数 |
 |----|:----:|
-| events | 512 |
-| articles | 936 |
+| events | ~200 (`/api/v1/dashboard` total_events=200; 重聚合后波动) |
+| articles | 增长中 (08-03 为 1719) |
+| entities | 60 |
 | sources | 24 |
 
 ---
@@ -264,11 +265,11 @@ server {
 ```
 /home/administrator/news-platform-v8/
 ├── apps/api/               # FastAPI 后端
-│   ├── main.py             # 入口 (FastAPI, 23路由: 旧17 + V1新6)
+│   ├── main.py             # 入口 (FastAPI, 40+ 路由: 公开/认证/管理/内部/V1)
 │   ├── database.py         # SQLAlchemy + PostgreSQL
 │   ├── models.py           # 18 表 ORM
 │   ├── schemas.py          # Pydantic 模型
-│   └── routes/             # 12 路由文件
+│   └── routes/             # 19 路由文件 (2026-08-06 补充)
 │       ├── news.py         # 文章 CRUD
 │       ├── internal.py     # Pipeline 数据接收
 │       ├── auth.py         # JWT 认证
@@ -280,7 +281,14 @@ server {
 │       ├── events_v1.py    # 事件查询
 │       ├── sources_v1.py   # 来源网络
 │       ├── search_v1.py    # 搜索
-│       └── map_v1.py       # 地图
+│       ├── map_v1.py       # 地图
+│       ├── entities.py     # 实体画像/别名/关系
+│       ├── entity_relations.py # 实体关系管理 (配置中心)
+│       ├── event_curation.py   # 事件校对
+│       ├── stories.py      # Story 打包
+│       ├── fetch_stats.py  # 抓取策略统计
+│       ├── rss_sources.py  # RSS 源管理
+│       └── deploy.py       # 部署
 ├── frontend/               # Next.js 16 前端
 │   └── src/app/            # 12 页面
 ├── docs/                   # 文档

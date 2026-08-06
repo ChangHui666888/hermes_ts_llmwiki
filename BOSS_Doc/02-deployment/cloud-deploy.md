@@ -31,7 +31,7 @@ http://100.107.117.23
      │
   PostgreSQL (:5432)
   news_intel DB (15MB)
-  events(512) + articles(936)
+  events(~200, 2026-08-06) + articles(增长中)
   sources(24)
 ```
 
@@ -115,7 +115,7 @@ python cron-sync.py
 ```bash
 # API
 curl http://100.107.117.23/api/v1/dashboard
-# → {"metrics":{"active_events":512,"sources":24,...}}
+# → {"metrics":{"active_events":185,"critical_events":15,"today_updates":38,"sources":24,"total_events":200}}
 
 # 数据库
 docker exec news-platform-v8-postgres-1 psql -U news_admin -d news_intel \
