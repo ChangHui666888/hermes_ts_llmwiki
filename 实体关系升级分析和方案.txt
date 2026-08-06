@@ -1,0 +1,31 @@
+Admin Dashboard
+⚙️
+配置中心
+
+管理 Pipeline / RSS / AI 参数
+
+📊
+Pipeline 状态
+
+查看运行日志和统计
+
+📡
+来源注册表
+
+可排序表格 · 全量来源
+
+Total Articles
+
+1349
+
+Published
+
+1349
+
+Users
+
+3
+
+Active Ads
+
+0

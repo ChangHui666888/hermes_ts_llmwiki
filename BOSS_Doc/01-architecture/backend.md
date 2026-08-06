@@ -34,17 +34,25 @@ V1 标准约束 (2026-07-29 起):
 | GET | `/news/{id}`         | news.py         | 文章详情 (无 token → 公开字段; VIP/Admin → 全文, summary 自动回退) |
 | GET | `/categories`        | categories.py   | 文章分类计数                                 |
 | GET | `/dashboard`         | dashboard_v1.py | 仪表盘 (KPI 含 `total_events` 全量; `stage_breakdown` 阶段分布; `event_type_breakdown` 类型分布 + Hot Events + 地图事件) |
-| GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选, `sort=first_seen_desc\|first_seen_asc\|last_updated_*\|confidence_*`, 默认 first_seen_desc, NULL 排末尾) |
+| GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选, `sort=first_seen_desc\|first_seen_asc\|last_updated_*\|confidence_*`, 默认 first_seen_desc, NULL 排末尾; **读层去重**: 按 `lower(title)` 分组每组保留最佳行 article_count 大→last_updated 新→event_id 新, `total` 为去重后计数) |
 | GET | `/events/{event_id}` | events_v1.py    | 事件 Dossier 详情                          |
 | GET | `/sources`           | sources_v1.py   | 来源注册表 (真实 event_count/article_count/权威度) |
 | GET | `/search`            | search_v1.py    | 事件全文搜索 (title + summary ilike)         |
 | GET | `/map/events`        | map_v1.py       | 地理事件标记 (`limit` 默认50/最大1000, 返回 `total` 带地点事件总数, 不再静默截断) |
+| GET | `/api/v1/stories` | stories.py | **Story 列表** (含事件数, 按事件数降序) |
+| GET | `/api/v1/stories/{id}` | stories.py | **Story 详情** (事件时间线, 按 position 排序) |
+| POST | `/api/v1/stories/derive` | stories.py | **派生/重建故事** (admin, 同 subject 事件→故事, 幂等) |
 | GET | `/ads/random`        | ads.py          | 随机广告 (按 position 筛选)                   |
 | GET | `/api/v1/entities` | entities.py | **实体列表** (按事件出现次数排序, 来自事件 subject/object/actors + KB) |
 | GET | `/api/v1/entities/{name}` | entities.py | **实体画像** (国家归属+关联网络+相关事件+统计 event_count/article_count) |
 | GET | `/admin/entities` | entities.py | **实体管理**: 当前 KB + 校验报告 |
 | POST | `/admin/entities/save` | entities.py | **实体管理**: 保存整份 KB (校验→写 JSON+生成 py, 热生效; dry_run 仅校验) |
 | POST | `/admin/entities/git-sync` | entities.py | **实体管理**: 容器内 git 提交推送实体文件 (safe.directory+身份) |
+| GET | `/admin/entity-relations` | entity_relations.py | **实体关系管理 (v0.2)**: 全量实体+别名+实体关系+事件关系 |
+| POST | `/admin/entity-relations` | entity_relations.py | **实体关系**: 新增 (from/to/type/desc) |
+| DELETE | `/admin/entity-relations/{id}` | entity_relations.py | **实体关系**: 删除 |
+| DELETE | `/admin/event-relations/{id}` | entity_relations.py | **事件关系**: 删除 |
+| POST | `/admin/entity-relations/regenerate` | entity_relations.py | **重新生成**: 从 KB+事件派生重建关系 (跑 backfill) |
 
 ### 认证端点
 
@@ -87,6 +95,7 @@ V1 标准约束 (2026-07-29 起):
 |------|------|------|------|
 | POST | `/internal/news/batch` | internal.py | Pipeline 推送文章 (批量, ON CONFLICT url DO UPDATE) |
 | POST | `/internal/events/batch` | internal.py | Pipeline 推送事件 (批量, ON CONFLICT 更新全部字段) |
+| POST | `/internal/events/delete` | internal.py | 删除云端重复事件 (事件归一用, body: `["EVT-..."]`, 先清引用表再删主行) |
 | POST | `/internal/facts/batch` | internal.py | **Fact Layer V1.0** 推送 fact + fact_entity (混合抽取器产出, ON CONFLICT + 实体替换) |
 | POST | `/internal/fetch_stats` | fetch_stats.py | Pipeline 推送抓取策略统计 |
 | GET | `/internal/admin/fetch_stats` | fetch_stats.py | 查看抓取策略统计汇总 (admin JWT) |
@@ -100,7 +109,7 @@ V1 标准约束 (2026-07-29 起):
 | `/admin/sources` | 来源注册表 (可排序表格) |
 | `/admin/status` | Pipeline 状态页 |
 | `/admin/pipeline` | Pipeline 配置 |
-| `/config` | 配置中心 (12 Tab, 含"事件校对"+"实体管理"+"数据模型") |
+| `/config` | 配置中心 (13 Tab, 含"事件校对"+"实体管理"+"实体关系"+"数据模型") |
 | `/entities/[name]` | 实体画像页 |
 
 ## 认证机制
