@@ -73,6 +73,13 @@ schtasks /run  /tn "Hermes-Git-Backup"
 - 安全: 删除前备份（`VACUUM INTO` 到 .bak）+ 默认 `--dry-run`
 - 用法: `python news_intel/cleanup_backlog.py --days 7 [--dry-run]`
 
+## 中文源接入 + sync 水印边界修复 (2026-08-06)
+
+- **rss-scanner 中文源调整**：清理 404/英文失效源（新华网/央视/环球网/中国日报），保留 人民网/中新网（cn 直连），新增国际中文源 BBC中文/DW中文/RFI中文（intl 走代理）。`deploy-cron.py --apply` 已部署。
+- **过期归档清理**：rss-archive 中 100 篇人民网文章为 2025-06 旧内容（2026-07-05 入库），判定为过期归档，已从 `~/.hermes/rss-archive.db` 清理，不进 news_intel.db。
+- **sync.py 水印边界 bug 修复**：游标查询 `created_at > ?` → `created_at >= ?`。原 `>` 会跳过与批次 `max(created_at)` 同刻的全部文章（曾致 DW中文/RFI中文 87 篇入库被漏）。`sync_catchup` 增加无进展保护防死循环。
+- **数据修复**：水印重置到 `2026-08-05 18:21:09` 后重跑 catchup，87 篇新鲜中文（DW中文 57 + RFI中文 30）已入 news_intel.db。
+
 ## 日志
 
 | Job | 日志路径 |
