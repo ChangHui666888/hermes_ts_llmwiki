@@ -1,5 +1,9 @@
 # Cron 计划任务
 
+> **生产定时任务脚本统一目录**：`C:\Users\ChangHui\AppData\Local\hermes\scripts\`（2026-08-08 约定）
+> 该目录为 Hermes cron 实际执行脚本的位置；`deploy-cron.py --apply` 即部署到此目录。
+> ⚠️ 修改 cron 脚本后必须同步该目录（`python scripts/hermes-cron/deploy-cron.py --apply`）。
+
 ## 调度分工
 
 | 类型 | 调度器 | 适用场景 |
