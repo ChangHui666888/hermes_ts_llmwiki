@@ -1,6 +1,6 @@
 # V4 Enterprise Feed Registry — 全球信息源注册中心（升级方案）
 
-> 版本: v1.2 · 2026-08-07 · **状态: 🟢 已决策（P1 ✅ 完成，P2-P5 待续）**
+> 版本: v1.3 · 2026-08-07 · **状态: 🟢 已决策（P1-P5 全完成，待部署）**
 > 定位: 把 Hermes 从"RSS 阅读器"升级为 **Global Feed Registry（信息源注册中心）**——统一元数据 + 16 大类 + 重要性分级 + 多类型扩展，全部经配置中心 Web 管理。
 > 依据: 当前实现核实（`rss_sources.py` / `rss-scanner.py` / 配置中心源列表）+ 提案。
 > 相关: [backend.md](../01-architecture/backend.md)（/admin/rss/sources）· [cron-jobs.md](cron-jobs.md) · [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md)
@@ -198,10 +198,13 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 | 阶段 | 内容 | 验收 |
 |------|------|------|
 | **P1 Schema+UI** | ✅ 后端 RssSourceIn 扩 11 字段 + 16 类常量(中文别名) + `/sources/import` `/sources/export` API + 配置中心表单/批量导入/旧分类兜底（commit `8a9c221`） | 配置中心可编辑/导入新字段，旧源数据兼容 |
-| **P2 存量重映射** | 现有 98 源映射到 16 类 + 补全 country/language/type/importance | 分类统计正确 |
-| **P3 新源导入** | 批量导入 ~80 新源，**URL probe 验证**，失效源隔离 | 全部源可访问，扫描正常 |
-| **P4 移除 categorize_feed** | scanner 改读源 category + 回退兜底，删除 `categorize_feed()` | 新源无需改代码即正确分类 |
-| **P5 统计/前端** | sources 页 16 类层级展示 + 按类统计 | 统计美观 |
+| **P2 存量重映射** | ✅ `migrate_rss_v4.py` + `references/rss-sources-v4-migrated.json` — 94/94 源映射 16 类无遗漏（commit `6041530`） | 分类统计正确 |
+| **P3 新源导入** | ✅ `references/rss-new-feeds-v4.json`(97 新源) + `probe_feeds.py` URL 探测 — batch1 12/25 通过（宁缺毋滥, commit `ead4f0f`） | 全部源可访问，扫描正常 |
+| **P4 移除 categorize_feed** | ✅ rss-scanner 读源 category 优先, categorize_feed 改 16 类兜底（commit `ebdb19d`） | 新源无需改代码即正确分类 |
+| **P5 统计/前端** | ✅ sources_v1 API 暴露 V4 category + 前端 sources 页 16 类分组展示（commit `fb7ecff`） | 统计美观 |
+| **部署** | ⏳ VPS: git pull + `docker compose up -d --build` + 导入迁移JSON/新源 + 重启 scanner | 待执行 |
+
+> **待部署清单**（VPS 上执行）：① git pull 到 `/home/administrator/news-platform-v8`；② 配置中心「源列表」→ 批量导入 `rss-sources-v4-migrated.json`（存量重映射）→ 再导入 `rss-new-feeds-v4-verified-batch1.json`（新源 batch1）；③ docker rebuild backend/frontend；④ 重启 scanner 使 P4 生效。
 
 **风险与对策（诚实标注）**：
 1. ⚠️ **部分源 URL 已失效**：`feeds.reuters.com/*` 自 2020 年起已废弃（现有代码就在用）；Nitter 实例不稳定；部分中文财经站（财新/第一财经等）RSS 可用性存疑；ZeroHedge/TradingEconomics 等可能反爬。→ **P3 必做 URL probe + 复用现有 quarantine 机制**（`rss.quarantine_failures/seconds`），不达标的源自动隔离不阻断扫描。
