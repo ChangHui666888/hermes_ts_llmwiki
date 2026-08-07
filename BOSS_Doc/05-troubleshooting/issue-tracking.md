@@ -17,6 +17,7 @@
 | [ISS-20260807-002](#iss-20260807-002) | 08-07 | P2 | 实体库 | 事件/Fact 实体 ID 双轨 | `aggregator.py:1195`/`canonicalizer.py` | 🟡 待决策 | 事件本地 ID vs Fact KB V1 ID | 方案B 统一 loader | — | — |
 | [ISS-20260807-003](#iss-20260807-003) | 08-07 | P2 | 实体库 | backfill CANON_NAME 硬编码 canonical 漂移 | `backfill_entity_model.py:29-54` | 🟡 待决策 | 三处 canonical 手工维护 | 方案C 收敛 entity_alias | — | — |
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3 | 实体库 | 关系库在生产中几乎不使用 | `relations.yaml`/`entity_relationship` | 📋 观察 | 关系仅展示层 + REL_ 白名单 | 评估关系图谱接入生产 | — | — |
+| [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3 | Fact | Fact 抽取硬编码参数需配置化 | `fact_pipeline.py:39-42/132/252` | 📋 观察 | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死 | 挂到配置中心「AI增强」Tab | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -105,6 +106,13 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **现象**: relations.yaml(106)/associations/entity_relationship 仅展示层 + ontology_validator REL_ 前缀白名单。
 - **解决**: 评估关系图谱（competitor/investor/part_of）接入事件/fact 生成的路径（待决策是否立项）。
 - **验证**: — · **关联**: [entity-management-pipeline-analysis.md](../01-architecture/entity-management-pipeline-analysis.md) §一
+
+### ISS-20260807-006 Fact 抽取硬编码参数需配置化
+- **发现**: 2026-08-07 · **严重**: P3 · **分类**: Fact · **状态**: 📋 观察
+- **现象**: GLiNER 实体阈值(0.35)、Qwen noThink `max_tokens=300`、`FACT_PROMPT` 写死在代码里，配置中心无法热调（改「AI 增强」Tab 不影响事实抽取）。
+- **根因**: `fact_pipeline.py:39-42`（GLINER_MODEL/FALLBACK/FACT_PROMPT）、`:132`（max_tokens=300）、`:252/309`（GLiNER threshold=0.35）为硬编码常量，未走 config loader。
+- **解决**: 方案——新增 `ai.fact_gliner_threshold` / `ai.fact_qwen_max_tokens` / `ai.fact_prompt` 挂到配置中心「AI 增强」Tab，`fact_pipeline.py` 改走 `_agg_cfg`/loader 读取（待评估是否立项）。
+- **验证**: — · **关联**: [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md) §2 环节2 配置参数
 
 ### ISS-20260711-001 db.close() 后查询崩溃
 - **发现**: 2026-07-11 · **严重**: P1 · **分类**: Pipeline · **状态**: ✅ 已关闭
