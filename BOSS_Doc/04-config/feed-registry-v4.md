@@ -1,6 +1,6 @@
 # V4 Enterprise Feed Registry — 全球信息源注册中心（升级方案）
 
-> 版本: v1.4 · 2026-08-07 · **状态: 🟢 已部署（197 源在线）**
+> 版本: v1.5 · 2026-08-07 · **状态: 🟢 已部署 + scanner 已生效（197 源在线）**
 > 定位: 把 Hermes 从"RSS 阅读器"升级为 **Global Feed Registry（信息源注册中心）**——统一元数据 + 16 大类 + 重要性分级 + 多类型扩展，全部经配置中心 Web 管理。
 > 依据: 当前实现核实（`rss_sources.py` / `rss-scanner.py` / 配置中心源列表）+ 提案。
 > 相关: [backend.md](../01-architecture/backend.md)（/admin/rss/sources）· [cron-jobs.md](cron-jobs.md) · [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md)
@@ -205,7 +205,8 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 | **部署** | ✅ VPS 已完成（2026-08-07）：git pull → `docker compose up -d --build` → `import_feeds_v4.py` 容器内导入 → 验证 197 源 / API 200 | 已上线 |
 
 > **已部署**：① VPS git pull 至 `289c010`；② backend+frontend docker 重建（P1/P5 生效）；③ `import_feeds_v4.py` 导入——存量 94 重映射 + 新源 102（含 batch1 已验证 12 + batch2 全部 90，另补 Canadian Press/IMF Blog/Stability AI/CNCF/LLVM）→ **总计 197 源**（覆盖用户补源清单全部）；④ API 健康（dashboard/sources 200）。
-> **待办**：① scanner（P4）需在**本地 Hermes** 经 `deploy-cron.py` 同步才生效；② 失效源由 `rss.quarantine` 自动隔离（后续复核 `failed-batch1.json`）。
+> **✅ 本地已同步（2026-08-07）**：`deploy-cron.py --apply` 同步 P4 scanner 到 Hermes（line 418 `feed.get("category")` 优先）；启动 config-agent（8890）→ 本地 `pipeline-config.json` 刷新至 **197 源、全部带 16 类 category、0 无分类** → 下次 rss-scan（5m cron）即用源 category 分类。
+> **待办**：① 失效源由 `rss.quarantine` 自动隔离（复核 `failed-batch1.json`）；② RSS-Digest 中文日报分组现为英文 16 类，如需中文别名展示另调整。
 
 **风险与对策（诚实标注）**：
 1. ⚠️ **部分源 URL 已失效**：`feeds.reuters.com/*` 自 2020 年起已废弃（现有代码就在用）；Nitter 实例不稳定；部分中文财经站（财新/第一财经等）RSS 可用性存疑；ZeroHedge/TradingEconomics 等可能反爬。→ **P3 必做 URL probe + 复用现有 quarantine 机制**（`rss.quarantine_failures/seconds`），不达标的源自动隔离不阻断扫描。
