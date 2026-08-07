@@ -229,6 +229,24 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 ---
 
+## 9. RSS 升级后全套流水线验证（2026-08-08）
+
+> 升级后对 采集→评分→Fact→聚合→推送→Story→展示 全链路验证，**全部正常无回归**。
+
+| 环节 | 结果 |
+|------|------|
+| 采集 | ✅ scanner 196 源 / 新增 3237 篇 |
+| 评分 | ✅ VPS articles tier A=10 / B=2116 / C=150 |
+| Fact | ✅ fact 4392 / fact_entity 9105；最近 2 轮 FACT_45 均 100% |
+| 聚合 | ✅ events 225（24h 新建 17） |
+| 推送 | ✅ 近 2 轮 CLOUD_SYNC 38 + CONTENT_PUSH 2-4 + facts 50，0 fail |
+| Story | ✅ story 63（action 21/object 16/subject 14/location 12） |
+| 展示 | ✅ Dashboard active=210/critical=15，API 全 200 |
+
+**观察项**：00:58 轮 `AGGREGATE: 0 marked`（300 unassigned/50 facts）——新分散源文章可能未达聚合阈值(60)，24h 内仍新建 17 事件整体正常。已登记 issue-tracking（ISS-20260808-001）。
+
+---
+
 ## 7. 后续扩展（信息源注册中心愿景）
 
 - `type` 扩展：Atom / JSON Feed / YouTube / GitHub Release / Mastodon / 邮件简报。

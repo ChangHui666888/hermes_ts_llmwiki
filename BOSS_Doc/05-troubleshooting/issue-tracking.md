@@ -18,6 +18,7 @@
 | [ISS-20260807-003](#iss-20260807-003) | 08-07 | P2 | 实体库 | backfill CANON_NAME 硬编码 canonical 漂移 | `backfill_entity_model.py:29-54` | 🟡 待决策 | 三处 canonical 手工维护 | 方案C 收敛 entity_alias | — | — |
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3 | 实体库 | 关系库在生产中几乎不使用 | `relations.yaml`/`entity_relationship` | 📋 观察 | 关系仅展示层 + REL_ 白名单 | 评估关系图谱接入生产 | — | — |
 | [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3 | Fact | Fact 抽取硬编码参数需配置化 | `fact_pipeline.py:39-42/132/252` | 📋 观察 | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死 | 挂到配置中心「AI增强」Tab | — | — |
+| [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3 | 聚合 | 新分散源聚合覆盖偏低 (0 marked) | `aggregator.py` | 📋 观察 | 新增源每源文章少, 未达 event_threshold(60) | 观察/调低阈值或查 fused 指纹 | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -113,6 +114,13 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: `fact_pipeline.py:39-42`（GLINER_MODEL/FALLBACK/FACT_PROMPT）、`:132`（max_tokens=300）、`:252/309`（GLiNER threshold=0.35）为硬编码常量，未走 config loader。
 - **解决**: 方案——新增 `ai.fact_gliner_threshold` / `ai.fact_qwen_max_tokens` / `ai.fact_prompt` 挂到配置中心「AI 增强」Tab，`fact_pipeline.py` 改走 `_agg_cfg`/loader 读取（待评估是否立项）。
 - **验证**: — · **关联**: [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md) §2 环节2 配置参数
+
+### ISS-20260808-001 新分散源聚合覆盖偏低
+- **发现**: 2026-08-08 · **严重**: P3 · **分类**: 聚合 · **状态**: 📋 观察
+- **现象**: RSS 升级(196 源)后，某轮 `AGGREGATE: 0 marked`（300 unassigned/50 facts 0 标记）；24h 仍新建 17 事件，整体正常。
+- **根因**: 新增大量分散 feed 每源文章少，可能未达 `aggregate.event_threshold`(60)。
+- **解决**: 观察后续覆盖；若持续偏低可调低阈值或检查 fused 指纹（待评估）。
+- **验证**: — · **关联**: [feed-registry-v4.md](../04-config/feed-registry-v4.md) §9
 
 ### ISS-20260711-001 db.close() 后查询崩溃
 - **发现**: 2026-07-11 · **严重**: P1 · **分类**: Pipeline · **状态**: ✅ 已关闭
