@@ -1,6 +1,6 @@
 # 业务工作流 — 实体使用环节表
 
-> 版本: v1.0 · 2026-08-07
+> 版本: v1.1 · 2026-08-07
 > 定位: **按表格速查** —— 当前业务工作流（采集→展示）哪些环节用到实体/关系库、用什么库、如何实现、产出落点在哪。
 > 依据: 代码逐行核实（`search-engine-v2/scripts/`）+ [business-process.md](business-process.md)。
 > 相关: [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)（详细分析+升级方案）· [entity-kb.md](entity-kb.md) · [knowledge-base.md](knowledge-base.md)
@@ -24,7 +24,98 @@
 
 ---
 
-## 2. 关系库使用环节（relations / associations / entity_relationship）
+## 2. 各环节字段明细（源字段 → 输出字段）
+
+> 完整给出每个环节消费的**源字段**（输入）与产出的**输出字段**（含结构/落点）。实体相关字段全列出，非实体字段仅列出参与本环节的。
+
+### 环节 0 采集（rss-scanner）— 无实体字段
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | RSS feed | `title, description, link(article_url), published, source_name, source_domain` | 98 RSS 源 |
+| 输出字段 | rss_raw 表 | `id, guid, source_name, source_domain, feed_url, article_url, title, description, published_at, category_raw, created_at` | `~/.hermes/rss-archive.db` |
+| 实体字段 | — | **无**（实体在第 1 环才生成） | — |
+
+### 环节 1 评分（scorer）— 产出文章实体清单
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | `title`, `description` | 文本匹配对象 | `rss_raw` / 云端 articles |
+| 源字段 | `entity_weights.json` | `{companies:{名:权重}, persons:{}, countries:{}}`（34国/79人物/88公司） | `scripts/news_intel/config/` |
+| 输出字段 | `entities` | JSON `{companies:[], persons:[], countries:[]}`（命中实体名列表） | 本地 `news_intelligence.entities` → 云端 `articles.entities` |
+| 输出字段 | `score_entity` | int 0–20（实体重要性维度，取最高权重） | `news_intelligence.score_entity` → 云端 `articles.score_breakdown.entity` |
+
+### 环节 2 Fact 抽取（fact_pipeline + canonicalizer + KB loader + ontology_validator）— 产出 KB V1 稳定 ID
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | `title`, `description`, `content_md` | 统一文本 `_get_text()` | 文章 |
+| 源字段 | GLiNER `c_entities` | `[{label(person/organization/company/country/city), text}]` | GLiNER 模型 |
+| 源字段 | Qwen Raw Fact | `{subject, object, action, time, location}` | Qwen noThink（中文/B 兜底） |
+| 源字段 | `knowledge_base/*.yaml` | 中英别名索引（`loader._build_index`） | KB V1 |
+| 输出字段 | `entities[]` | `[{entity_id, entity_name, entity_type, role}]`，role ∈ SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER；entity_id=KB V1（`PERS_TRUMP`） | Fact payload → 云端 `fact_entity` 表 |
+| 输出字段 | `action_type`, `action_event_type`, `action_detail`, `event_time`, `location` | 规范动作/时间/地点（实体无关但同 payload） | 云端 `fact` 表 |
+
+### 环节 3 事件聚合（aggregator）— 产出事件 SAO/actors/related_entities
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | 文章 `entities` | `{companies, persons, countries}`（环节 1 产出） | `articles.entities` |
+| 源字段 | 文章 `title/description/content` | 指纹文本 | 文章 |
+| 源字段 | GLiNER `ner_entities` | `_gliner_to_entities` 转 `{persons, companies, countries}` | GLiNER |
+| 源字段 | Fact `entities[]` | `facts_by_article`（环节 2 产出） | fact payload |
+| 中间字段 | fingerprint | `{subject, subject_weight, action, object, object_weight, event_type, primary_topic, secondary_topic, country, participants, anchor, _cjk}` | 内存 |
+| 输出字段 | `subject` | `{entity_id(本地), name, type}` | → `events.subject_name`, `events.subject_type` |
+| 输出字段 | `object` | `{entity_id(本地), name, type}` | → `events.object_name`, `events.object_type` |
+| 输出字段 | `actors` | `[{entity, type, role(Initiator/Target/Participant)}]` | → `events.actors`(JSONB) |
+| 输出字段 | `related_entities` | `[{entity_id, name, type}]`（前 20） | → `events.related_entities`(JSONB) |
+| 输出字段 | `action` | `{type, detail}` | → `events.action_type/detail` |
+| 输出字段 | entity_registry（本地） | `{entity_id, canonical_name, aliases, type, country, importance}` | SQLite `entity_registry`（57 条） |
+
+### 环节 4 推送/云端入库（pusher + internal）— 实体落库
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | 事件 payload | `subject/object/actors/related_entities`（环节 3 产出） | pusher |
+| 源字段 | Fact payload | `entities[]`（环节 2 产出） | fact_pipeline |
+| 输出字段 | events 表 | `subject_name, subject_type, object_name, object_type, actors(JSONB), related_entities(JSONB)` | PG `events` |
+| 输出字段 | fact_entity 表 | `fact_id, entity_id(KB V1), entity_name, entity_type, role` | PG `fact_entity` |
+| 输出字段 | articles 表 | `entities` JSON（环节 1 产出随文章推送） | PG `articles` |
+
+### 环节 5 知识加工/关系回填（backfill / sync / fill）— 产出 DB 实体/关系表
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | `events.subject_name / object_name / actors / location_country` | 事件派生实体提取 | PG `events` |
+| 源字段 | `entity-network.json` | `entities.{leaders,business,companies}`, `associations[{from,type,to,desc}]`, `global_orgs` | `/host/references/` |
+| 源字段 | `knowledge_base/*.yaml` | KB V1 全量（sync 用） | 仓库 |
+| 输出字段 | `entities` 表 | `id, name, type, country, importance, aliases(JSONB), confidence, first_seen, last_seen` | PG（27176 行） |
+| 输出字段 | `entity_alias` 表 | `entity_id, alias, lang` | PG（41110 行） |
+| 输出字段 | `entity_relationship` 表 | `from_entity_id, to_entity_id, relation_type, confidence, description, evidence_count` | PG（26 行） |
+| 输出字段 | `event_relations` 表 | `parent_event_id, child_event_id, relation_type(precedes), start_time, end_time, evidence_count` | PG（28 行） |
+
+### 环节 6 展示（entities / stories）— 实体消费输出
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | `events.subject_name / object_name / actors` | 实体计数 | PG `events` |
+| 源字段 | `entity-network.json` + DB `entities/entity_alias/entity_relationship` | 画像合并 | KB + PG |
+| 输出字段 | `GET /api/v1/entities` | `items[{name, event_count, category, country, type}]`, `total` | 前端 `/entities` |
+| 输出字段 | `GET /api/v1/entities/{name}` | `entity{name,country,category,role/type}, aliases[], relationships[{entity,relation_type,direction,description}], associations[], related_events[], related_entities[], event_count, article_count` | 前端 `/entities/[name]` |
+| 输出字段 | `GET /api/v1/stories` | `items[{story_id, title, dimension, event_count,...}], derived_at, by_dimension` | 前端 `/stories` |
+
+### 环节 7 配置中心（实体管理 / 实体关系）— 管理字段
+
+| 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
+|------|------|-------------|-------------|
+| 源字段 | `entity-network.json` | 编辑对象（leaders/business/companies + associations） | `/host/references/` |
+| 源字段 | DB 4 表 | 管理对象（实体/别名/实体关系/事件关系） | PG |
+| 输出字段 | `entity-network.json` + `data_entity_kb.py` | 保存（校验→写 JSON→生成 py，热生效） | /host + 镜像 |
+| 输出字段 | DB 关系增删 | `entity_relationship` / `event_relations` CRUD + regenerate | PG |
+
+---
+
+## 3. 关系库使用环节（relations / associations / entity_relationship）
 
 > 关键结论: **关系数据在生产 Pipeline 几乎不用**，只在本体验证处做白名单校验；真正的实体-实体关系纯展示层。
 
@@ -39,7 +130,7 @@
 
 ---
 
-## 3. 实体 ID 落点对照（两套体系）
+## 4. 实体 ID 落点对照（两套体系）
 
 | 载体 | 实体 ID 来源 | ID 示例 | 是否 KB V1 |
 |------|--------------|---------|:----------:|
@@ -53,6 +144,6 @@
 
 ---
 
-## 4. 一句话总结
+## 5. 一句话总结
 
 > 实体**知识库**（KB V1 + entity_weights + GLiNER）在 **评分→Fact→聚合** 三个生产环节持续参与决策；实体**关系库**（relations/associations/entity_relationship）只在 **本体验证白名单** 与 **展示层画像** 使用，未进入事件/fact 生成逻辑。
