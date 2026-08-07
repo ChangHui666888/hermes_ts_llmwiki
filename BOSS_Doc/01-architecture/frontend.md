@@ -55,7 +55,7 @@ scripts/news-platform-v8/frontend/src/
 | 路径 | 页面 | 说明 |
 |------|------|------|
 | `/` | Dashboard | 态势感知中心：6 指标(含 Total Events 全量)、By Type 类型分布(点击过滤 /events)、世界地图、Hot Events、热度图、情报流；事件卡片含 国家/实体/时间线/更新时间 |
-| `/articles` | 文章列表 | Hot(6篇) + Latest(12篇) + **6 组层级主菜单**(/news/menu) |
+| `/articles` | 文章列表 | Hot(6篇) + Latest(12篇) + **顶部 6 组下拉主菜单**(/news/menu, 2026-08-08 替代源名tab) + 侧栏层级 + 来源分组(已归一化去重) |
 | `/articles/[id]` | 文章详情 | VIP/Admin 可见全文 content_md |
 | `/articles/category/[name]` | 分类筛选 | 按主题分类查看文章 |
 | `/articles/source/[name]` | 按来源筛选 | 来源文章列表 (分页) |
