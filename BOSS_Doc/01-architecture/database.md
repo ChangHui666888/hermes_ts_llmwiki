@@ -283,7 +283,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | **entities** | id, name, type, country, importance, aliases(JSONB), confidence, first_seen, last_seen, created_at | 实体主数据 (v0.2 升级: +country/importance/confidence/first_seen/last_seen) |
 | **entity_alias** | id, entity_id(FK), alias, lang, created_at | 结构化别名 (中英/简称, 唯一 entity_id+alias) — v0.2 新增 |
 | **entity_relationship** | id, from_entity_id(FK), to_entity_id(FK), relation_type, confidence, description, evidence_count, first_seen, last_seen, created_at | 实体-实体关系 (KB associations 接入) — v0.2 新增 |
-| **story** | id PK, story_id(30 UNIQUE), title(300), description, created_at, updated_at | Story 打包 (迁移 0003; story_id 格式 `STORY_{SUBJECT}`) |
+| **story** | id PK, story_id(30 UNIQUE), title(300), description, **dimension**(20: subject/action/object/location), created_at, updated_at | Story 打包 (迁移 0003 + 0004 dimension; story_id 前缀 `STORY_`/`ACT_`/`OBJ_`/`LOC_`) |
 | **story_event** | story_id(FK→story.id) + event_id VARCHAR(30) 复合 PK, position INT | 故事-事件关联 (仅排序展示, 不表达因果) — 迁移 0003 |
 | **categories** | id, name, parent_id | 分类层级 |
 | **tags** | id, name (UNIQUE) | 标签库 |

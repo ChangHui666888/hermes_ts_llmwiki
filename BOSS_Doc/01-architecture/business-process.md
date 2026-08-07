@@ -121,17 +121,21 @@ flowchart LR
     E --> P[实体画像 /api/v1/entities]
 ```
 
-**故事演化流**（同 subject 事件 → 故事，**手动**）:
+**故事演化流**（事件按 4 维度聚合 → 故事，**手动**）:
 
 ```
-管理员在配置中心"故事管理"Tab 点击"重建 Story"按钮 (或调 POST /api/v1/stories/derive, 幂等)
-  → 按 events.subject_name 分组（≥2 事件）
-  → 重建 story + story_event（position 排序）
-  → 前端 /stories 时间线展示
+管理员在配置中心"故事管理"Tab 点击"重建 Story"按钮 (POST /api/v1/stories/derive?dimension=all, 幂等)
+  → 按 4 维度分别分组事件（各 ≥2 事件成故事）:
+      Subject  → events.subject_name    (主体: 特朗普/苹果...)
+      Action   → events.action_type     (动作: ATTACKS/SANCTIONS...)
+      Object   → events.object_name     (客体: 伊朗/英伟达...)
+      Location → events.location_country (地点: 美国/中国...)
+  → 重建 story(story_id 前缀 STORY_/ACT_/OBJ_/LOC_ + dimension 列) + story_event
+  → 前端 /stories 菜单切换四维展示
 ```
 
 > Story = 展示层打包（非因果断言）；event_relations = 保守 precedes（时间序）。
-> **手动按钮方案**（2026-08-07 选定）：故事为低频/幂等/可见的展示层操作，采用配置中心按钮按需重建，不做 cron 自动化；页面展示 `derived_at` 上次派生时间以缓解陈旧性。derive 端点带并发锁(409) + 审计日志。
+> **手动按钮方案**（2026-08-07 选定）：故事为低频/幂等/可见的展示层操作，采用配置中心按钮按需重建，不做 cron 自动化；页面展示 `derived_at` 上次派生时间以缓解陈旧性。derive 端点带并发锁(409) + 审计日志 + `by_dimension` 分维统计。
 
 ### 过程 5 — 人工运维（配置中心）
 

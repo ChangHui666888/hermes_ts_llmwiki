@@ -62,7 +62,7 @@ scripts/news-platform-v8/frontend/src/
 | `/articles/list` | 全部文章 | 分页 20/页、排序下拉 (最新/最热, `?sort=`) |
 | `/events` | 事件列表 | 分页 20/页、type/stage/country 筛选 + 排序下拉 (首次/更新/置信度, `?sort=`) |
 | `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph |
-| `/stories` | 故事列表 | Story 打包 (story/story_event) |
+| `/stories` | 故事列表 | **四维度聚合** (Subject/Action/Object/Location 菜单切换, `?dimension=`) + 维度徽章 |
 | `/stories/[id]` | 故事时间线 | v2.1: 垂直射线时间线 + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 消除时间标记与卡片重叠 |
 | `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
 | `/entities/[name]` | 实体画像 | 国家归属 + 关系网络 + KB 关联 + 相关事件 + 同国实体 + 别名 |

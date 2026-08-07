@@ -42,9 +42,9 @@ V1 标准约束 (2026-07-29 起):
 | GET | `/sources`           | sources_v1.py   | 来源注册表 (真实 event_count/article_count/权威度) |
 | GET | `/search`            | search_v1.py    | 事件全文搜索 (title + summary ilike)         |
 | GET | `/map/events`        | map_v1.py       | 地理事件标记 (`limit` 默认50/最大1000, 返回 `total` 带地点事件总数, 不再静默截断) |
-| GET | `/api/v1/stories` | stories.py | **Story 列表** (含事件数, 按事件数降序; 响应含 `derived_at` 上次派生时间 + `total_events` 打包事件总数) |
+| GET | `/api/v1/stories` | stories.py | **Story 列表** (含事件数, 按事件数降序; `?dimension=subject\|action\|object\|location` 过滤; 响应含 `derived_at`/`total_events`/`by_dimension` 分维统计) |
 | GET | `/api/v1/stories/{id}` | stories.py | **Story 详情** (事件时间线, 按 position 排序) |
-| POST | `/api/v1/stories/derive` | stories.py | **派生/重建故事** (admin, 同 subject 事件→故事, 幂等 + 并发锁(409) + 审计日志; 返回 stories/derived_at/total_events) |
+| POST | `/api/v1/stories/derive` | stories.py | **派生/重建故事** (admin; `?dimension=all\|subject\|action\|object\|location`, 默认 all 重建四维; 幂等 + 并发锁(409) + 审计日志; 返回 stories/derived_at/total_events/by_dimension) |
 | GET | `/ads/random`        | ads.py          | 随机广告 (按 position 筛选)                   |
 | GET | `/api/v1/entities` | entities.py | **实体列表** (按事件出现次数排序, 来自事件 subject/object/actors + KB) |
 | GET | `/api/v1/entities/{name}` | entities.py | **实体画像** (国家归属+关联网络+相关事件+统计 event_count/article_count) |
