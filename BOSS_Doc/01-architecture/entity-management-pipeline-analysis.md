@@ -1,7 +1,8 @@
 # 实体管理链路分析 + 升级方案 — 配置中心 ↔ 业务流程
 
-> 版本: v1.0 · 2026-08-07 · **状态: 🟡 待决策**
+> 版本: v1.1 · 2026-08-07 · **状态: 🟡 待决策**
 > 定位: 梳理"配置中心实体管理/实体关系"与"项目业务流程实际使用的实体"之间的关联，并提出升级方案供决策。
+> v1.1: 展开 §三——逐环节写明实体/关系库的具体实现逻辑（评分/归一/聚合/回填/展示），并补充"关系库在生产中几乎不使用"的核查结论。
 > 依据: 代码逐行核实（`search-engine-v2/scripts/news-platform-v8/` + `scripts/news_intel/` + `knowledge_base/`）+ 现有 Wiki 文档 + 记忆。
 > 相关文档: [knowledge-base.md](knowledge-base.md) · [entity-kb.md](entity-kb.md) · [entity-relationships.md](entity-relationships.md) · [business-process.md](business-process.md) · [database.md](database.md)
 
@@ -16,6 +17,8 @@
 - **Pipeline 实体归一**（Fact 抽取、本体验证）用 `knowledge_base/*.yaml`（KB V1，249 国/8038 公司/18790 人物）——由 AI 工作流(wiki+git)维护，**配置中心 UI 够不到**。
 
 三套实体数据源互相独立，靠 `backfill_entity_model.py` / `sync_kb_to_db.py` / `fill_entity_kb.py` 三个脚本单向桥接。
+
+**关系库使用现状（新增核查）**：整个项目中"关系"数据（`knowledge_base/relations.yaml` 106 种、`entity-network.json` associations、DB `entity_relationship` 表）**在生产 Pipeline 里几乎不被使用**——仅 `ontology_validator.py` 用 REL_ 前缀做关系类型白名单校验（不读关系内容）；真正的实体-实体关系只服务展示层（画像页关系网络 + 配置中心实体关系 Tab）。`relations.yaml` 的关系语义（competitor/investor/part_of 等）尚无任何事件/fact 生成逻辑消费。
 
 ---
 
@@ -41,25 +44,111 @@
 
 ---
 
-## 三、项目业务流程中实体的完整使用链路（7 个环节）
+## 三、整个工作流程：实体/关系库的使用环节与具体实现逻辑
 
+> 总览图（哪些环节用了"实体"，哪些用了"关系库"）：
+>
+> ```
+> 采集 → 评分 → Fact抽取 → 事件聚合 → 推送 → 云端DB → 展示/Story
+>  │      │        │           │        │       │         │
+>  │    ①文章实体  ②KB V1归一  ③实体ID   ④落库   ⑤关系回填  ⑥画像/Story
+>  │    清单        +本体验证   +actors   +fact    (assoc)   +关系网络
+> 不用实体库   用entity_weights  用knowledge_base  不用关系库   用associations
+> ```
+>
+> **关键结论先行**：实体知识库（KB V1 / entity_weights / GLiNER）在**采集→评分→Fact→聚合**四个生产环节被频繁使用；而**关系库（relations.yaml REL_ 前缀、entity-network associations、entity_relationship 表）在 Pipeline 生产中几乎不被使用**——只在三层归一的第三层（本体验证）做了 REL_ 前缀白名单，真正的实体-实体关系（entity_relationship / 画像关联网络）纯属展示层数据。
+
+### 环节 0 — 采集（rss-scanner）｜ 不直接用实体库
+
+- 只做 RSS 抓取 + SHA256 去重，实体无关。文章级实体清单**不在采集时生成**，而在下一环评分时附带产出。
+
+### 环节 1 — 评分（scorer.py）｜ 用 `entity_weights.json`（第三套实体清单）
+
+**用途**：五维评分中的"实体重要性"维度（满分 20 分），同时产出文章级实体清单供下游。
+
+**具体逻辑**（`scorer.py`）：
+- `score_entities(title, description)`（:125）：把标题+摘要拼成 `text`，遍历 `entity_weights.json` 三个分组 `companies/persons/countries` 的每个实体名，用 `_entity_in_text(name, text)`（:109）匹配——
+  - **CJK 名 → 子串匹配**（无词边界）；**拉丁名 → 词边界 `\b`**；**≤3 字符短名（US/BP/UK）→ 大小写敏感**（防 'Xi' 命中希腊字母 xi、'US' 命中任意 us 子串）。
+  - 命中即取该实体权重，`max_score` 取最大值，`return min(max_score, 20)`。
+- 返回 `(分数, {companies:[...], persons:[...], countries:[...]})` → `score_article()`（:248）放入总分 `entity` 维 → `upsert_intelligence()`（`db.py:275`）把 `entities` JSON 存进本地 `news_intelligence.entities`。
+- 该 `entities` 清单随文章推送到云端 `articles.entities`（JSONB `{companies, persons, countries}`）——**它是后续聚合器事件聚类的实体输入源之一**。
+
+### 环节 2 — Fact 抽取（fact_pipeline + canonicalizer + knowledge_base/loader + ontology_validator）｜ 用 KB V1（唯一真正用知识库的环节）
+
+**用途**：把 LLM(Qwen noThink)/GLiNER 抽出的 Raw Fact 规范化为稳定 Entity ID + Role 模型。这是"实体库影响 Pipeline 决策"的唯一关口。
+
+**三层归一逻辑**（Wiki `knowledge-base.md` 三层图）：
 ```
-RSS采集 → 评分 → Fact抽取 → 事件聚合 → 推送 → PG → FastAPI → Next.js
-              │        │        │        │                │
-           ①权重   ②KB V1归一  ③本地ID  ④facts/events   ⑥画像/⑦Story
+原始新闻 → GLiNER/LLM 抽取 → AliasResolver(knowledge_base/loader) → Canonicalizer(Entity ID) → OntologyValidator → fact/fact_entity
 ```
 
-| # | 环节 | 模块 | 实体如何被使用 |
-|---|------|------|----------------|
-| ① | 评分 | `scorer.py:106-186` | `entity_weights.json`（34国/79人物/88公司权重）查表打"实体重要性"分（满分20）。**与 KB V1 / entity-network 都不同，是第三套清单**，静态文件 |
-| ② | Fact 抽取归一 | `canonicalizer.py:283 resolve_entity` | **唯一真正查知识库处**：优先 `knowledge_base/loader.resolve()`（中英别名→稳定 ID：`特朗普→PERS_TRUMP`、`中国→CTRY_CHN`、`英伟达→COMP_NVIDIA`），未命中回退 entity_weights + 本地本体 + 城市→国家 33 城 |
-| ③ | 本体验证 | `ontology_validator.py` (G7) | 三层归一第三层：Entity ID 前缀↔类型一致性（COMP_→Company…）+ REL_ 白名单，输出 validation 诊断不阻断 |
-| ④ | 事件聚合 | `aggregator.py:1049` | subject/object/actors 的 entity_id 用**本地生成** `_entity_name_to_id`（`aggregator.py:1195`，按 `_known_entity_types` 拼前缀，**不查 KB**）；`upsert_entity` 写本地 SQLite `entity_registry`（57 条） |
-| ⑤ | 云端入库 | `pusher.py:160-182` → `internal.py` | Event 存 `subject_name/object_name/actors(JSONB,{entity,type,role})`；facts 推 `/internal/facts/batch` → `fact_entity` 表存 **KB V1 ID** |
-| ⑥ | 实体画像 | `routes/entities.py` + 前端 `/entities` | 列表=事件派生实体按事件数排序+KB enrich；画像页=KB(entity-network)+DB(entities/alias/relationship)+相关事件 合并 |
-| ⑦ | Story 打包 | `stories.py` / `backfill` | 按 subject/action/object/location 四维分组事件 → `STORY_(subject)` 等前缀 |
+1. **GLiNER 实体锚定**（`fact_pipeline.py`）：`ground(p, ents)` 从 GLiNER 实体列表中找含该主语/客语的项取最长标签，供类型推断；`entities_payload()`（:156）对每个拆分实体调 `resolve_entity(p, g["label"])`，先 `is_media_source()` 过滤新闻来源名（防 "Al Jazeera→US" 误判），产出 `{"entity_id", "entity_name", "entity_type", "role"}`。
+2. **Canonicalizer `resolve_entity(name, gliner_type)`**（`canonicalizer.py:283`）优先级：
+   - 先剥 `EXCHANGE:TICKER` 前缀（`NASDAQ:NVDA→NVDA`）。
+   - **① KB V1 优先**：`knowledge_base/loader.resolve(lookup)` 命中 → 返回 `(entity_id, canonical_name, type)`。`loader._build_index`（`knowledge_base/loader.py:87`）规则：**`entity_alias.yaml`（curated，含转喻/缩写/中文）先建索引 → 覆盖 section YAML 自动条目**；每条映射 `别名小写 → (cid, canon, type)`。例：`特朗普→('PERS_TRUMP','Trump','Person')`、`中国→('CTRY_CHN','China','Country')`、`英伟达→('COMP_NVIDIA','NVIDIA','Company')`。
+   - **② 回退本地本体**：`_load_aliases()` 读 `entity_weights.json` 建 `_ALIAS_MAP`（取最长的英文名当 canonical）；然后 `CITY_TO_COUNTRY`（33 城→国家：Beijing→China）；最后 `_infer_type()`（政府/军队/人物头衔/国名关键词）定类型。
+   - **③ ID 生成**：按类型前缀 `_ID_PREFIX`（Country→CTRY/Person→PERS/Company→COMP/…）拼 `前缀_大写去空格下划线`。**未命中 KB 的实体也是规范生成 ID**（如 `ENT_XXX`/`COMP_XXX`），只是非 KB 权威 ID。
+3. **OntologyValidator**（`ontology_validator.py`，G7）：`validate_entities()` 校验 `entity_id` 前缀↔`entity_type` 一致性（`COMP_→Company/PERS_→Person`…）+ 关系 REL_ 前缀白名单；输出 `validation` 诊断字段**不阻断**聚合。⚠️ 这里是**关系库 relations.yaml 在 Pipeline 中的唯一用处**——仅校验 REL_ 前缀，不读取具体关系数据。
+4. **产出/落点**：`canonicalize()` 输出 `{action, time, location, entities:[{name,id,type,role}], validation}` → Fact payload → 推送 `/internal/facts/batch` → 云端 **`fact_entity` 表存 KB V1 稳定 ID**。
 
-**关键发现**: Fact 层实体用 **KB V1 稳定 ID**（PERS_TRUMP），事件层实体用 **aggregator 本地 ID**（COMP_NVIDIA 式）——**同一实体在 fact 与 event 里是两个 ID 体系**，云端无法靠 entity_id 关联，只能按 name 匹配。
+### 环节 3 — 事件聚合（aggregator.py）｜ 用文章实体清单 + GLiNER + Fact 实体；**不用关系库**
+
+**用途**：把多篇文章聚成事件，subject/object/actors/related_entities 全部是实体运算。实体知识库在这里以"归一化函数"形式间接参与。
+
+**具体逻辑**（`aggregator.py`）：
+- **实体规范化 `_canonicalize(name)`**（:85）：内部调 `canonicalizer.resolve_entity`，命中返回 canonical（英伟达→NVIDIA），KB 统一归一，支持中英聚合。
+- **实体 IDF `_compute_entity_idf(articles)`**（:289）：统计每篇文章 `entities{companies,persons,countries}` 的规范化名在全集/主题内的频率 → `global_idf`/`topic_idf`/`hub_entities`（频率占比 > `HUB_RATIO` 且 ≥5 次的"hub 实体"）。
+- **主体/客体权重 `_entity_weight(name)`**（:326）：`type_w(类型权重) × (0.2 + 0.4×global_idf + 0.4×topic_idf)`。
+- **指纹构建 `build_fingerprint`**（:387）：
+  - subject：对文章 entities 的 company/person 名算权重 → hub 实体 ×0.3 降权、**标题出现实体 ×2 显著性提升** → 权重最高者且 ≥ `MIN_SUBJECT_WEIGHT` 才当 subject。
+  - object：country/company 候选（排除 subject）取权重最高。
+  - participants = `_extract_participants`（entities countries + `COUNTRIES` 词表正则）。
+  - `_known_entity_types`（:757）从文章 entities 分组构建 `名→类型`，供事件 subject/object 打类型。
+- **Fused 融合 `build_fused_fingerprint`**（:682，生产默认）：每字段取最优源——subject/object ← fact（且 `_name_in_text` 校验实体确实在文章文本，**中文 CJK 直接信任**）、action/event_type ← fact 否则 legacy、country ← legacy 优先、participants 并集、anchor 重算。
+- **合并打分 `fingerprint_score`**（:484）：location/主题硬约束 → anchor 完全一致=100 → action+25 / **subject 完全同实体+25（KB 中英归一后支持跨语言）** / object 稀有度加权 10~30 / topic+10 / event_type+10 / participants 重叠加分。
+- **事件实体 ID `_entity_name_to_id`**（:1195）：**本地生成方案**（`前缀_{大写清理名}`，前缀取 `_known_entity_types`）——**不查 KB**，与 Fact 层的 KB V1 ID 是两套体系。写入 `event.subject.entity_id / object.entity_id / related_entities[].entity_id`。
+- **actors** `_infer_actor_roles`（:583）：entity_refs 前 5 个 → 第 1 个 Initiator、等于 obj 的 Target、其余 Participant → `{entity, type, role}`。
+- **本地注册** `upsert_entity`（:1168）：把相关实体写进 SQLite `entity_registry`（57 条），供本地 Dossier/画像。
+- **产出**：事件 Dossier（subject/object/action/actors/related_entities）→ 推送。
+
+### 环节 4 — 推送/云端入库（pusher.py → internal.py）｜ 实体名 + ID 落库
+
+- 事件：`_event_to_push_format`（`pusher.py:144`）发送 `subject/object`（含 name+entity_id）、`actors`、`related_entities` 原始结构 → `internal.py` 写 `events` 表 `subject_name/object_name/actors(JSONB {entity,type,role})`（**云端事件只存实体名，不存事件级 entity_id**）。
+- Fact：`fact_pipeline.py:274` 推 `/internal/facts/batch` → `fact_entity` 存 **entity_id（KB V1）+ entity_name + entity_type + role**。
+
+### 环节 5 — 知识加工/DB 关系库回填（backfill_entity_model.py / sync_kb_to_db.py / fill_entity_kb.py）｜ 实体与关系表在这里生成
+
+**用途**：把"流程实体"与"KB 实体"合并进云端 `entities/entity_alias/entity_relationship/event_relations` 四表——**这是配置中心"实体关系"Tab 的数据来源，也是流程实体与关系库交汇点**。
+
+| 脚本 | 逻辑 | 产出 |
+|---|---|---|
+| `backfill_entity_model.py`（容器内跑，幂等） | ① `collect_kb_entities`（KB entity-network 149 实体）+ `collect_event_entities`（events 表 subject/object/actors 派生 **35** 实体）→ 用 `CANON_NAME` 硬编码 canonical（Donald Trump→Trump）合并去重 → upsert `entities`；② `entity_alias` 重建（KB aliases + `CANON_ALIASES` 中英别名表）；③ `entity_relationship` 重建（**KB associations → from/to entity_id**，26 条）；④ `event_relations` 重建（**同 subject 事件按 first_seen 时间序 → precedes 边**，28 条） | 云端 4 张实体/关系表 |
+| `sync_kb_to_db.py`（容器内跑） | 把 `knowledge_base/*.yaml` 的 **KB V1 全量**（18790 人物/8038 公司/249 国）upsert 进 `entities` + 别名进 `entity_alias`（27176 实体/41110 别名） | entities/entity_alias 补齐 |
+| `fill_entity_kb.py`（本地跑） | 把事件派生但 KB 缺失的实体补进 `entity-network.json`（如 Anthropic/SpaceX→US companies）+ 类型修正（Buffett→Person）+ 重新生成 `data_entity_kb.py` | entity-network.json 反向吸收流程实体 |
+
+### 环节 6 — 展示（entities 画像 + stories）｜ 合并 KB + DB + 事件
+
+- **实体列表** `/api/v1/entities`：对 `events` 表 subject/object/actors 去重计数排序（top 100），用 `_find_entity`（entity-network KB，含别名）补 country/category/type。
+- **实体画像** `/api/v1/entities/{name}`（`routes/entities.py:272`）三层合并：
+  1. KB 查 `_find_entity`（entity-network.json：国家/类别/角色）→ 基础信息；
+  2. DB 查 `Entity`（按原名→别名反查 canonical，修 Trump/Donald Trump 不一致）→ aliases + **entity_relationship in/out 方向**（`db_relationships`，即画像页"关系网络"）；
+  3. `_entity_filter` 匹配 `events.subject_name/object_name/actors` → 相关事件/event_count/article_count；`related_entities`（同国家 companies/leaders）。
+  - 画像页前端（`entities/[name]/page.tsx`）渲染：关系网络（DB entity_relationship）+ 关联网络（KB associations）+ 相关事件 + 同国家实体。
+- **Story 派生** `stories.py`（`derive_dimension` :69）：按 `STORY_DIMENSIONS`（subject→subject_name / action→action_type / object→object_name / location→location_country）分组事件（各 ≥2 事件成故事），`story_id` 前缀 `STORY_/ACT_/OBJ_/LOC_`，重建幂等 + 并发锁。**subject 维度即实体维度**（STORY_Trump=特朗普相关事件时间线）。
+
+### 环节 7 — 配置中心（实体管理 / 实体关系 Tab）｜ 管理入口（见 §二）
+
+**产出落点总结**：
+| 环节 | 用到的实体/关系库 | 实体落点 |
+|---|---|---|
+| 0 采集 | 无 | — |
+| 1 评分 | `entity_weights.json` | `articles.entities`（清单）+ 评分 entity 维 |
+| 2 Fact | **KB V1**（knowledge_base/loader）| `fact_entity`（KB V1 稳定 ID）|
+| 3 聚合 | 文章实体清单 + GLiNER + Fact 实体（经 `_canonicalize`）| 事件 subject/object/actors/related_entities（**本地 ID**）+ SQLite `entity_registry` |
+| 4 入库 | — | `events`（实体名）、`fact_entity`（KB ID）|
+| 5 回填 | entity-network associations + events + KB V1 | `entities/entity_alias/entity_relationship/event_relations` |
+| 6 展示 | entity-network + DB 关系表 | 画像页 / Story（subject 维度）|
+| 7 配置中心 | entity-network.json + DB 4 表 | UI 编辑入口（见 §二）|
 
 ---
 
