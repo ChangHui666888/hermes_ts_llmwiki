@@ -1,6 +1,6 @@
 # V4 Enterprise Feed Registry — 全球信息源注册中心（升级方案）
 
-> 版本: v1.1 · 2026-08-07 · **状态: 🟢 已决策（P1 实施中）**
+> 版本: v1.2 · 2026-08-07 · **状态: 🟢 已决策（P1 ✅ 完成，P2-P5 待续）**
 > 定位: 把 Hermes 从"RSS 阅读器"升级为 **Global Feed Registry（信息源注册中心）**——统一元数据 + 16 大类 + 重要性分级 + 多类型扩展，全部经配置中心 Web 管理。
 > 依据: 当前实现核实（`rss_sources.py` / `rss-scanner.py` / 配置中心源列表）+ 提案。
 > 相关: [backend.md](../01-architecture/backend.md)（/admin/rss/sources）· [cron-jobs.md](cron-jobs.md) · [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md)
@@ -197,7 +197,7 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 | 阶段 | 内容 | 验收 |
 |------|------|------|
-| **P1 Schema+UI** | 后端 RssSourceIn 扩字段 + 配置中心表单扩展 + import/export API | 配置中心可编辑/导入新字段，旧源数据兼容 |
+| **P1 Schema+UI** | ✅ 后端 RssSourceIn 扩 11 字段 + 16 类常量(中文别名) + `/sources/import` `/sources/export` API + 配置中心表单/批量导入/旧分类兜底（commit `8a9c221`） | 配置中心可编辑/导入新字段，旧源数据兼容 |
 | **P2 存量重映射** | 现有 98 源映射到 16 类 + 补全 country/language/type/importance | 分类统计正确 |
 | **P3 新源导入** | 批量导入 ~80 新源，**URL probe 验证**，失效源隔离 | 全部源可访问，扫描正常 |
 | **P4 移除 categorize_feed** | scanner 改读源 category + 回退兜底，删除 `categorize_feed()` | 新源无需改代码即正确分类 |
