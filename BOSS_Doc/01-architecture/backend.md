@@ -29,7 +29,8 @@ V1 标准约束 (2026-07-29 起):
 | 方法  | 路径                   | 模块              | 说明                                     |
 | --- | -------------------- | --------------- | -------------------------------------- |
 | GET | `/`                  | main.py         | 服务信息 `{"service": "News Platform V8"}` |
-| GET | `/news`              | news.py         | 文章列表 (分页, 支持 category/tier/source 筛选, `sort=time_desc\|time_asc\|score_desc\|score_asc`, 默认 time_desc) |
+| GET | `/news`              | news.py         | 文章列表 (分页, 支持 category/tier/source/menu 筛选, `sort=time_desc\|time_asc\|score_desc\|score_asc`, 默认 time_desc; `menu={slug}` 按源分类过滤) |
+| GET | `/news/menu`         | news.py         | **V4 新闻主菜单** (2026-08-07): 6 组层级 (News/Finance/Technology/Government/Research/Community) + 每子类文章数 |
 | GET | `/news/hot`          | news.py         | Top 10 热门文章 (按 score_total 降序)         |
 | GET | `/news/latest`       | news.py         | 最新 20 篇文章 (按 published_at 降序)          |
 | GET | `/news/search`       | news.py         | 文章搜索 (title + summary_cn ilike)        |
