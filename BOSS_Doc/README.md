@@ -48,6 +48,7 @@ News Intelligence Platform 操作手册。
 
 | 文档 | 说明 |
 |------|------|
+| [📋 问题记录跟踪表](05-troubleshooting/issue-tracking.md) | **唯一问题注册表**：全项目问题 + 生命周期状态机 + 详情入口 (ISS-编号) |
 | [RSS 源隔离](05-troubleshooting/rss-quarantine.md) | 隔离规则、重置方法 |
 | [Cron 排障](05-troubleshooting/cron-debug.md) | 日志位置和解读 |
 
