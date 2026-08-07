@@ -129,3 +129,11 @@ docker compose exec backend python /host/scripts/news-platform-v8/backfill_entit
 ```bash
 python scripts/news-platform-v8/fill_entity_kb.py
 ```
+
+---
+
+## 6. 已知缺口 / 关联分析（2026-08-07）
+
+- **关系库在生产中几乎不使用**：`relations.yaml`（106 种关系）、`associations`、`entity_relationship` 表在生产 Pipeline 仅被 `ontology_validator.py` 做 REL_ 前缀白名单校验（不读关系内容）；真正的实体-实体关系纯展示层（画像页关系网络 + 配置中心"实体关系"Tab）。
+- **配置中心↔Pipeline 回流断裂**：实体管理 Tab 编辑的 `entity-network.json` 不影响 Pipeline 抽取归一（源头是 `knowledge_base/*.yaml`）；本表（DB entities/entity_relationship）为读侧产物。
+- 完整分析与升级方案（A 双向同步 / B 统一 ID / C 收敛 canonical，**待决策**）：见 [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)。

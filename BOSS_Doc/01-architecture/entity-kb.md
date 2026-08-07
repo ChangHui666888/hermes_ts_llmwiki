@@ -104,3 +104,5 @@
 - [x] **实体管理 UI**：已上线 — 配置中心"实体管理"Tab（编辑→校验→保存热生效→同步Git）。
 - [ ] **别名数据填充**：代码支持 aliases，目前仅日本有别名（高市早苗）。
 - [ ] **自动文章 URL 完整度**：50/168 事件 evidence URL 为空，影响实体→事件关联完整性（聚合器优化）。
+- [ ] **配置中心↔Pipeline 实体回流断裂（2026-08-07 分析）**：实体管理 Tab 编辑的 `entity-network.json` 只影响画像/回填，**不影响 Pipeline 抽取归一**——抽取源头是 `knowledge_base/*.yaml`（KB V1）。升级方案 A（双向同步）/B（统一事件-Fact 实体 ID）/C（收敛 canonical）**待决策**，见 [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)。
+- [ ] **事件/Fact 实体 ID 双轨（2026-08-07）**：事件层用 `aggregator._entity_name_to_id` 本地生成 ID，Fact 层用 KB V1 稳定 ID，云端无法按 entity_id 跨表关联，只能 name 匹配。方案 B 统一。
