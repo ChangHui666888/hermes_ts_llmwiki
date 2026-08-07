@@ -1,6 +1,6 @@
 # V4 Enterprise Feed Registry — 全球信息源注册中心（升级方案）
 
-> 版本: v1.0 · 2026-08-07 · **状态: 🟡 待决策**
+> 版本: v1.1 · 2026-08-07 · **状态: 🟢 已决策（P1 实施中）**
 > 定位: 把 Hermes 从"RSS 阅读器"升级为 **Global Feed Registry（信息源注册中心）**——统一元数据 + 16 大类 + 重要性分级 + 多类型扩展，全部经配置中心 Web 管理。
 > 依据: 当前实现核实（`rss_sources.py` / `rss-scanner.py` / 配置中心源列表）+ 提案。
 > 相关: [backend.md](../01-architecture/backend.md)（/admin/rss/sources）· [cron-jobs.md](cron-jobs.md) · [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md)
@@ -210,17 +210,17 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 ---
 
-## 6. 决策点
+## 6. 决策点（✅ 已决策 2026-08-07）
 
-| # | 决策 | 选项 | 影响 |
-|---|------|------|------|
-| 1 | 分类法 | 纯 16 类英文 / 16 类+中文别名双标签 | 统计口径 + 前端展示 |
-| 2 | `importance` S/A/B/C 是否接入 scorer | 仅元数据 / 联动 `source_scores.json` 权威度 | 评分权重变化 |
-| 3 | 新源导入 | 一次性全量（~80）/ 分批（先 Wire+Gov+AI，再长尾） | 扫描压力 + 失效源处理 |
-| 4 | `categorize_feed` 兜底 | 完全删除 / 保留为"未知源自动归类"回退 | 新源体验 |
-| 5 | 源数量目标 | 170 / 200 / 按 probe 通过数定 | 规模与质量 |
+| # | 决策 | 已选方案 | 影响 |
+|---|------|----------|------|
+| 1 | 分类法 | **16 类 + 中文别名双标签** | 16 类为权威主类，每类挂中文别名（Wire Agencies↔通讯社…），统计/前端双语言 |
+| 2 | `importance` 接入 scorer | **联动 scorer 权威度** | `importance` S/A/B/C 映射进 `source_scores.json` 权威度（S=最高），评分实体/来源维联动 |
+| 3 | 新源导入 | **分批**（先 Wire+Gov+AI 权威源，再金融/长尾） | 控制扫描压力 + 逐批 probe |
+| 4 | `categorize_feed` 兜底 | **保留为"未知源自动归类"回退** | scanner 优先读源 `category`，未知/缺分类源走名称兜底 |
+| 5 | 目标源数 | **宁缺毋滥（probe 通过为准）** | 只导入 URL 验证通过的源，不凑数 |
 
-> **建议**：选 ① 16 类+中文别名；② 先仅元数据、二期联动 scorer；③ 分批导入（先权威源后长尾）；④ 保留兜底；⑤ 以 probe 通过为准（宁缺毋滥）。
+> **实施约定**：16 类主类 = §2.2 表；中文别名由配置中心分类下拉提供（主类 + 中文标签）；importance 联动 scorer 在 P2 一并落地。
 
 ---
 
