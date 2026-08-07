@@ -31,7 +31,7 @@ scripts/news-platform-v8/frontend/src/
 │   ├── login/page.tsx     # 登录页 (JWT)
 │   ├── admin/             # 管理后台 (4 页)
 │   │   ├── page.tsx / pipeline / sources / status
-│   └── config/page.tsx    # 配置中心 (13 Tab, ~8 内联组件)
+│   └── config/page.tsx    # 配置中心 (14 Tab, ~9 内联组件, 含"故事管理"重建按钮)
 ├── lib/
 │   ├── api.ts             # fetchAPI<T> 封装 (/api/v1)
 │   ├── auth.tsx           # Auth Context (localStorage JWT + /auth/me 校验)
@@ -74,7 +74,7 @@ scripts/news-platform-v8/frontend/src/
 | `/admin/pipeline` | Pipeline 配置 | 评分 JSON + 聚合阈值编辑 |
 | `/admin/sources` | 来源管理 | 可排序表格 (权威/失败/状态 + 搜索) |
 | `/admin/status` | Pipeline 状态 | KPI + 事件阶段分布 + 文章 Tier 分布 + 最近活动 |
-| `/config` | 配置中心 | 13 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型 |
+| `/config` | 配置中心 | 14 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/**故事管理** |
 
 ## API 调用方式
 

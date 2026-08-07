@@ -121,16 +121,17 @@ flowchart LR
     E --> P[实体画像 /api/v1/entities]
 ```
 
-**故事演化流**（同 subject 事件 → 故事）:
+**故事演化流**（同 subject 事件 → 故事，**手动**）:
 
 ```
-管理员触发 POST /api/v1/stories/derive (幂等)
+管理员在配置中心"故事管理"Tab 点击"重建 Story"按钮 (或调 POST /api/v1/stories/derive, 幂等)
   → 按 events.subject_name 分组（≥2 事件）
   → 重建 story + story_event（position 排序）
   → 前端 /stories 时间线展示
 ```
 
 > Story = 展示层打包（非因果断言）；event_relations = 保守 precedes（时间序）。
+> **手动按钮方案**（2026-08-07 选定）：故事为低频/幂等/可见的展示层操作，采用配置中心按钮按需重建，不做 cron 自动化；页面展示 `derived_at` 上次派生时间以缓解陈旧性。derive 端点带并发锁(409) + 审计日志。
 
 ### 过程 5 — 人工运维（配置中心）
 
@@ -141,6 +142,7 @@ flowchart LR
 | **事件校对** | 配置中心"事件校对"Tab | 3 面板: 事件列表 → 文章勾选 → 批量 add/remove/exclude |
 | **实体管理** | "实体管理"Tab | 编辑 KB JSON → 校验 → 保存热生效 → Git 同步 |
 | **实体关系** | "实体关系"Tab | 增删实体关系 / 事件关系 / regenerate 重建 |
+| **故事管理** | "故事管理"Tab (14th) | 查看故事数 + 上次派生时间 + 点击"重建 Story"（幂等 + 并发锁） |
 | **RSS 源管理** | "源列表"Tab / /admin/sources | 增删改源、启停 |
 | **域名策略** | "域名"Tab | 每域名策略链 + known_failing |
 | **Pipeline 参数** | "RSS参数/Pipeline/AI/评分/聚合/抓取"Tab | 类型化编辑 → 保存实时下发 |
