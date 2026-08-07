@@ -235,3 +235,40 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 - 多标签（`tags` 数组）支持一源多属（Reuters ∈ Wire + Finance）。
 - 源健康度（quarantine 历史）→ 配置中心可视化。
 - 与实体库/评分联动：importance 参与评分加权、category 参与事件主题先验。
+
+---
+
+## 8. 脚本使用情况（197 源在各脚本中如何被消费，2026-08-08）
+
+> 源数据流：**配置中心「源列表」→ VPS settings 表 `rss.feeds` → config-agent(60s) → 本地 `pipeline-config.json` → 各脚本消费**。
+
+### 8.1 各脚本字段消费矩阵
+
+| 脚本 | 消费字段 | 用途 | V4 状态 |
+|------|----------|------|:-------:|
+| **config-agent.py** (`scripts/hermes-cron/`) | 全部 11 字段 (name/url/region/tier/category/subcategory/country/language/type/importance/enabled) | 从 VPS `/admin/pipeline/config/export-internal` 拉取 → 白名单 `_sanitize_feeds` 校验 → 写本地 `pipeline-config.json` | ✅ V4 |
+| **rss-scanner.py** (`scripts/hermes-cron/`) | `url`(抓取) · `region`(intl→SOCKS5 代理/cn→直连) · `tier`(hot/warm/cold 扫描顺序) · `name`(源名落库) · `category`(分类落库) · `enabled`(启停) | RSS 扫描引擎 → `rss_articles` 表 | ✅ V4 (P4) |
+| **scorer.py** (`scripts/news_intel/`) | `importance` (S/A/B/C → 20/15/11/8 兜底分) | `score_source` 来源权威度维度（source_scores.json 精确分优先） | ✅ V4 |
+| **sources_v1.py** (`apps/api/routes/`) | `category`（按源名模糊匹配） | 公共 `/sources` 页 16 类徽章 | ✅ V4 |
+| **news.py** (`apps/api/routes/`) | `category`+`subcategory`（`/news/menu` 层级 + `/news?menu={slug}` 过滤） | 首页 6 组主菜单 + feed 页 | ✅ V4 |
+| **aggregator.py** (`scripts/news_intel/`) | 不直接消费源列表（阈值经 config 读取） | 事件聚合 | — |
+
+### 8.2 字段语义与使用分工
+
+| 字段 | 谁在用 | 语义 |
+|------|--------|------|
+| `url` | scanner | 抓取地址 |
+| `region` | scanner | 网络路由：intl 走 SOCKS5 / cn 直连 |
+| `tier` | scanner | 扫描频率：hot=先扫/warm/cold |
+| `importance` | **scorer** | 评分权重：S/A/B/C → 20/15/11/8（source_scores 精确分优先） |
+| `category` | scanner + sources_v1 + news.py | 16 大类（分类落库 + 菜单层级） |
+| `subcategory` | news.py | 主菜单子类（menu 过滤） |
+| `country`/`language` | 展示元数据 | 地缘统计/跨语言（暂未用于扫描路由） |
+| `type` | **未使用** | rss/atom/nitter 等类型字段已存；当前 scanner 全走 feedparser 可解析，未按 type 分支 |
+| `enabled` | scanner + config-agent | 启停过滤 |
+
+### 8.3 当前缺口 / 建议
+
+1. **`type` 未分支**：scanner 对所有源统一 feedparser 解析。当前 197 源中 179 个 rss + 18 个 nitter（nitter 实例也输出 RSS），Atom(GitLab) 也被 feedparser 兼容——功能无碍；但接入 JSON Feed/YouTube 等新类型时需在 scanner 加 `type` 分派。
+2. **scanner 硬编码回退列表**：`rss-scanner.py` 内 `FEEDS`（98 源旧格式）仅作 config 缺失时回退；已落后于 V4（197 源全字段）。建议后续移除或与 `references/rss-sources-v4-migrated.json` 同步。
+3. **country/language 未驱动路由**：可后续用于「中文源直连加速 / 语言分组扫描」等优化。
