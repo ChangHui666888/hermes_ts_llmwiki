@@ -43,6 +43,7 @@ News Intelligence Platform 操作手册。
 
 | 文档 | 说明 |
 |------|------|
+| [🌐 Feed Registry V4](04-config/feed-registry-v4.md) | **待决策** 全球信息源注册中心升级方案（10字段schema/16大类/~80新源/配置中心集成/迁移） |
 | [Cron 配置](04-config/cron-jobs.md) | rss-scan + auto-pipeline 计划任务 |
 
 ### 05-troubleshooting — 排障
