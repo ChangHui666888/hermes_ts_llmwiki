@@ -20,6 +20,7 @@ News Intelligence Platform 操作手册。
 | [🧩 实体库维护](01-architecture/entity-kb.md) | **最新** 实体库双源架构 + AI维护工作流 (wiki→JSON+py→部署) |
 | [知识库 KB](01-architecture/knowledge-base.md) | **最新** 全球实体关系知识库 (9本体YAML + 中英别名→Entity ID) |
 | [实体关系](01-architecture/entity-relationships.md) | **最新** 入库实体/关系全量 (KB 导入 + 事件派生) |
+| [🧩 实体链路分析+方案](01-architecture/entity-management-pipeline-analysis.md) | **待决策** 配置中心实体管理 ↔ 业务流程实体使用关联 + 升级方案 (A双向同步/B统一ID/C收敛canonical) |
 | [升级交接](01-architecture/upgrade-handoff-2026-08-05.md) | 全量升级交接 (会话状态 + 遗留问题) |
 
 ### 02-deployment — 部署运维
