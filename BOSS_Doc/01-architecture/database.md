@@ -1,6 +1,6 @@
 # 数据库 — PostgreSQL 16
 
-> 最后更新: 2026-08-03
+> 最后更新: 2026-08-07
 > 版本: PostgreSQL 16-alpine · 大小: 15 MB
 > 连接: `postgresql://news_admin:news_pass@postgres:5432/news_intel`
 
@@ -152,28 +152,32 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | 密码 | `news_pass` |
 | 容器 | `news-platform-v8-postgres-1` (healthcheck: pg_isready) |
 | 数据卷 | `news-intel-platform_pgdata` (Docker volume, external) |
-| 表数量 | **25** (2026-08-03 实查; 含 Fact 层 fact/fact_entity + alembic_version) |
+| 表数量 | **29** (2026-08-07: 27 ORM 表 + fetch_stats + alembic_version; 迁移 0001 fact/0002 entity/0003 story 全应用) |
 | Pool | 连接池 10, 最大溢出 20 |
 
-## 数据量统计 (2026-08-06 VPS 实查)
+## 数据量统计 (2026-08-06/07 VPS 实查)
 
 | 表 | 行数 | 说明 |
 |----|:----:|------|
-| events | **~200** | 事件 Dossier (`/api/v1/dashboard` total_events=200; `/api/v1/events` total=183, 差值因过滤条件)。注意: 事件数随重聚合波动 (历史曾 1008 错乱 → 重聚合后 112 → 现 ~200) |
-| articles | **增长中** | 文章 (08-03 为 1719; 本地 rss_raw 已达 21916, VPS 仅收有正文/描述的文章) |
+| events | **~200** | 事件 Dossier (`/api/v1/dashboard` total_events=200; 事件数随重聚合波动: 曾 1008 错乱 → 重聚合 112 → 现 ~200; 08-05 为 158) |
+| articles | **增长中** | 文章 (08-03 为 1719; 08-05 为 1,349; 本地 rss_raw 已达 21916, VPS 仅收有正文/描述的文章) |
 | fact | 随每轮增量 | Fact 层 (Step 4.5 混合抽取) |
 | fact_entity | 随每轮增量 | Fact 参与者 (Role 模型) |
-| sources | 24 | RSS 来源注册 |
-| entities | **60** | 实体注册 (KB V1 导入 + 事件派生) |
+| sources | 24-36 | RSS 来源注册 (VPS 24; 本地 source_registry 36) |
+| entities | **27,176** | 实体注册 (KB V1 sync_kb_to_db 导入 + 事件派生) |
+| entity_alias | **41,110** | 结构化别名 (中英/简称, sync_kb_to_db) |
+| entity_relationship | **26** | 实体-实体关系 (KB associations + backfill) |
+| event_relations | **28** | 事件-事件关系 (同 subject 时间序 precedes) |
+| story | **12** | Story 打包 (derive 同 subject 事件) |
+| story_event | **~90** | 故事-事件关联 (position 排序) |
 | settings | 21 | 配置中心 KV |
 | event_article_override | 16 | 手动聚合归属 (事件校对) |
-| event_relations | 0 | 事件关系 (预置, 未启用) |
 | users | 3 | 管理员/免费用户 |
 | fetch_stats | ~ 数百 | 抓取策略统计 |
 
 > Dashboard (`/api/v1/dashboard`) 实时指标: active_events=185, critical_events=15, today_updates=38, sources=24。
 
-## 完整表结构 (25 表)
+## 完整表结构 (29 表)
 
 ### 1. events — 事件 Dossier (核心表)
 
@@ -276,9 +280,11 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 
 | 表 | 列 | 说明 |
 |----|-----|------|
-| **entities** | id, name, type, country, importance, aliases(JSONB), metadata(JSONB), confidence, first_seen, last_seen, created_at | 实体主数据 (v0.2 升级: +country/importance/confidence/first_seen/last_seen) |
+| **entities** | id, name, type, country, importance, aliases(JSONB), confidence, first_seen, last_seen, created_at | 实体主数据 (v0.2 升级: +country/importance/confidence/first_seen/last_seen) |
 | **entity_alias** | id, entity_id(FK), alias, lang, created_at | 结构化别名 (中英/简称, 唯一 entity_id+alias) — v0.2 新增 |
 | **entity_relationship** | id, from_entity_id(FK), to_entity_id(FK), relation_type, confidence, description, evidence_count, first_seen, last_seen, created_at | 实体-实体关系 (KB associations 接入) — v0.2 新增 |
+| **story** | id PK, story_id(30 UNIQUE), title(300), description, created_at, updated_at | Story 打包 (迁移 0003; story_id 格式 `STORY_{SUBJECT}`) |
+| **story_event** | story_id(FK→story.id) + event_id VARCHAR(30) 复合 PK, position INT | 故事-事件关联 (仅排序展示, 不表达因果) — 迁移 0003 |
 | **categories** | id, name, parent_id | 分类层级 |
 | **tags** | id, name (UNIQUE) | 标签库 |
 | **ads** | id, title, image_url, link_url, position, is_active | 广告管理 |
@@ -375,18 +381,23 @@ WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(summary,''))
 ## 实体关系图
 
 ```
-sources ──→ articles ──→ events
-  │            │  │          │
-  │            │  │          ├── insights (LLM)
-  │            │  │          ├── event_relations (层级)
-  │            │  │          │
-  │            │  │          ▼
+sources ──→ articles ──→ events ──→ story
+  │            │  │          │  │        │
+  │            │  │          │  │        └── story_event (M:N, position 排序)
+  │            │  │          │  ├── insights (LLM)
+  │            │  │          │  ├── event_relations (precedes 时间序)
+  │            │  │          │  ├── event_article_override (手动归入)
+  │            │  │          │  ├── event_article_exclusion (手动剔除)
+  │            │  │          │  ├── fact ── fact_entity (Role 模型)
+  │            │  │          │  │
+  │            │  │          ▼  │
   │            │  └──── event_article (M:N)
   │            │
   │            ├── article_category (M:N) ── categories
   │            ├── article_tag (M:N) ── tags
-  │            └── article_entity (M:N) ── entities
-  │
+  │            └── article_entity (M:N) ── entities ── entity_alias
+  │                                          │
+  │                                          └── entity_relationship (from/to)
   └─── fetch_stats (Pipeline 统计)
 ```
 

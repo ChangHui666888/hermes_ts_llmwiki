@@ -1,6 +1,6 @@
 # 后端 — News Platform V8 (FastAPI)
 
-> 最后更新: 2026-08-03
+> 最后更新: 2026-08-07
 > 技术栈: Python 3.12 · FastAPI 0.133.1 · SQLAlchemy 2.0 · PostgreSQL 16
 > 部署: Docker 容器 (`news-platform-v8-backend-1`, 338MB 镜像)
 > 网络: **仅 Tailscale 内网 (100.107.117.23)，非公网服务**
@@ -8,19 +8,21 @@
 ## 架构总览
 
 ```
-FastAPI 应用入口: apps/api/main.py
-  ├── Sentinel V1 路由 (6 endpoints): dashboard / events / sources / search / map
-  ├── 旧版路由 (17 endpoints): news / internal / auth / admin / ads / categories
-  └── 根端点 (1 endpoint): /
+FastAPI 应用入口: apps/api/main.py (title: "News Platform V8", version 8.0.0)
+  ├── 公开端点 (21): dashboard / events / sources / search / map / stories / entities / news / categories / ads / auth
+  ├── Admin JWT (32): admin / admin_config / rss_sources / entities / entity_relations / event_curation
+  ├── Internal Token (7): internal / fetch_stats / deploy
+  └── 根端点 (1): /
 
 V1 标准约束 (2026-07-29 起):
   - 所有端点使用 Depends(get_db) 依赖注入（无手动 session 管理）
   - Pydantic 模型验证请求/响应
   - HTTP 异常一致性 (404/401/403)
   - 无硬编码 mock 数据
+  - 启动事件 seed_config(): 幂等建 event_article_override/event_article_exclusion/fact 表 + 空库种子配置
 ```
 
-## 全部 API 端点 (30+)
+## 全部 API 端点 (60 = 21 公开 + 32 admin + 7 internal)
 
 ### 公开端点 (无需认证)
 
@@ -36,6 +38,7 @@ V1 标准约束 (2026-07-29 起):
 | GET | `/dashboard`         | dashboard_v1.py | 仪表盘 (KPI 含 `total_events` 全量; `stage_breakdown` 阶段分布; `event_type_breakdown` 类型分布 + Hot Events + 地图事件) |
 | GET | `/events`            | events_v1.py    | 事件列表 (分页, 支持 type/location/stage 筛选, `sort=first_seen_desc\|first_seen_asc\|last_updated_*\|confidence_*`, 默认 first_seen_desc, NULL 排末尾; **读层去重**: 按 `lower(title)` 分组每组保留最佳行 article_count 大→last_updated 新→event_id 新, `total` 为去重后计数) |
 | GET | `/events/{event_id}` | events_v1.py    | 事件 Dossier 详情                          |
+| GET | `/events/{event_id}/relations` | events_v1.py | **事件-事件关系** (precedes/leads_to 等, 方向+时间范围) |
 | GET | `/sources`           | sources_v1.py   | 来源注册表 (真实 event_count/article_count/权威度) |
 | GET | `/search`            | search_v1.py    | 事件全文搜索 (title + summary ilike)         |
 | GET | `/map/events`        | map_v1.py       | 地理事件标记 (`limit` 默认50/最大1000, 返回 `total` 带地点事件总数, 不再静默截断) |
@@ -75,7 +78,7 @@ V1 标准约束 (2026-07-29 起):
 | PUT | `/admin/pipeline/config/{key}` | admin_config.py | 更新单条配置 (保存后实时推送本地) |
 | POST | `/admin/pipeline/config/batch` | admin_config.py | 批量更新配置 |
 | POST | `/admin/pipeline/config/reset` | admin_config.py | 重置配置到默认值 |
-| GET | `/admin/rss/sources` | rss_sources.py | RSS 源列表 (94源, 配置覆盖) |
+| GET | `/admin/rss/sources` | rss_sources.py | RSS 源列表 (98源, 配置覆盖) |
 | POST | `/admin/rss/sources` | rss_sources.py | **添加 RSS 源** |
 | PUT | `/admin/rss/sources/{name}` | rss_sources.py | **编辑 RSS 源** |
 | DELETE | `/admin/rss/sources/{name}` | rss_sources.py | **删除 RSS 源** |
@@ -109,7 +112,8 @@ V1 标准约束 (2026-07-29 起):
 | `/admin/sources` | 来源注册表 (可排序表格) |
 | `/admin/status` | Pipeline 状态页 |
 | `/admin/pipeline` | Pipeline 配置 |
-| `/config` | 配置中心 (13 Tab, 含"事件校对"+"实体管理"+"实体关系"+"数据模型") |
+| `/config` | 配置中心 (13 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型) |
+| `/entities` | 实体中心 |
 | `/entities/[name]` | 实体画像页 |
 
 ## 认证机制
@@ -130,10 +134,18 @@ def create_token(user_id: int, level: str) -> str:
     )
 ```
 
-## 数据模型 (22 个 ORM 模型, 2026-08-03)
+## 数据模型 (27 个 ORM 模型, 2026-08-07)
 
-后端 ORM 模型: Source/Article/Event/Entity/User/Ad/Category/Tag/Asset/Subscription/Insight/Setting/Log/ArticleCategory/ArticleTag/ArticleEntity/EventArticle/**EventArticleOverride**/**EventArticleExclusion**/**Fact**/**FactEntity**/EventEntity。
-(VPS 实际 25 表; event_relations/alembic_version 不在后端 ORM。)
+后端 ORM 模型 (27 表):
+- **核心域 (4)**: Source / Article / Event / **Story**
+- **实体/关系 (4)**: Entity / **EntityAlias** / **EntityRelationship** / **EventRelation**
+- **Fact 层 (2)**: Fact / FactEntity
+- **校对 (2)**: EventArticleOverride / EventArticleExclusion
+- **用户/配置 (5)**: User / Ad / Category / Tag / Setting
+- **其他 (3)**: Asset / Insight / Log
+- **关联表 (7)**: ArticleCategory / ArticleTag / ArticleEntity / EventArticle / EventEntity / **StoryEvent** / Subscription
+
+(VPS 额外 `fetch_stats` + `alembic_version` 不在 ORM; 迁移 0001 fact / 0002 entity / 0003 story 全已应用。)
 
 参见 [database.md](database.md) 完整数据库文档。
 
@@ -203,16 +215,14 @@ httpx>=0.27
 ## Nginx 路由映射
 
 ```
-/api/v1/dashboard       → backend:8000/dashboard
-/api/v1/events/*        → backend:8000/events/*
-/api/v1/sources         → backend:8000/sources
-/api/v1/search          → backend:8000/search
-/api/v1/map/events      → backend:8000/map/events
-/internal/*             → backend:8000/internal/* (Pipeline 推送)
+/api/v1/*               → backend:8000 (dashboard/events/events/{id}/relations/sources/search/map/stories/entities)
+/internal/*             → backend:8000/internal/* (Pipeline 推送 + fetch_stats + deploy)
 /auth/*                 → backend:8000/auth/*
-/admin/*                → backend:8000/admin/*
-/news                   → backend:8000/news
+/admin/*                → backend:8000/admin/* (含 /admin/curation/* /admin/entity-relations /admin/rss/*)
+/news*                  → backend:8000/news*
 /categories             → backend:8000/categories
-/ads/*                  → backend:8000/ads/
+/ads/random             → backend:8000/ads/random
+/docs · /openapi.json   → backend:8000 (FastAPI 文档)
+/admin (精确)           → frontend:3000 (Next.js 管理页)
 /*                      → frontend:3000 (Next.js)
 ```

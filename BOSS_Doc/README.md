@@ -8,10 +8,10 @@ News Intelligence Platform 操作手册。
 
 | 文档 | 说明 |
 |------|------|
-| [系统架构](01-architecture/system-architecture.md) | ⚠️ 整体架构 (V4 历史编号, 已冻结; 权威分层见 pipeline-l0-l7-rules.md) |
-| [🎨 前端](01-architecture/frontend.md) | **最新** Next.js 16 页面/组件/API调用/认证 |
-| [⚙️ 后端](01-architecture/backend.md) | **最新** FastAPI 23端点/数据模型/认证机制 |
-| [🗄️ 数据库](01-architecture/database.md) | **最新** PostgreSQL 20表/ER图/常用查询 |
+| [系统架构](01-architecture/system-architecture.md) | ⚠️ 整体架构 (V4 历史编号 + 2026-08-07 权威当前架构; 分层见 pipeline-l0-l7-rules.md) |
+| [🎨 前端](01-architecture/frontend.md) | **最新** Next.js 16, 21 页面, 19 组件, 13 Tab 配置中心 |
+| [⚙️ 后端](01-architecture/backend.md) | **最新** FastAPI 60端点 (21公开/32admin/7internal), 27 ORM 模型 |
+| [🗄️ 数据库](01-architecture/database.md) | **最新** PostgreSQL 27 ORM 表 + fetch_stats/alembic_version, ER图/查询 |
 | [Phase 1 事件资产](01-architecture/phase1-event-asset.md) | 第一阶段定位、Schema、8大卖点、7模块、KPI |
 | [五维评分规则](01-architecture/scoring-rules.md) | 五维评分细则 (Source/Impact/Entity/Market/Velocity) |
 | [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 |

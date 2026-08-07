@@ -1,75 +1,54 @@
 # 前端 — Sentinel Intelligence (Next.js 16)
 
-> 最后更新: 2026-07-29
+> 最后更新: 2026-08-07
 > 技术栈: Next.js 16.2.10 · React 19.2.4 · TypeScript 5.9 · Tailwind CSS v4 · shadcn/ui
+> 实际路径: `search-engine-v2/scripts/news-platform-v8/frontend/`（⚠️ 仓库根 `frontend/` 是陈旧副本，未被 git 跟踪、仅有 1 页，勿改）
 > 部署: Docker 容器 (`news-platform-v8-frontend-1`, `node:20-alpine`)
 > 网络: **仅 Tailscale 内网 (100.107.117.23)，非公网服务**
 
 ## 架构概览
 
 ```
-frontend/src/
-├── app/                   # Next.js App Router 页面
-│   ├── layout.tsx         # 全局布局 (Header + Sidebar + AuthProvider)
+scripts/news-platform-v8/frontend/src/
+├── app/                   # Next.js App Router 页面 (21 页)
+│   ├── layout.tsx         # 全局布局 (AuthProvider → Header + Sidebar + main)
 │   ├── globals.css        # Tailwind v4 全局样式
-│   ├── page.tsx           # 首页: Situation Dashboard
-│   ├── articles/          # 文章模块 (纽约时报中文网风格)
-│   │   ├── page.tsx       # 新闻中心 (头条+来源分组+分类)
-│   │   ├── [id]/page.tsx  # 文章详情 (VIP自动全文)
-│   │   ├── category/[name]/page.tsx  # 分类筛选
-│   │   ├── source/[name]/page.tsx    # 按来源筛选 (分页)
-│   │   └── list/page.tsx             # 全部文章 (分页)
+│   ├── page.tsx           # 首页: 态势感知中心 (6 指标 + 类型分布 + 地图 + Hot + 热度 + 情报流)
+│   ├── articles/          # 文章模块 (纽约时报风格)
+│   │   ├── page.tsx / [id] / category/[name] / source/[name] / list
 │   ├── events/            # 事件模块
-│   │   ├── page.tsx       # 事件列表 (筛选/分页)
-│   │   └── [id]/page.tsx  # 事件 Dossier 详情 (7 个子组件)
-│   ├── entities/[name]/page.tsx  # 实体画像 (国家+关联+事件)
+│   │   ├── page.tsx       # 事件列表 (筛选/分页/排序)
+│   │   └── [id]/page.tsx  # 事件 Dossier 详情 (7 子组件)
+│   ├── stories/           # Story 演化层 (Phase 3c)
+│   │   ├── page.tsx       # 故事列表 (按事件数降序)
+│   │   └── [id]/page.tsx  # 故事时间线 v2 (垂直射线 + 点击就地展开事件)
+│   ├── entities/          # 实体中心
+│   │   ├── page.tsx       # 实体列表 (按事件次数排序 + 搜索)
+│   │   └── [name]/page.tsx  # 实体画像 (国家归属 + 关联网络 + 相关事件 + 别名)
 │   ├── search/page.tsx    # 全局搜索 (debounce 300ms)
-│   ├── sources/page.tsx   # 来源注册表
-│   ├── map/page.tsx       # 地理监控 (MapLibre GL, 195国坐标)
-│   ├── login/page.tsx     # 登录页
-│   ├── admin/             # 管理后台
-│   │   ├── page.tsx       # 管理仪表盘
-│   │   ├── sources/page.tsx  # 来源注册表 (可排序表格)
-│   │   ├── status/page.tsx   # Pipeline 状态 (运行日志+统计)
-│   │   └── pipeline/page.tsx  # Pipeline 配置
-│   └── config/page.tsx    # 配置中心 (12 主Tab: RSS/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/数据模型; 实体管理含国家领导/商界人物/企业机构子类) — 源列表副标题动态显示总数
+│   ├── sources/page.tsx   # 来源注册表 (权威度柱状图)
+│   ├── map/page.tsx       # 地理监控 V2 (MapLibre GL, 5区域/6类型筛选, hover 联动)
+│   ├── login/page.tsx     # 登录页 (JWT)
+│   ├── admin/             # 管理后台 (4 页)
+│   │   ├── page.tsx / pipeline / sources / status
+│   └── config/page.tsx    # 配置中心 (13 Tab, ~8 内联组件)
 ├── lib/
-│   ├── auth.tsx           # Auth Context (ready状态防竞态)
-│   ├── country-coords.ts  # 完整世界国家坐标库 (195国)
-│   └── api.ts             # API 客户端
-├── components/
-│   ├── layout/
-│   │   ├── Header.tsx     # 顶栏 (Logo + 搜索 + UTC时钟 + 状态)
-│   │   └── Sidebar.tsx    # 侧栏导航 (6 组菜单)
-│   ├── dashboard/
-│   │   ├── MetricCard.tsx # 指标卡片
-│   │   ├── WorldMap.tsx   # 简易世界地图 (react-simple-maps)
-│   │   ├── MapLibreWorldMap.tsx  # MapLibre GL 地图 (主版)
-│   │   ├── EventHeat.tsx  # 实体热度图
-│   │   └── IntelligenceFeed.tsx  # 情报流
-│   ├── event/
-│   │   ├── EventCard.tsx      # 事件卡片 (首页)
-│   │   ├── EventHeader.tsx    # 事件头部 (SAO + 置信度)
-│   │   ├── FactPanel.tsx      # 事实面板
-│   │   ├── EvidenceCard.tsx   # 证据引用
-│   │   ├── Timeline.tsx       # 时间线
-│   │   ├── SourceChain.tsx    # 来源链
-│   │   ├── RelationGraph.tsx  # 实体关系图 (SVG)
-│   │   └── IntelligencePanel.tsx  # LLM 分析面板
-│   ├── common/
-│   │   └── Badge.tsx      # 通用标签组件
-│   └── ui/
-│       └── button.tsx     # shadcn 按钮
-├── contracts/             # 冻结 API Contract v1.0
-│   ├── event.ts           # EventDossier 接口定义 (17 个类型)
-│   ├── dashboard.ts       # DashboardResponse 接口
-│   └── source.ts          # SourceEntity 接口
-└── lib/
-    ├── api.ts             # API 客户端 (fetchAPI<T>)
-    ├── auth.tsx           # Auth Context (Context + Provider)
-    ├── types.ts           # 类型重导出
-    └── utils.ts           # 工具函数
+│   ├── api.ts             # fetchAPI<T> 封装 (/api/v1)
+│   ├── auth.tsx           # Auth Context (localStorage JWT + /auth/me 校验)
+│   ├── country-coords.ts  # 195 国坐标库
+│   ├── types.ts           # 类型重导出
+│   └── utils.ts           # cn() class 合并
+├── components/            # 19 组件
+│   ├── layout/            # Header (Logo+搜索+UTC时钟+状态) / Sidebar (7 组菜单+阶段统计)
+│   ├── dashboard/         # MetricCard / WorldMap(SVG) / MapLibreWorldMap(WebGL) / EventHeat / IntelligenceFeed
+│   ├── event/             # EventCard / EventHeader / FactPanel / EvidenceCard / Timeline / SourceChain / RelationGraph(D3) / IntelligencePanel
+│   ├── common/            # Badge (stage/confidence 变体)
+│   └── ui/                # button (shadcn)
+└── contracts/             # 冻结 API Contract (v1.0 + v8.0)
+    ├── event.ts / dashboard.ts / source.ts / article.ts
 ```
+
+**双地图实现**: 首页 `/` 用 `react-simple-maps` (SVG) + `/map` 用 `maplibre-gl` (WebGL, Carto dark-matter)。
 
 ## 页面路由
 
@@ -79,19 +58,23 @@ frontend/src/
 | `/articles` | 文章列表 | Hot(6篇) + Latest(12篇) + 分类标签云 |
 | `/articles/[id]` | 文章详情 | VIP/Admin 可见全文 content_md |
 | `/articles/category/[name]` | 分类筛选 | 按分类查看文章 |
+| `/articles/source/[name]` | 按来源筛选 | 来源文章列表 (分页) |
 | `/articles/list` | 全部文章 | 分页 20/页、排序下拉 (最新/最热, `?sort=`) |
 | `/events` | 事件列表 | 分页 20/页、type/stage/country 筛选 + 排序下拉 (首次/更新/置信度, `?sort=`) |
 | `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph |
 | `/stories` | 故事列表 | Story 打包 (story/story_event) |
-| `/stories/[id]` | 故事时间线 | v2: 垂直射线时间线(由上到下渐变) + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 顺序=发展趋势 |
+| `/stories/[id]` | 故事时间线 | v2.1: 垂直射线时间线 + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 消除时间标记与卡片重叠 |
 | `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
-| `/entities/[name]` | 实体画像 | 关联网络 + 相关事件 + 统计(事件数/文章数) |
+| `/entities/[name]` | 实体画像 | 国家归属 + 关系网络 + KB 关联 + 相关事件 + 同国实体 + 别名 |
 | `/search` | 搜索 | 事件全文搜索 (debounce 300ms, 2 字符起搜) |
-| `/sources` | 来源注册表 | 24 来源的权威度柱状图 |
-| `/map` | 地理监控 | MapLibre GL 地图 + 5 区域/6 类型筛选；标题 `N of M` (M=带地点事件总数)，"All"可显示全部 |
-| `/login` | 登录 | JWT 认证 |
-| `/admin` | 管理 | 文章/用户/广告统计 |
-| `/admin/pipeline` | Pipeline 配置 | 键值对配置管理 |
+| `/sources` | 来源注册表 | 来源权威度柱状图 (实时 event/article 数) |
+| `/map` | 地理监控 V2 | MapLibre GL 地图 + 5 区域/6 类型筛选；hover 列表联动地图标记；"All"可显示全部 (≤1000) |
+| `/login` | 登录 | JWT 认证 (localStorage) |
+| `/admin` | 管理 | 文章/用户/广告统计 + 快捷导航 |
+| `/admin/pipeline` | Pipeline 配置 | 评分 JSON + 聚合阈值编辑 |
+| `/admin/sources` | 来源管理 | 可排序表格 (权威/失败/状态 + 搜索) |
+| `/admin/status` | Pipeline 状态 | KPI + 事件阶段分布 + 文章 Tier 分布 + 最近活动 |
+| `/config` | 配置中心 | 13 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型 |
 
 ## API 调用方式
 

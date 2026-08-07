@@ -119,7 +119,7 @@
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
-| RSS 数据库 | `~/.hermes/rss-archive.db` | 94 源原始 RSS 文章 |
+| RSS 数据库 | `~/.hermes/rss-archive.db` | 98 源原始 RSS 文章 |
 | 状态文件 | `~/.hermes/rss-scanner-state.json` | 死源隔离 + 去重游标 |
 | 报告文件 | `~/.hermes/rss-scanner-report.json` | 每次扫描统计 |
 
@@ -165,7 +165,7 @@
 │    ├── /internal/* → FastAPI (:8000)  ← Pipeline 推送入口   │
 │    └── /* → Next.js (:3000)                                 │
 │                                                              │
-│  FastAPI (23 endpoints) → PostgreSQL (512 events, 936 文章)  │
+│  FastAPI (60 endpoints) → PostgreSQL (27 ORM 表)             │
 │                                                              │
 │  辅助服务: SearXNG (:8080) + sing-box VPN (:443)             │
 └─────────────────────────────────────────────────────────────┘

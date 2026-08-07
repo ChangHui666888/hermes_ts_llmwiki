@@ -265,11 +265,11 @@ server {
 ```
 /home/administrator/news-platform-v8/
 ├── apps/api/               # FastAPI 后端
-│   ├── main.py             # 入口 (FastAPI, 40+ 路由: 公开/认证/管理/内部/V1)
+│   ├── main.py             # 入口 (FastAPI, 60 端点: 21 公开/32 admin/7 internal)
 │   ├── database.py         # SQLAlchemy + PostgreSQL
-│   ├── models.py           # 18 表 ORM
+│   ├── models.py           # 27 表 ORM
 │   ├── schemas.py          # Pydantic 模型
-│   └── routes/             # 19 路由文件 (2026-08-06 补充)
+│   └── routes/             # 20 路由文件
 │       ├── news.py         # 文章 CRUD
 │       ├── internal.py     # Pipeline 数据接收
 │       ├── auth.py         # JWT 认证
@@ -290,7 +290,7 @@ server {
 │       ├── rss_sources.py  # RSS 源管理
 │       └── deploy.py       # 部署
 ├── frontend/               # Next.js 16 前端
-│   └── src/app/            # 12 页面
+│   └── src/app/            # 21 页面
 ├── docs/                   # 文档
 ├── data/                   # 数据
 ├── docker-compose.yml

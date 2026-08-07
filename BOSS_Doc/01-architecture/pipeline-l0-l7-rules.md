@@ -440,7 +440,7 @@ subject/action/object/topic = 簇内多数 (占>50% 才生效, 否则回落种�
 
 ## L6 — 云端同步 (auto-pipeline.py)
 
-### 7 步流程
+### 完整流程 (auto-pipeline.py)
 
 ```
 Step 0:   清理占位行 (retry≥3 且无内容)
@@ -449,9 +449,11 @@ Step 1:   Sync + 评分 (--hours 2, timeout 240s)
 Step 2:   RSS 全文预检 (description≥200字 且 html<30%)
 Step 3:   Fetch 批量 (LIMIT 20, workers 5, rate_delay 0.3s, timeout 600s)
 Step 3.5: Recovery (searxng_alt 80-89分/10篇, tavily ≥90分/5篇)
+Step 3.6: 视频子批 (A/B 级视频 URL, browser+stealth, video_batch_size=6, timeout 420s)
 Step 4:   Fact 抽取 (混合抽取器, 系统python311 子进程, 50篇, workers 3) → /internal/facts/batch
-Step 4.5: 聚合 (300 篇, window 48h, **fused 指纹**, facts 反哺)
-Step 5+6: 云同步 + 内容推送 (并行)
+Step 4.5: 聚合 (300 篇, window 48h, **fused 指纹**, facts 反哺) + assign_articles_to_event 标记
+Step 4.6: 事件归一 (event_normalizer 同标题合并 → 云端 upsert + delete 重复)
+Step 5+6: 云同步 + 内容推送 (并行, 重试2次 + chunk 收缩)
 ```
 
 > ✅ **fused 接线已完成 (2026-08-03)**: Step 4 (Fact 抽取) 在聚合**之前**执行, 产出的 payload 存 `news_intel/fact_pipeline_payload.json`; Step 4.5 聚合调 `_load_facts_payload()` 加载 → `aggregate_events(rows, window_hours=48, facts_by_article=...)`。有 facts 的文章用 fused 指纹, 无 facts (50 篇预算外/无正文) 回退 legacy。payload 按 article_id 匹配聚合批次, 陈旧/缺失安全回退。

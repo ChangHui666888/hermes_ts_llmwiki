@@ -1,37 +1,45 @@
 # News Intelligence Platform — 完整业务工作流
 
-> 生成时间: 2026-07-11 | 版本: V4 frozen (历史编号) | 最后更新: 2026-08-03
+> 生成时间: 2026-07-11 | 版本: V4 frozen (历史编号) | 最后更新: 2026-08-07
 >
 > ⚠️ **本文档的 L0-L9 是旧 V4 编号（L8=事件聚合）。当前权威分层文档是 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md)（L0-L7: RSS→评分→抓取→抽取→增强→L4.5 Fact→聚合→同步→Web）。** 事件聚合现为 L5 (V4.4+), Fact 层为 L4.5。下文历史段落保留作参考。
 >
 > **注意: 各子系统有独立详细文档**
-> - [🎨 前端详情](frontend.md) — Next.js 16, 12 页面, 15+ 组件
-> - [⚙️ 后端详情](backend.md) — FastAPI, 30+ 端点, 22 ORM 模型
-> - [🗄️ 数据库详情](database.md) — PostgreSQL, 25 表, ER 图, 查询示例
-> - [🧩 知识库](knowledge-base.md) — 全球实体关系 (9本体 YAML + 中英别名)
+> - [🎨 前端详情](frontend.md) — Next.js 16, 21 页面, 19 组件
+> - [⚙️ 后端详情](backend.md) — FastAPI, 60 端点, 27 ORM 模型
+> - [🗄️ 数据库详情](database.md) — PostgreSQL, 27 ORM 表, ER 图, 查询示例
+> - [🧩 知识库](knowledge-base.md) — 全球实体关系 (10本体 YAML + 中英别名 → Entity ID)
 
 ---
 
-## 当前架构 (2026-08-06, 权威)
+## 当前架构 (2026-08-07, 权威)
 
 ```
 本地 Windows (Hermes + cron)
-  rss-scanner (5m) → ~/.hermes/rss-archive.db (中文源 DW中文/RFI中文/BBC中文/人民网/中新网)
-  auto-pipeline (15m) 7步:
-    Step1 sync.py 水印游标 → news_intel.db (评分/tier)
-    Step2 RSS 描述兜底 → Step3 batch.py 级联抓全文
-    Step4 fact_pipeline (GLiNER + Qwen 事实抽取) → payload
-    Step4.5 aggregator (fused 指纹, 含中文聚合 v4.4.3)
-    Step4.6 event_normalizer (同标题合并)
-    Step5/6 HTTP POST → VPS (events + news content)
-  config-agent (5m): 配置中心 → 本地 pipeline-config.json
-    ↓ HTTP (Tailscale 内网 + Internal Token)
-VPS (100.107.117.23, Docker)
-  Nginx :80 → FastAPI :8000 /api/* /internal/* | Next.js :3000
-  PostgreSQL 25 表 (events/articles/fact/fact_entity/entities/entity_alias...)
+  rss-scanner (5m) → ~/.hermes/rss-archive.db (98 源, 中文: 人民网/中新网直连 + DW中文/RFI中文/BBC中文走代理)
+  config-agent (5m): VPS 配置中心 → ~/.hermes/pipeline-config.json (60s 轮询 + :8890 推送)
+  auto-pipeline (15m) 8 步 (auto-pipeline.py):
+    Step0   清理占位行 → Step1 sync.py 水印游标 → news_intel.db (五维评分/tier)
+    Step2   RSS 描述兜底 → Step3 batch.py 级联抓全文 (direct→…→browser)
+    Step3.5 Recovery (SearXNG/Tavily 补抓) → Step3.6 视频子批 (browser+stealth)
+    Step4   fact_pipeline (GLiNER + Qwen noThink + Canonicalizer) → fact payload
+    Step4.5 aggregator (fused 指纹, 含中文聚合 v4.4.3 + CJK 信任门)
+    Step4.6 event_normalizer (同标题合并, 云端删重复)
+    Step5/6 并行 HTTP POST → VPS (events + news content + facts)
+    ↓ HTTP (Tailscale 内网 + X-Internal-Token)
+VPS (100.107.117.23, Docker 4 容器)
+  Nginx :80 → FastAPI :8000 /api/* /internal/* /admin/* /auth/* | Next.js :3000
+  PostgreSQL 27 ORM 表 (events/articles/fact/fact_entity/entities/entity_alias/
+    entity_relationship/story/story_event/event_relations/... + fetch_stats + alembic_version)
+    ↑ 配置中心 (admin_config) 读写 settings KV → 本地 config-agent 轮询
+
+Web (Sentinel Intelligence)
+  Next.js 21 页面: / 态势中心 /events /stories /entities /articles /map /search /sources /config
+  Story 演化层: 同 subject 事件 → story (时间线打包, 非因果)
+  实体画像: KB(27K 实体/41K 别名) + 事件派生 双层数据
 ```
 
-关键演进 (2026-08-06): v4.4.3 中文聚合支持（中文源采集→Qwen事实抽取→推送 VPS; KB 中英别名归一; 保守跨语言匹配）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节。
+关键演进 (2026-08-06/07): **v4.4.3 中文聚合**（中文源采集→Qwen 事实抽取→KB 中英别名归一→保守跨语言匹配）；**Knowledge Base V1**（10 本体 YAML + 中英别名→Entity ID, 8,038 公司/18,790 人物/249 国）；**Story 演化层**（story+story_event, 时间线打包）；**实体画像/关系网络**（entity_alias/entity_relationship, sync_kb_to_db 27K 实体入库）；**配置中心 13 Tab**（RSS/Pipeline/AI/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节 与 [knowledge-base.md](knowledge-base.md)。
 
 ---
 
@@ -102,14 +110,14 @@ search-engine-v2/scripts/
 
 ```
 rss-scanner.py (Hermes cron, every 5m, no-agent)
-94源 → feedparser → SQLite rss-archive.db
+98源 → feedparser → SQLite rss-archive.db
 境外走 SOCKS5 :10808, 国内直连
 ```
 
 | 参数 | 值 | 位置 |
 |------|:--:|------|
 | 采集频率 | 5min | Hermes Cron |
-| RSS 源数 | 94 (境外76 + Nitter18 + 国内6) | `rss-scanner.py:49-160` |
+| RSS 源数 | 98 (10 类, 含中文央媒/国际中文源) | `rss-scanner.py` FEEDS |
 | 隔离失败次数 | 3 | `rss-scanner.py:255` |
 | 隔离时长 | 30min (1800s) | `rss-scanner.py:255` |
 | 去重键 | `link` UNIQUE | `rss-archive.db` |
@@ -390,16 +398,16 @@ article → GLiNER(实体锚定,串行) → ThreadPool[快路径A/C | B noThink]
 ## 数据库三层架构
 
 ```
-本地 SQLite                本地 SQLite              云 PostgreSQL
+本地 SQLite                本地 SQLite               云 PostgreSQL
 ─────────────              ─────────────             ─────────────
 rss-archive.db             news_intel.db             news_intel
-  rss_articles (1表)         rss_raw (18字段)          sources
-                             news_intelligence (17字段) articles (26字段)
-                             news_content (19字段)      entities
-                                                        events
-                                                        insights
-                                                        categories, tags
-                                                        + 6 关联表
+  rss_articles (1表)         rss_raw                   sources / articles / events
+                             news_intelligence         entities / entity_alias / entity_relationship
+                             news_content              fact / fact_entity
+                             event_registry            story / story_event / event_relations
+                             source_registry           event_article_override / event_article_exclusion
+                             entity_registry           settings / fetch_stats
+                             sync_state (水印)          + 关联表 (event_article/event_entity/article_*)
 ```
 
 ---
@@ -408,8 +416,9 @@ rss-archive.db             news_intel.db             news_intel
 
 | 任务 | 调度器 | 频率 |
 |------|------|:--:|
-| rss-scan | Hermes Cron | 5min |
-| news-pipeline | Hermes Cron | 30min |
+| rss-scanner | Hermes Cron | 5min |
+| auto-pipeline | Hermes Cron | 15min |
+| config-agent | 后台常驻 | 60s 轮询 |
 | git-backup | Task Scheduler | 每日 12:00 |
 | full-backup | Task Scheduler | 每日 18:00 |
 
@@ -419,9 +428,9 @@ rss-archive.db             news_intel.db             news_intel
 
 | 模型 | 用途 | 位置 | 成本 |
 |------|------|------|:--:|
-| deepseek-v4-pro | Hermes 对话 | API | — |
-| deepseek-v4-flash | Tier A 增强 + Tier A 洞察 | API | ~$0.002/次 |
-| qwen3-1.7b-instruct | Tier B 增强 + 洞察 | LM Studio :1234 | 免费 |
+| deepseek-v4-flash | Tier A 增强 + Tier A 洞察 + Hermes 会话 | API | ~$0.002/次 |
+| qwen3-1.7b-instruct | Tier B 增强 + 洞察 + Fact 抽取兜底 | LM Studio :1234 | 免费 |
+| GLiNER (gliner_small-v1 / multi-v2.1) | Fact 层实体锚定 (无 LLM) | 本地 torch | 免费 |
 
 ---
 
