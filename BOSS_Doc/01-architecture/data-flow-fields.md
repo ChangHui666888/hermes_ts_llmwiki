@@ -1,24 +1,27 @@
 # 数据库业务流 — 每环节字段映射
 
 > 清晰展示: 每个 Pipeline 阶段产生哪些字段，表间关系如何流转
-> 最后更新: 2026-08-03
+> 最后更新: 2026-08-07
+> 业务流程总览见 [business-process.md](business-process.md)
 
 ---
 
-## 一、总览：八层数据流
+## 一、总览：十层数据流
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       数据生产 Pipeline (本地)                            │
 │                                                                         │
 │  L0 RSS采集 ─→ L1 五维评分 ─→ L2 全文抓取 ─→ L3 结构抽取                  │
-│  L4 三级增强 ─→ L4.5 Fact层 ─→ L5 事件聚合 ─→ L6 云端同步 ─→ L7 Web展示   │
+│  L4 三级增强 ─→ L4.5 Fact层 ─→ L5 事件聚合 ─→ L4.6 事件归一               │
+│  ─→ L6 云端同步 ─→ L7 Web展示 ─→ L8 Story演化 ─→ L9 实体画像             │
 │                                                                         │
 │  数据库表:                                                               │
 │  rss_articles → news_intelligence → news_content → fact/fact_entity     │
 │                    (SQLite)        (SQLite)  → event_registry           │
 │                            ↓ POST /internal/*                          │
-│                    PostgreSQL: sources → articles → fact → events       │
+│   PostgreSQL: sources → articles → fact → events → story/story_event    │
+│                                          → entities/entity_alias        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,6 +214,56 @@ SQLite news_content  → POST /internal/news/batch  → articles 表
 events 表 → GET /api/v1/events → EventDossier JSON → 前端组件
 articles → GET /news → Article JSON → 前端组件
 ```
+
+### L4.6 — 事件归一 (event_normalizer, 2026-08-05)
+
+聚合器非幂等产生跨轮同标题分裂 → 归一合并。
+
+| 步骤 | 说明 |
+|:-----|:-----|
+| 1 | 按 `_norm_title()`（小写+空格归一）分组 event_registry |
+| 2 | 每组 ≥2 重复 → `_merge_events()` 保留 first_seen 最早 |
+| 3 | 合并 article_ids/evidence/source_chain/timeline（URL/ID 去重） |
+| 4 | 更新 news_content.event_id → 指向最早事件 |
+| 5 | 删除被并入行 → 云端 upsert + `/internal/events/delete` |
+
+### L8 — Story 演化层 (story/story_event, 迁移 0003)
+
+| 字段 | 来源 | 说明 |
+|:-----|:-----|:-----|
+| story.story_id | derive | `STORY_{SUBJECT_NAME}` |
+| story.title | derive | 同 subject 事件群 |
+| story_event.event_id | derive | 事件（position 排序） |
+| story_event.position | derive | 时间线排序 |
+
+**流程**: admin `POST /api/v1/stories/derive`（幂等重建）→ 按 `subject_name` 分组 ≥2 事件 → 前端 `/stories` 时间线。
+
+### L9 — 实体画像 (KB sync, 2026-08-05)
+
+```
+knowledge_base/*.yaml (10本体+别名) → loader → Canonicalizer 归一 Entity ID
+  → fact_entity / entity_registry → sync_kb_to_db.py
+  → PostgreSQL entities (27K) / entity_alias (41K)
+  → GET /api/v1/entities/{name} → 画像 (国家+关联网络+相关事件)
+```
+
+### 事件校对 (event_curation, 2026-08-02)
+
+| 表 | 语义 | 字段 |
+|:---|:---|:---|
+| event_article_override | 人工归入（move 语义） | event_id, article_url, created_at/by |
+| event_article_exclusion | 人工剔除（持久） | event_id, article_url, created_at/by |
+
+**读取侧合并**: 自动证据 − exclusion + override；`/events/{id}` 生效。Pipeline 重跑 upsert 不触碰此表。
+
+### 配置下发 (admin_config → config-agent, 2026-07-31)
+
+```
+Web 保存 → settings 表 (KV, 值 TEXT) → /admin/pipeline/config/export-internal
+  → 本地 config-agent (60s 轮询 + :8890 推送) → ~/.hermes/pipeline-config.json → loader
+```
+
+新参数需过 3 道: SEED_CONFIG(admin_config.py) + loader.py DEFAULTS + config-agent ALLOWED_KEYS。
 
 ---
 

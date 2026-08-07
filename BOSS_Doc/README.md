@@ -9,12 +9,13 @@ News Intelligence Platform 操作手册。
 | 文档 | 说明 |
 |------|------|
 | [系统架构](01-architecture/system-architecture.md) | ⚠️ 整体架构 (V4 历史编号 + 2026-08-07 权威当前架构; 分层见 pipeline-l0-l7-rules.md) |
+| [🔀 业务流程](01-architecture/business-process.md) | **最新** 采集/生产/入库/知识加工/人工运维/配置/展示/部署全流程 (Mermaid 图) |
 | [🎨 前端](01-architecture/frontend.md) | **最新** Next.js 16, 21 页面, 19 组件, 13 Tab 配置中心 |
 | [⚙️ 后端](01-architecture/backend.md) | **最新** FastAPI 60端点 (21公开/32admin/7internal), 27 ORM 模型 |
 | [🗄️ 数据库](01-architecture/database.md) | **最新** PostgreSQL 27 ORM 表 + fetch_stats/alembic_version, ER图/查询 |
 | [Phase 1 事件资产](01-architecture/phase1-event-asset.md) | 第一阶段定位、Schema、8大卖点、7模块、KPI |
 | [五维评分规则](01-architecture/scoring-rules.md) | 五维评分细则 (Source/Impact/Entity/Market/Velocity) |
-| [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 |
+| [数据流-字段映射](01-architecture/data-flow-fields.md) | 每环节产生哪些字段 + 表关系图 (含 4.6 归一/Story/校对/配置) |
 | [Pipeline L0-L7 规则](01-architecture/pipeline-l0-l7-rules.md) | 基于代码的加工规则/参数/阈值 |
 | [🧩 实体库维护](01-architecture/entity-kb.md) | **最新** 实体库双源架构 + AI维护工作流 (wiki→JSON+py→部署) |
 | [知识库 KB](01-architecture/knowledge-base.md) | **最新** 全球实体关系知识库 (9本体YAML + 中英别名→Entity ID) |
