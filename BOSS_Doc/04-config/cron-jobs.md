@@ -11,20 +11,17 @@
 
 | 名称 | 频率 | 脚本 | 状态 |
 |------|:--:|------|:--:|
-| rss-scan | every 5m | rss-scanner.py | ✅ |
-| news-pipeline | every 30m | news-pipeline.py | ✅ |
-| token-breaker | every 10m | token-breaker-cron.py | disabled |
+| rss-scanner | every 5m | rss-scanner.py | ✅ |
+| auto-pipeline | every 15m | auto-pipeline.py | ✅ |
+| config-agent | 后台常驻 | config-agent.py | ✅ 保活 (60s 轮询) |
 
 ```powershell
-hermes cron add "every 5m"  --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
-hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
-
-
+hermes cron create "every 5m"  --script "rss-scanner.py"   --no-agent --deliver "local" --name "rss-scanner"
 hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"
-
-
-hermes cron create "every 5m" --script "rss-scanner.py" --no-agent --deliver "local" --name "rss-scanner"
+# config-agent 为后台常驻进程, 非 cron
 ```
+
+> ⚠️ 旧 `news-pipeline`（every 30m）已由 `auto-pipeline`（every 15m）取代；`news-pipeline.py` 仍可作为手动简版入口。
 
 ## Windows Task Scheduler（固定时间）
 
@@ -85,6 +82,6 @@ schtasks /run  /tn "Hermes-Git-Backup"
 | Job | 日志路径 |
 |------|------|
 | rss-scan | `~/.hermes/cron/output/<id>/` |
-| news-pipeline | `scripts/logs/news-pipeline.log` |
+| auto-pipeline | `scripts/pipeline.log` |
 | git-backup | `scripts/logs/git-backup.log` |
 | full-backup | `scripts/logs/full-backup.log` |

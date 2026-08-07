@@ -387,11 +387,11 @@ article → GLiNER(实体锚定,串行) → ThreadPool[快路径A/C | B noThink]
 
 | 参数 | 值 | 位置 |
 |------|:--:|------|
-| 时间窗口 | 1h | `news-pipeline.py` `--hours 1` |
-| 单次上限 | 200篇 | `news-pipeline.py` `--limit 200` |
-| Cron 频率 | every 30m | Hermes Cron |
-| 报告 | `~/.hermes/news-pipeline-report.json` | `pipeline.py:243` |
-| 日志 | `scripts/logs/news-pipeline.log` | `news-pipeline.py` |
+| Sync 时间窗口 | 2h (可配 `pipeline.sync_hours`) | `auto-pipeline.py` Step 1 |
+| Fetch 批量 | 20 篇/批 (Step 3) · 聚合 300 篇 (Step 4.5) | `auto-pipeline.py` |
+| Cron 频率 | every 15m (auto-pipeline) | Hermes Cron |
+| 日志 | `scripts/pipeline.log` (分步统计) | `auto-pipeline.py:39` |
+| 进程锁 | `.pipeline.lock` (防并发) | `auto-pipeline.py` |
 
 ---
 

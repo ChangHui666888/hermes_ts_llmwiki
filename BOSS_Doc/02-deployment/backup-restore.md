@@ -11,8 +11,9 @@
 
 | 任务 | 调度器 | 频率 |
 |------|------|:--:|
-| rss-scan | Hermes Cron | 5min |
-| news-pipeline | Hermes Cron | 30min |
+| rss-scanner | Hermes Cron | 5min |
+| auto-pipeline | Hermes Cron | 15min |
+| config-agent | 后台常驻 | 60s 轮询 |
 | git-backup | **Windows Task Scheduler** | 每日 12:00 |
 | full-backup | **Windows Task Scheduler** | 每日 18:00 |
 

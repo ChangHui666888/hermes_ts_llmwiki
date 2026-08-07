@@ -40,35 +40,24 @@ C:\Users\ChangHui\AppData\Local\hermes\scripts\logs\news-pipeline.log
 Get-Content .\logs\news-pipeline.log -Tail 100
 ```
 
-## 当前 Cron 状态（已稳定）
+## 当前 Cron 状态（2026-08 已稳定）
 
 | 任务 | 频率 | 脚本 | 状态 |
 |------|:--:|------|:--:|
-| token-breaker | 每10分钟 | token-breaker-cron.py | ✅ |
-| rss-scan | 每5分钟 | rss-scanner.py | ✅ |
-| news-pipeline | 每30分钟 | news-pipeline.py | ✅ |
+| rss-scanner | 每5分钟 | rss-scanner.py | ✅ |
+| auto-pipeline | 每15分钟 | auto-pipeline.py | ✅ |
+| config-agent | 后台常驻 | config-agent.py | ✅ 保活 (60s 轮询) |
 
 ### 创建命令
 
 ```powershell
-hermes cron add "every 5m"  --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
-hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
-```
-
-### 运行顺序
-
-```
-00:00 rss-scan
-00:05 rss-scan
-00:10 rss-scan + token-breaker
-00:15 rss-scan
-00:20 rss-scan + token-breaker
-00:25 rss-scan
-00:30 rss-scan + token-breaker + news-pipeline  ← 三方重叠
+hermes cron create "every 5m"  --script "rss-scanner.py"   --no-agent --deliver "local" --name "rss-scanner"
+hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"
 ```
 
 ### 注意事项
 
-- `once in 30m` ≠ `every 30m`，创建时必须用 `"every 30m"`
+- `once in X` ≠ `every X`，创建时必须用 `"every X"`
 - `--repeat 99999` 在 `every` 模式下无效（已经是无限重复）
 - 脚本和 workdir 必须在 `~/.hermes/scripts/` 下，与其他 cron 一致
+- 旧 `news-pipeline`（30m）已由 `auto-pipeline`（15m）取代；`news-pipeline.py` 仅作手动简版入口

@@ -11,9 +11,10 @@ hermes config set model.provider deepseek
 ## Cron
 
 ```powershell
-# 创建（注意：必须 "every 30m" 非 "30m"）
-hermes cron add "every 5m"  --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
-hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+# 创建（注意：必须 "every X" 非 "X"）
+hermes cron create "every 5m"  --script "rss-scanner.py"   --no-agent --deliver "local" --name "rss-scanner"
+hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"
+# config-agent 为后台常驻进程 (60s 轮询 VPS 配置)
 
 # 管理
 hermes cron list
@@ -34,14 +35,14 @@ cat ~/.hermes/rss-scanner-report.json     # 查看报告
 
 ```bash
 cd ~/.hermes/scripts
-python news-pipeline.py                   # 手动运行
+python auto-pipeline.py                   # 手动运行生产 pipeline
 
 # 日志
-cat logs/news-pipeline.log
-# PowerShell: Get-Content .\logs\news-pipeline.log -Tail 50
+cat pipeline.log
+# PowerShell: Get-Content .\pipeline.log -Tail 50
 
-# 报告
-cat ~/.hermes/news-pipeline-report.json
+# 部署 cron 脚本回 Hermes 目录
+python scripts/hermes-cron/deploy-cron.py --apply
 ```
 
 ## Docker（云主机）
@@ -86,10 +87,10 @@ hermes cron resume <job_id>
 
 ```powershell
 # RSS 扫描 (每5分钟)
-hermes cron add "every 5m" --name rss-scan --script rss-scanner.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+hermes cron create "every 5m" --script "rss-scanner.py" --no-agent --deliver "local" --name "rss-scanner"
 
-# News Pipeline (每30分钟)
-hermes cron add "every 30m" --name news-pipeline --script news-pipeline.py --workdir "C:\Users\ChangHui\AppData\Local\hermes\scripts" --no-agent
+# 情报生产 Pipeline (每15分钟)
+hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"
 ```
 
 **Windows Task Scheduler**：
@@ -133,12 +134,8 @@ rm ~/.hermes/rss-scanner-state.json
 ```bash
 cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
 
-# 完整运行 (评分 + 增强 + 推送云端)
-export NEWS_API_BASE=http://100.107.117.23
-python news-pipeline.py
-
-# 指定参数
-python news-pipeline.py --hours 2 --limit 100
+# 生产 pipeline (cron 每15分钟, 手动触发同样命令)
+python auto-pipeline.py
 
 # 只评分 (不推送)
 python -m news_intel.pipeline --hours 2
@@ -150,12 +147,9 @@ python -m news_intel.pipeline --hours 2 --fetch
 sqlite3 news_intel/news_intel.db "SELECT tier,COUNT(*) FROM news_intelligence GROUP BY tier"
 sqlite3 news_intel/news_intel.db "SELECT extraction_method,COUNT(*) FROM news_content GROUP BY 1"
 
-# 查看报告
-cat ~/.hermes/news-pipeline-report.json
-
-# 查看日志
-cat ~/AppData/Local/hermes/scripts/logs/news-pipeline.log
-# PowerShell: Get-Content .\logs\news-pipeline.log -Tail 50
+# 查看日志 (分步统计)
+cat pipeline.log
+# PowerShell: Get-Content .\pipeline.log -Tail 50
 ```
 
 ---
