@@ -267,8 +267,21 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 | `type` | **未使用** | rss/atom/nitter 等类型字段已存；当前 scanner 全走 feedparser 可解析，未按 type 分支 |
 | `enabled` | scanner + config-agent | 启停过滤 |
 
-### 8.3 当前缺口 / 建议
+### 8.3 已解决（2026-08-08 scanner 优化） / 剩余建议
 
-1. **`type` 未分支**：scanner 对所有源统一 feedparser 解析。当前 197 源中 179 个 rss + 18 个 nitter（nitter 实例也输出 RSS），Atom(GitLab) 也被 feedparser 兼容——功能无碍；但接入 JSON Feed/YouTube 等新类型时需在 scanner 加 `type` 分派。
-2. **scanner 硬编码回退列表**：`rss-scanner.py` 内 `FEEDS`（98 源旧格式）仅作 config 缺失时回退；已落后于 V4（197 源全字段）。建议后续移除或与 `references/rss-sources-v4-migrated.json` 同步。
-3. **country/language 未驱动路由**：可后续用于「中文源直连加速 / 语言分组扫描」等优化。
+✅ **已解决**：
+1. `type` 分支：`parse_feed` 加 `feed_type` 分派（jsonfeed → `_parse_json_feed`，rss/atom/nitter → feedparser）。
+2. scanner 硬编码回退：`FEEDS`(98 旧格式) → `CORE_FALLBACK_FEEDS`(12 源 V4 全字段)。
+
+⏳ **scanner 性能优化（commit `af3087f`，测试通过）**：
+| 优化 | 收益 |
+|------|------|
+| 全局 HTTP Client Pool（CN/PROXY 共享，复用连接） | 15-30% |
+| SQLite 内存 known_ids 去重 + `executemany` 批量 + WAL PRAGMA | 50-80% |
+| Tier 分级扫描频率（hot 5min/warm 15min/cold 60min） | 网络压力降 50% |
+| ETag/Last-Modified 增量（304 免下载） | 大幅减少重复下载 |
+| as_completed 即时解析入库（不等全部下载完） | 10-20% |
+
+**实测**：196 源 / 193 到期 / 174.56s / 新增 3237 篇 / 失败 16（代理超时）。
+
+剩余建议：`country`/`language` 驱动路由（中文源直连加速）、`asyncio` 第二阶段（Async Scanner V4）。
