@@ -31,7 +31,7 @@ scripts/news-platform-v8/frontend/src/
 │   ├── login/page.tsx     # 登录页 (JWT)
 │   ├── admin/             # 管理后台 (4 页)
 │   │   ├── page.tsx / pipeline / sources / status
-│   └── config/page.tsx    # 配置中心 (14 Tab, ~9 内联组件, 含"故事管理"重建按钮)
+│   └── config/page.tsx    # 配置中心 (14 Tab, ~9 内联组件, 含"故事管理"重建按钮+结果对比面板)
 ├── lib/
 │   ├── api.ts             # fetchAPI<T> 封装 (/api/v1)
 │   ├── auth.tsx           # Auth Context (localStorage JWT + /auth/me 校验)
