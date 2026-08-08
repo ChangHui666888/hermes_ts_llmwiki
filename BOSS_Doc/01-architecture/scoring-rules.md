@@ -177,19 +177,69 @@ def score_entities(title, description):
 
 ## 4. Market Relevance (0-20)
 
-**方法**: 两条路径，取最高权重 `min(max_score, 20)`，同时产出受影响资产列表：
+**方法**: 两条路径，取最高权重 `min(max_score, 20)`，同时产出受影响资产列表（stocks + indices/commodities/crypto）：
 1. **实体 → 资产映射**：文章已识别实体若在资产图 stocks 中 → 该资产权重
-2. **关键词 → 资产映射**：资产键（如 "GPU"/"降息"/"war"）在文本中 → 该资产权重
+2. **关键词 → 资产映射**：资产键（如 "GPU"/"降息"/"war"）在文本中命中 → 该资产权重
 
-**资产图**（asset_graph.json，2026-08-08 实际）:
+**资产图**（asset_graph.json，2026-08-08 实际，24 个资产键）:
 
-| 资产键 | 权重 | 受影响股票 |
-|--------|:--:|------|
-| GPU / AI芯片 / 出口管制 / chip export / 降息 / rate cut / 加息 / rate hike | 20 | NVIDIA/AMD/TSMC/ASML 或 JPMorgan/GS/BoA |
-| 石油 / oil | 18 | Exxon/Chevron/Shell/BP |
-| 半导体 / semiconductor / Bitcoin / 国防 / defense / 战争 / war | 18 | TSMC/Intel 或 Lockheed/RTX/Exxon |
-| 加密货币 / crypto / 电动车 / EV | 15 | Coinbase/MSTR 或 Tesla/BYD |
-| 云计算 / cloud / 制药 / pharma | 12 | Amazon/MS/Google 或 Pfizer/Moderna |
+##### 权重 20（8 键）
+
+| 资产键 | 受影响资产 |
+|--------|-----------|
+| **GPU** | NVIDIA / AMD / TSMC / ASML / Intel / Broadcom |
+| **AI芯片** | NVIDIA / AMD / TSMC / Broadcom |
+| **出口管制** | NVIDIA / AMD / TSMC / ASML / SMIC |
+| **chip export** | NVIDIA / AMD / TSMC / ASML |
+| **降息** | JPMorgan / Goldman Sachs / Bank of America / Wells Fargo + 指数 S&P500/NASDAQ/Dow Jones |
+| **rate cut** | JPMorgan / Goldman Sachs / Bank of America + 指数 S&P500/NASDAQ |
+| **加息** | JPMorgan / Goldman Sachs / Bank of America + 指数 S&P500/NASDAQ |
+| **rate hike** | JPMorgan / Goldman Sachs / Bank of America |
+
+##### 权重 18（9 键）
+
+| 资产键 | 受影响资产 |
+|--------|-----------|
+| **石油** | Exxon / Chevron / Shell / BP / ConocoPhillips + 商品 CL1:COM / BZ1:COM |
+| **oil** | Exxon / Chevron / Shell / BP + 商品 CL1:COM / BZ1:COM |
+| **半导体** | TSMC / NVIDIA / AMD / Intel / ASML / Qualcomm / Samsung |
+| **semiconductor** | TSMC / NVIDIA / AMD / Intel / ASML |
+| **Bitcoin** | Coinbase / MicroStrategy / Marathon Digital + 加密货币 BTC |
+| **国防** | Lockheed Martin / RTX / Northrop Grumman / Boeing |
+| **defense** | Lockheed Martin / RTX / Northrop Grumman |
+| **战争** | Lockheed Martin / RTX / Northrop Grumman / Exxon / Chevron |
+| **war** | Lockheed Martin / RTX / Exxon / Chevron |
+
+##### 权重 15（4 键）
+
+| 资产键 | 受影响资产 |
+|--------|-----------|
+| **电动车** | Tesla / 比亚迪 / NIO / XPeng / Rivian / Lucid |
+| **EV** | Tesla / BYD / Rivian / Lucid |
+| **加密货币** | Coinbase / MicroStrategy / Marathon Digital + 加密货币 BTC/ETH |
+| **crypto** | Coinbase / MicroStrategy + 加密货币 BTC/ETH |
+
+##### 权重 12（3 键）
+
+| 资产键 | 受影响资产 |
+|--------|-----------|
+| **云计算** | Amazon / Microsoft / Google / Oracle |
+| **cloud** | Amazon / Microsoft / Google |
+| **制药** | Pfizer / Moderna / Johnson & Johnson / Merck / Eli Lilly |
+| **pharma** | Pfizer / Moderna / Eli Lilly / Merck |
+
+### 4.1 匹配缺陷（v2 待修复, 2026-08-08 发现）
+
+关键词路径现用**纯 substring**（`asset_key in text`），存在与 Event Impact v1 相同的词边界误标：
+
+| 资产键 | 误标示例 | 假阳性后果 |
+|--------|---------|-----------|
+| **EV** | "every"/"event"/"several" 含 `ev` | +15 → 误挂 Tesla/BYD/Rivian/Lucid |
+| **war** | "forward"/"hardware"/"award" 含 `war` | +18 → 误挂 Lockheed/Exxon |
+| **oil** | "soil"/"boil"/"coil" 含 `oil` | +18 → 误挂 Exxon/Shell |
+| **crypto** | "cryptography" 含 `crypto` | +15 → 误挂 Coinbase（刻意保留: substring 需覆盖 cryptocurrency） |
+
+**✅ 已修复（2026-08-08, commit 见下）**：复用 Event Impact v2 的 `_kw_match_mode`（短英文词/缩写 → word_boundary；中文/短语/常规词 → substring）。**4000 篇真实样本评估：修复 1271 处误标（全部归 0），0 处真实命中丢失**——纯精度收益。真实命中（GPU/rate cut/war+oil/EV/oil spill/Bitcoin）全部保持。
 
 ---
 
