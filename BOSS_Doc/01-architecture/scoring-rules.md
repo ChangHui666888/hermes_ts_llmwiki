@@ -64,81 +64,53 @@ def score_source(source_name: str) -> int:
 
 ## 2. Event Impact (0-30)
 
-**方法**: 对 `title + description` 小写后关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。
+**方法（v2, 2026-08-08）**: 对 `title + description` 关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。返回 `(分数, 命中分类, hits详情)`。
 
-**5 个分类 · 133 关键词**（event_keywords.json，2026-08-08 实际；每类取该类最高、跨类只取所有分类最高，不累加）:
+**5 个分类 · 500 关键词**（event_keywords.json，2026-08-08 v2；每类取该类最高、跨类只取所有分类最高，不累加）:
 
-| 分类 | 关键词数 | 满分词 |
+| 分类 | 关键词数 | 高分示例 |
 |------|:--:|------|
-| **finance** 金融 | 40 | 利率决议/降息/加息/美联储/Fed/破产/熔断 = 30 |
-| **geopolitics** 地缘 | 29 | 战争/war/政变/coup/暗杀/assassin = 30 |
-| **ai_tech** AI科技 | 29 | GPT-5/AGI/超级智能 = 28 |
-| **market** 市场 | 19 | 熊市 = 22 |
-| **china** 中国 | 16 | 台海 = 28 |
+| **finance** 金融 | 120 | 利率决议/降息/加息/美联储/Fed/破产/熔断/银行危机/bank failure = 30 |
+| **geopolitics** 地缘 | 100 | 战争/war/政变/coup/暗杀/assassin/入侵/nuclear = 30 |
+| **ai_tech** AI科技 | 120 | GPT-5/AGI/超级智能/superintelligence = 28 |
+| **market** 市场 | 70 | 熊市/股市崩盘/flash crash/market crash = 22 |
+| **china** 中国 | 90 | 台海危机/中美贸易战/台海冲突 = 30 |
 
-**完整关键词 → 分值表**：
+> 📋 完整 500 关键词清单以 `news_intel/config/event_keywords.json` 为**权威来源**（含中文+英文多词短语），此处不再全量展开。
 
-##### finance 金融（40）
+### 2.1 匹配模式（v2 升级，自动推断）
 
-| 分值 | 关键词 |
-|:--:|--------|
-| 30 | 利率决议 / 降息 / 加息 / 美联储 / Fed / 破产 / 熔断 |
-| 28 | 贸易战 / 违约 / 债务危机 / 崩盘 |
-| 25 | 利率 / 央行 / ECB / 通胀 / CPI / 非农 / 制裁 / 关税 / 暴跌 / 暴涨 / crash / 停牌 / 危机 / 衰退 / recession |
-| 22 | GDP / 汇率 / 油价 / 石油 |
-| 20 | PPI / 就业 / 财报 / earnings / IPO / 人民币 / 黄金 |
-| 18 | 并购 / 收购 / 美元 |
+对每个关键词自动推断匹配模式（`_kw_match_mode`），也可在 JSON 中用 dict 值显式指定 `match`：
 
-##### geopolitics 地缘（29）
+| 关键词形态 | 模式 | 理由 | 示例 |
+|-----------|------|------|------|
+| 含中文 | substring | 中文无词边界概念 | 降息/美联储/台海危机 |
+| 多词英文短语（含空格） | substring | 保复数/派生召回 | `bank failures` 命中 `bank failure` |
+| 短英文词/缩写（字母≤3 或高风险词） | **word_boundary** | 防子串误标 | `Fed` 不命中 Federal / `war` 不命中 hardware·forward / `UN` 不命中 Underestimated / `5G` 不命中 5GHz / `coup` 不命中 coupon |
+| 常规英文词（字母>3） | substring | 保复数召回 | chip→chips / crash→crashes / strike→strikes |
 
-| 分值 | 关键词 |
-|:--:|--------|
-| 30 | 战争 / war / 政变 / coup / 暗杀 / assassin |
-| 28 | 停火 / ceasefire / 空袭 / 弹劾 / impeach / 恐怖 / terror |
-| 25 | 冲突 / conflict / 和谈 / 打击 / strike |
-| 22 | 军事 / military / NATO / 北约 |
-| 20 | 选举 / 大选 / election / G7 / G20 |
-| 18 | 联合国 / UN |
-
-##### ai_tech AI科技（29）
-
-| 分值 | 关键词 |
-|:--:|--------|
-| 28 | GPT-5 / AGI / 超级智能 |
-| 25 | OpenAI / 出口管制 / 出口限制 / export control / AI法案 / AI安全 / alignment |
-| 22 | GPT-4 / Google AI / Gemini / DeepMind / NVIDIA |
-| 20 | ChatGPT / Claude / Anthropic / GPU / 芯片 / chip / 监管 / regulation / 模型发布 / model release |
-| 18 | 机器人 / 自动驾驶 |
-| 15 | 开源 / open source |
-
-##### market 市场（19）
-
-| 分值 | 关键词 |
-|:--:|--------|
-| 22 | 熊市 |
-| 20 | 标普 / S&P / 纳斯达克 / NASDAQ / 牛市 |
-| 18 | 道指 / Dow / 轧空 |
-| 15 | 做空 / 回购 / 对冲基金 / 加密货币 / Bitcoin / 比特币 |
-| 12 | 私募 / ETF / 期权 |
-| 10 | 分红 |
-
-##### china 中国（16）
-
-| 分值 | 关键词 |
-|:--:|--------|
-| 28 | 台海 |
-| 25 | 两会 / 政治局 / 央行 / 南海 / 中美 |
-| 22 | 国务院 / 银保监 / 房地产 / 芯片 |
-| 20 | 发改委 / 楼市 / 人民币国际化 |
-| 18 | 新能源 / 电动车 / 一带一路 |
+`_WORD_BOUNDARY_FORCE = {coup, NATO}`（字母>3 但仍需词边界的特例）。
 
 ```python
-def score_impact(title, description):
-    for category, kw_dict in keywords.items():
-        cat_best = max(score for kw, score in kw_dict.items() if kw.lower() in text)
-        if cat_best > max_score: max_score = cat_best   # 跨类取最高，不累加
-    return min(max_score, 30), hit_categories
+def _match_keyword(text, keyword, mode):
+    if mode == "word_boundary":
+        return re.search(rf"(?<![A-Za-z0-9]){re.escape(keyword)}(?![A-Za-z0-9])",
+                         text, flags=re.IGNORECASE) is not None
+    return keyword.lower() in text.lower()
 ```
+
+### 2.2 部署前后能力评估（2026-08-08, 4000 篇真实样本）
+
+| 指标 | 旧 (133词+substring) | 新 (500词+v2) | 说明 |
+|------|:--:|:--:|------|
+| 平均 impact 分 | 14.30 | 7.28 | 旧 substring 系统性虚高 |
+| impact=0 文章 | 1283 | 2619 | +1336 篇纠正为 0（原误标） |
+| 新增命中（新>旧） | — | 451 篇 | 500 词覆盖面提升 |
+| **误标修复**（word_boundary） | — | **1591 篇** | 核心收益 |
+| 真关键词精化 | — | 4 篇 | 台海→台海危机 / GPU→芯片 |
+| `Federal Reserve` 全名缺口 | — | 3 篇 | 均为低价值审批公告，可接受 |
+
+**结论**：旧 scorer 纯 substring 在技术/学术文本大量误标（`war`→hardware、`UN`→Underestimated、`GPU`→GPUS 股票代码、`Fed`→Feedback）。v2 word_boundary 修复 **1591 处误标** + 500 词新增 **451 处真实命中**。平均分下降是**正确性修复**，非能力损失；tier 分布将更准确（减少虚高 A/B 级）。
 
 ---
 
@@ -242,7 +214,7 @@ def score_article(source_name, title, description, velocity_count):
 |------|------|------|
 | 来源权威度 | `news_intel/config/source_scores.json`（197 源综合评分表） | 重启 pipeline |
 | 等级→分兜底映射 | `references/rss-importance-map.json` + 配置中心 `rss.feeds` importance | update_source_importance.py 同步 / 实时 |
-| 事件关键词 | `news_intel/config/event_keywords.json` | 重启 |
+| 事件关键词 | `news_intel/config/event_keywords.json`（500 词, v2 match 模式） | 重启 |
 | 实体权重 | `news_intel/config/entity_weights.json` | 重启 |
 | 资产图 | `news_intel/config/asset_graph.json` | 重启 |
 | 五维权重 | 配置中心「评分」Tab（source_weight 等 6 键） | 热下发 |
