@@ -22,6 +22,7 @@
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | Pipeline | 存活源但文章=0 — sync 批次积压致 70+ 大源文章未推送 | `news_intel/sync.py` | 📋 观察 | 游标批次 LIMIT 积压 + 旧文在水印前 | 提高 LIMIT/按源均衡/查 AP 采集 | — | — |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | 采集 | rss-scanner 优化后时效下降 (4缺陷) | `hermes-cron/rss-scanner.py` | ✅ 已关闭 | tier门控+304不更新last_scan+非2xx记OK+bk共用state | 修复①-④+--full开关+follow_redirects | 限流233篇 / --full 140篇 | 08-08 |
 | [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2 | 配置 | 配置中心 ~61 源死链(404/403) 静默0抓 | `rss.feeds` 配置中心 | 🆕 待处理 | URL失效/Nitter封禁/防爬403 | 配置中心批量禁用/换URL | — | — |
+| [ISS-20260808-004](#iss-20260808-004) | 08-08 | P1 | 聚合 | 同主体跨主题错并 — Trump(伊朗战争)+Trump(古巴) 并成1事件 | `aggregator.py` `fingerprint_score` | 🆕 待处理 | 同主体绕过主题硬约束, 实体对重叠≥60即并 | 内容相似度门 + coherence 下限拒绝 | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -138,6 +139,14 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: ①tier 门控冷源 60min 积压；②304 源不更新 `last_scan` 恒到期；③非 2xx(404/403) 被记 OK 永不隔离；④bk 与生产共用 state/report 互相覆盖；另 httpx 0.28 默认不跟重定向致 NYT 等 301 源 0 抓。
 - **解决**: 修复①-④ + `follow_redirects=True` + 新增 `--full` 不限流开关 + tier 间隔 config 可配（`rss.tier_*_interval`）。
 - **验证**: 限流跑新增 **233** 篇 / `--full` 全量 **140** 篇（远超老文件 14）；死链自动隔离生效。详情 [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md)。
+
+### ISS-20260808-004 同主体跨主题错并 — Trump(伊朗战争) + Trump(古巴) 并成 1 事件
+- **发现**: 2026-08-08 · **严重**: P1 · **分类**: 聚合 · **状态**: 🆕 待处理
+- **现象**: `EVT-20260807-082`（http://100.107.117.23/events/EVT-20260807-082）把两篇不相关文章并成 1 事件，summary 用 `|` 硬拼接两个故事。doc_refs 实锤：① "Trump says war 'can't go much longer' – what's the latest on talks?"（Al Jazeera，伊朗-美国战争谈判）② **"Cuba: What does Trump really want?"**（France 24，古巴）。coherence=65、confidence=0.57（偏低）。
+- **复现**: 任何两篇**主体相同但故事不同**的文章（如特朗普谈伊朗 + 特朗普谈古巴）在 24h 窗口内聚合。
+- **根因**: `aggregator.py` `fingerprint_score()` 基于**实体对重叠**（subject/object/action/topic/event_type）。两篇 subject 同为 Trump → **主题硬约束被绕过**（`if primary_topic 不同 and subject 不同 → 0`，subject 相同时不阻断）；再叠加 object(United States)/action/event_type 相同 → 分数 65 ≥ `EVENT_THRESHOLD(60)` → Phase 1 并入同一事件。anchor（`subject|action|object|primary`）若完全一致更直接 +100 强制合并。**无 coherence 下限拒绝机制**——coherence < MERGE_THRESHOLD 只降 impact（line 893），不拆事件。
+- **解决**: 待方案——① 加**内容相似度门**：同主体但主主题不同的成员需标题词集 Jaccard ≥ 阈值才允许并入（防 Trump+伊朗 与 Trump+古巴 错并）；② coherence 下限拒绝：coherence < 55 的事件拆分/标记；③ anchor 100 分强制合并加内容校验；④ 事件内标题多样性检查。
+- **验证**: — · **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L5 事件聚合 / [event-dedup-fix](../event-dedup-fix.md)
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
