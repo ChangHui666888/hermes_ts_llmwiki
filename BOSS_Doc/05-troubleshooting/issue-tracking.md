@@ -19,6 +19,7 @@
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3 | 实体库 | 关系库在生产中几乎不使用 | `relations.yaml`/`entity_relationship` | 📋 观察 | 关系仅展示层 + REL_ 白名单 | 评估关系图谱接入生产 | — | — |
 | [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3 | Fact | Fact 抽取硬编码参数需配置化 | `fact_pipeline.py:39-42/132/252` | 📋 观察 | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死 | 挂到配置中心「AI增强」Tab | — | — |
 | [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3 | 聚合 | 新分散源聚合覆盖偏低 (0 marked) | `aggregator.py` | 📋 观察 | 新增源每源文章少, 未达 event_threshold(60) | 观察/调低阈值或查 fused 指纹 | — | — |
+| [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | Pipeline | 存活源但文章=0 — sync 批次积压致 70+ 大源文章未推送 | `news_intel/sync.py` | 📋 观察 | 游标批次 LIMIT 积压 + 旧文在水印前 | 提高 LIMIT/按源均衡/查 AP 采集 | — | — |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | 采集 | rss-scanner 优化后时效下降 (4缺陷) | `hermes-cron/rss-scanner.py` | ✅ 已关闭 | tier门控+304不更新last_scan+非2xx记OK+bk共用state | 修复①-④+--full开关+follow_redirects | 限流233篇 / --full 140篇 | 08-08 |
 | [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2 | 配置 | 配置中心 ~61 源死链(404/403) 静默0抓 | `rss.feeds` 配置中心 | 🆕 待处理 | URL失效/Nitter封禁/防爬403 | 配置中心批量禁用/换URL | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
@@ -116,6 +117,13 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: `fact_pipeline.py:39-42`（GLINER_MODEL/FALLBACK/FACT_PROMPT）、`:132`（max_tokens=300）、`:252/309`（GLiNER threshold=0.35）为硬编码常量，未走 config loader。
 - **解决**: 方案——新增 `ai.fact_gliner_threshold` / `ai.fact_qwen_max_tokens` / `ai.fact_prompt` 挂到配置中心「AI 增强」Tab，`fact_pipeline.py` 改走 `_agg_cfg`/loader 读取（待评估是否立项）。
 - **验证**: — · **关联**: [entity-workflow-usage.md](../01-architecture/entity-workflow-usage.md) §2 环节2 配置参数
+
+### ISS-20260808-002 存活源但文章=0 — sync 批次积压致大源文章未推送
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: Pipeline · **状态**: 📋 观察
+- **现象**: `/admin/sources` 显示 116 源存活，但 **77 源 article_total=0**，含 AP/CNN/NBC/ABC/NYT/NPR 等大源；Al Jazeera/CBS/France24 正常。
+- **根因**: ① AP 采集=0（scanner 未抓到，URL/隔离待查）；② CNN 50 篇全是水印(09:34:55)前旧文 → sync 永远跳过；③ NYT 水印后有 25 篇，但 sync 按 `created_at ASC + LIMIT` 分批，积压源(PNAS84/SeekingAlpha82/Dev.to79...)占满批次 → NYT 等被挤出未同步。
+- **解决**: 提高 sync LIMIT / 按源均衡 / 补同步水印前旧文 / 查 AP 采集（待研究）。
+- **验证**: — · **关联**: [monitoring.md](../04-config/monitoring.md)（看板 ③抓取/源健康）
 
 ### ISS-20260808-001 新分散源聚合覆盖偏低
 - **发现**: 2026-08-08 · **严重**: P3 · **分类**: 聚合 · **状态**: 📋 观察
