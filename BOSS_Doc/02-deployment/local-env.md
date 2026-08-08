@@ -41,7 +41,15 @@
 - cron 脚本（wrapper）→ `deploy-cron.py --apply` → **生产 cron** 目录。
 - 生产 cron 的 `auto-pipeline.py`/`rss-scanner.py`(wrapper) → dispatch 到 **生产 profile** 的真实脚本。
 - **config/ 包**：留**生产 profile**（scanner 的 sys.path 指向生产 scripts/ 导入 config.loader），**不复制到 cron**（2026-08-08 修正）。
-- ⚠️ 修改 pipeline 代码（scorer/canonicalizer/aggregator 等）后需同步 **生产 profile** 的 `news_intel/`。
+- ⚠️ 修改 pipeline 代码（scorer/canonicalizer/aggregator/sync 等）或 **评分配置 JSON**（config/*.json）后，必须 `python scripts/sync_profile.py --apply` 同步生产 profile，并 `--check` 确认差异=0。
+  - `sync_profile` 已纳入 `config/*.json`（v2.3 修复，勿再手动 cp）；`git push` **不会**自动到生产 profile。
+
+## 部署必查清单（2026-08-08 教训, ISS-009）
+
+1. **改任何配置/代码 → `sync_profile.py --apply`**（git push ≠ 已部署到生产）。
+2. **部署后验证生产实际生效**：查 `pipeline.log` 新逻辑特征（如 sync 修复后 `SYNC+SCORE` 不再 0）、`sync_state.rss_last_synced_at` 是否推进。
+3. **文章不涨时**：先查 `sync_state.rss_last_synced_at` 是否卡旧时刻 + `pipeline.log` `SYNC+SCORE: 0 ok` → 游标 tie 卡死（已用复合游标 `created_at|id` 修复）。
+4. **游标同步一律复合游标 (created_at, id)**，勿用单时间戳 `>=`。
 
 ## 开发规则：计划任务入口文件迁移（2026-08-08 新增）
 
