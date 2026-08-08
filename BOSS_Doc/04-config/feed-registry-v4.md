@@ -308,3 +308,33 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 **实测**：196 源 / 193 到期 / 174.56s / 新增 3237 篇 / 失败 16（代理超时）。
 
 剩余建议：`country`/`language` 驱动路由（中文源直连加速）、`asyncio` 第二阶段（Async Scanner V4）。
+
+---
+
+## 10. Admin Sources 页统计升级（2026-08-08）
+
+`/admin/sources` 页面升级为「全源健康 + 文章统计」视图：
+
+| 列 | 数据来源 |
+|----|---------|
+| 来源名称 / 所属分类 / 类型 / 权威度(importance S/A/B/C) | `rss.feeds` 配置（197 源，权威注册表） |
+| 实际数量(总) + 近7天/近3天/24h/4h 新增 | 云端 `Article.created_at` 按 `source_name` 窗口统计（published_at 全 NULL，用 created_at） |
+| 状态 `alive`/`failed`/`dead_link` | 本地 scanner 健康（`~/.hermes/rss-scanner-state.json`）→ `POST /internal/sources/health` → Setting `rss.health` |
+| 连续失败次数 `fail` | 同上（scanner 连续失败计数，含死链阈值 60） |
+
+### 10.1 新增端点
+
+| 端点 | 方法 | 鉴权 | 说明 |
+|------|:--:|------|------|
+| `/internal/sources/health` | POST | X-Internal-Token | 收本地 scanner 健康 `{name:{fail,dead_link,quarantine_until,last_scan}}`，存 `rss.health` |
+| `/admin/rss/sources/stats` | GET | admin | 全量源 + 时间窗口文章数 + 健康状态 + 失败次数 |
+
+### 10.2 状态派生（云端）
+
+```
+dead_link=true        → dead_link（死链，每周探测）
+fail≥3 或 隔离中       → failed（失败/隔离）
+否则                  → alive（存活）
+```
+
+> 健康同步频率：scanner 每轮（every 5m）扫描完成后 POST；云端不可达时 scanner 不受影响（try/except 非致命）。
