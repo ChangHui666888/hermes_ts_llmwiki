@@ -261,7 +261,9 @@ def score_entities(title, description):
 
 **批量计算 `compute_velocity`**: 对每篇文章，统计 ±30 分钟内 **同指纹**（标题词集 Jaccard 相似度 ≥ 0.5）的报道数。
 
-**指纹 `_make_fingerprint_set`**: 标题分词 → 去停用词（英文 the/a/an 等 + 中文 的/了/在 等 + s/re/ve）→ 取前 8 个实词。
+**指纹 `_make_fingerprint_set`**: 标题分词 → 去停用词 → 取前 8 个实词。
+
+> **停用词表 v2.1 (2026-08-08)**：补全英文功能词（冠词/介词 as·amid·by·from·over·under·between·among·through·during·against·about·along·around·beyond·despite·toward·via 等 + 连词 + 代词 + 系动词/助动词 + 副词）＋常见新闻框架词（says/said/say/new/latest/live/breaking/update/video/watch/photos）＋中文双字功能词（对于/由于/以及/因为/所以/虽然/但是）＋缩写后缀（s/re/ve/ll/d/m）。单字 token（含单字中文）由 `len>1` 一并过滤。目的：消除高频功能词对 Jaccard 交集的稀释，提升判同精度（实测 `as` 不再让无关标题产生交集）。
 
 ```python
 def score_velocity(v):
