@@ -228,7 +228,7 @@ def score_entities(title, description):
 | **制药** | Pfizer / Moderna / Johnson & Johnson / Merck / Eli Lilly |
 | **pharma** | Pfizer / Moderna / Eli Lilly / Merck |
 
-### 4.1 匹配缺陷（v2 待修复, 2026-08-08 发现）
+### 4.1 匹配缺陷与修复（2026-08-08）
 
 关键词路径现用**纯 substring**（`asset_key in text`），存在与 Event Impact v1 相同的词边界误标：
 
