@@ -13,7 +13,8 @@
 |----|------|:--:|------|
 | 外层调度 | Hermes Cron 频率 | **every 5m** | 全局扫描入口 |
 | 内层分频 | Tier 间隔 | hot 5min / warm 15min / cold 60min | 按源重要性控制扫描频率 |
-| 失败冻结 | 连续失败阈值 | **≥3 次 → 冻结 1800s (30min)** | 死源/故障源自动冷却 |
+| 失败冻结 | 连续失败阈值 | **≥3 次 → 隔离 3600s (60min)** | 故障源自动冷却 |
+| 死链降级 | 连续失败 60 次 | **标记死链 → 每周探测 1 次，恢复回归** | 长期死源退出常规扫描，避免每轮白抓 |
 | 增量抓取 | ETag / Last-Modified | 304 直接跳过下载 | 内容未变免下载解析 |
 | 超时 | 每请求 | hot 6s / warm 10s / cold 15s | 单源超时不拖垮整轮 |
 | 并发 | workers | `rss.max_workers` = **10**（代码默认 14） | 控制对代理的连接压力 |
@@ -55,17 +56,33 @@ def is_due(state, feed):
 
 ---
 
-## 3. 隔离机制（Quarantine）
+## 3. 隔离 / 死链 状态机（Quarantine & Dead-link，修复⑤ 2026-08-08）
 
-```python
-if m["fail"] >= QUARANTINE_FAILURES:   # rss.quarantine_failures = 3
-    m["quarantine_until"] = now_ts() + QUARANTINE_SECONDS  # 1800s
+**三级生命周期**：`正常 → 隔离(60min) → 死链(每周探测)`，探测恢复即回归正常。
+
+```
+连续失败 <3        → 照常扫描（fail 累计）
+fail ≥ 3           → 隔离 60min（rss.quarantine_seconds=3600），到期自动重试
+fail ≥ 60          → 标记死链 dead_link=true，退出常规扫描，进入每周探测
+死链每周探测到期    → 抓一次；成功→清零回归正常；失败→下次探测再延 7 天
 ```
 
-- 单次失败 → `fail += 1`；成功 → `fail = 0`。
-- `fail ≥ 3` → 冻结 30 分钟（`is_quarantined` 跳过，不参与本轮扫描）。
-- 冻结到期后自动重试，再失败再冻结。
-- 2026-08-08 状态：隔离 3–4 源（如 Reuters Top `fail=364` 长年失败、URL 已死）。
+```python
+if ok:
+    m["fail"] = 0; m["quarantine_until"] = 0; m.pop("dead_link", None); m.pop("next_probe", None)
+else:
+    m["fail"] += 1
+    if m["fail"] >= DEADLINK_FAILURES:            # 60 次连续失败 → 死链
+        m["dead_link"] = True; m["next_probe"] = now_ts() + DEADLINK_PROBE_INTERVAL
+        m["quarantine_until"] = 0
+    elif m["fail"] >= QUARANTINE_FAILURES:        # 3 次 → 隔离 60min
+        m["quarantine_until"] = now_ts() + QUARANTINE_SECONDS
+```
+
+- **state 字段**：`fail`（连续失败计数）· `quarantine_until`（隔离到期）· `dead_link`（死链标记）· `next_probe`（下次探测时间）。
+- **死链源不进入常规轮次**（不占 `活跃`），仅在 `next_probe` 到期时探测一次；成功即 `update_health(ok)` → 清零回归正常源管理。
+- **迁移**：存量 `fail ≥ 60` 的源启动即标记死链，本轮回探测确认。
+- 2026-08-08 状态：实测 61 个 HTTP 4xx 死链 + Reuters×3 等 → 迁移后直接进入死链每周探测，常规轮次不再浪费请求。
 
 ---
 
@@ -154,7 +171,9 @@ def feed_timeout(feed):
 | `rss.hot_timeout` | 6 | 6 | hot 超时(s) |
 | `rss.cold_timeout` | 15 | 15 | cold 超时(s) |
 | `rss.quarantine_failures` | 3 | 3 | 连续失败冻结阈值 |
-| `rss.quarantine_seconds` | 1800 | 1800 | 冻结时长(s) |
+| `rss.quarantine_seconds` | **3600** | 3600 | 隔离时长(s)，修复⑤：1800→3600(60min) |
+| `rss.deadlink_failures` | 60 | 60 | 连续失败→死链阈值，修复⑤新增 |
+| `rss.deadlink_probe_interval` | 604800 | 604800 | 死链每周探测间隔(s)=7天，修复⑤新增 |
 | `rss.tier_hot_interval` | (未设→默认 300) | 300 | hot 扫描间隔(s)，修复③新增，config 可配 |
 | `rss.tier_warm_interval` | (未设→默认 900) | 900 | warm 扫描间隔(s)，修复③新增 |
 | `rss.tier_cold_interval` | (未设→默认 900) | **900**（修复③：3600→900） | cold 扫描间隔(s)，修复③新增 |
@@ -170,8 +189,8 @@ def feed_timeout(feed):
 4. 缺陷④：`bk/rss-scanner.py` 改用独立 state/report/wiki 路径。
 5. 新增 `--full` / `--no-limit` 开关：不限流全量扫描（对比测试用）。
 6. 同步生产（`sync_profile.py --apply`）+ 实测（限流 233 篇 / --full 140 篇）。
+7. **修复⑤ 死链状态机**：隔离 60min + 连续 60 次失败标记死链 + 每周探测恢复回归（§3）。
 
 ### 🔴 待办：配置中心死链清理（约 61 源）
-- 禁用/换 URL：18 Nitter（全 403）+ 27 个 404 + 11 个 403 + 410/406 等（详见 §6）。
-- 方式：配置中心「源列表」批量操作（`rss.feeds[].enabled=false` 或更新 url），config-agent 60s 同步后生效。
-- 预期收益：活跃源 192 → ~130，每轮少 ~60 个无效请求，报告失败数归位到真实网络失败。
+- 死链状态机已自动接管（fail≥60 → 死链每周探测，常规轮次不再浪费请求），**无需手动禁用**。
+- 可选的配置中心操作：替换高价值死链 URL（White House/AFP/新华网/Nitter 等换可用源），提升覆盖；死链自动探测恢复也会回归。
