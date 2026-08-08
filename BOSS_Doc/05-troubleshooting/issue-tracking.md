@@ -27,6 +27,7 @@
 | [ISS-20260808-006](#iss-20260808-006) | 08-08 | P2 | 评分 | 评分整体偏保守 — A=0/B=4.6%/平均27.9, LLM增强覆盖低 | `scorer.py` `score_article` | 🟡 待决策 | impact不累加 + 词边界去虚高 + 来源分主导 | 降B级门槛/impact适度累加/权威源加权 | — | — |
 | [ISS-20260808-007](#iss-20260808-007) | 08-08 | P3 | 聚合 | 中文粗分词致 velocity Jaccard 低 + 跨语言零匹配 | `scorer.py` `_make_fingerprint_set` | 🟡 待决策 | 中文整串1token + 无跨语言归一 | jieba/实体短语指纹 + KB实体ID跨语言 | — | — |
 | [ISS-20260808-008](#iss-20260808-008) | 08-08 | P3 | 性能 | velocity O(n²) — 5000篇需123s | `scorer.py` `compute_velocity` | 📋 观察 | 全量两两比较 | 指纹倒排索引 + 时间桶 | — | — |
+| [ISS-20260808-009](#iss-20260808-009) | 08-08 | P1 | 采集 | sync 游标卡死 — 391篇同刻时间戳占满LIMIT致文章不再入库/推送 | `sync.py` `_fetch_batch` | ✅ 已关闭 | scanner批量写入同秒时间戳, `created_at>=水印`游标被同刻重复占满 | 复合游标(created_at,id) + 旧水印严格大于 | catchup 1254篇, 水印推进到23:22 | 08-08 |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -180,6 +181,15 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: `compute_velocity` 全量两两比较。
 - **解决**: 指纹词倒排索引 + 30min 时间桶（L2）。
 - **验证**: — · **关联**: [scoring-v2-analysis.md](scoring-v2-analysis.md) §二.7
+
+### ISS-20260808-009 sync 游标卡死 — 同刻时间戳并列致文章不再入库/推送
+- **发现**: 2026-08-08 · **严重**: P1 · **分类**: 采集 · **状态**: ✅ 已关闭
+- **现象**: VPS `/admin/sources` 近几小时文章=0。实际 VPS 最新文章 02:08，本地 sync 水印 `rss_last_synced_at` 卡在 `09:34:55` 不动，pipeline 每轮 `SYNC+SCORE: 0 ok`。
+- **复现**: scanner 批量写入导致 **391 篇共享 `09:34:55` 同秒时间戳**；`_fetch_batch` 查询 `created_at >= 水印 ORDER BY created_at ASC LIMIT 200` 被同刻重复文章占满 → 水印推进到 max=同刻（无进展）→ 卡死，永远取不到其后新文章。
+- **根因**: `created_at >= watermark` 单值游标无法跨过同刻并列时间戳（游标 tie bug）。scanner 批量写入用同一秒时间戳是诱因。
+- **解决**: `_fetch_batch` 改**复合游标 (created_at, id)** `WHERE (created_at > ?) OR (created_at = ? AND id > ?) ORDER BY created_at,id`；`set_sync_watermark` 存 `"created_at|id"`；旧格式水印(仅时间)回退 `created_at > w_time` 跨过同刻。同步 prod + catchup **追平 1254 篇**（A=36/B=94/C=1124），水印推进到 23:22:43。
+- **验证**: 修复后 `_fetch_batch` 返回 200 篇全为新文章（0 重复）；VPS 待下一轮 pipeline 抓取推送后恢复入库。
+- **关联**: [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md) · [cron-debug.md](cron-debug.md)
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
