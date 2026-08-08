@@ -114,6 +114,7 @@ Qwen耗时高 → 单轮总时长涨 → pipeline慢        （硬件瓶颈）
 
 - 采集: `scripts/monitor_pipeline.py`（解析本地 report + pipeline.log 尾部 + news_intel.db → 指标 JSON，**实测 0-16ms 轻量**）
 - 推送: `monitor_pipeline.py --push` → VPS `/internal/monitor`（INTERNAL_TOKEN）
+- **定时任务**: `monitor-pipeline` **every 15m**（2026-08-09 建成）— cron wrapper `~/AppData/Local/hermes/scripts/monitor-pipeline.py` dispatch 到生产 profile，jobs.json 注册。⚠️ 依赖已纳入 `sync_profile.py` SYNC_LIST + `deploy-cron.py` DEPLOY_MAP（新脚本必加，否则生产无此脚本——2026-08-09 教训: 曾致看板数据停更 08-08T12:25）。
 - **Web 看板**: **`http://100.107.117.23/admin`**（管理后台 "流水线监控"板块）— 后端 `GET /api/v1/monitor`，前端 admin 页 MonitorSection + SVG 趋势图（2026-08-08 已浏览器验证 ✅）
 - 本地 HTML 备用: `monitor_dashboard.py` → `~/.hermes/monitor.html`
 - **变化跟踪**: 每轮追加富快照 `~/.hermes/monitor-history.jsonl`（events/articles/tier），输出 `变化` 增量
