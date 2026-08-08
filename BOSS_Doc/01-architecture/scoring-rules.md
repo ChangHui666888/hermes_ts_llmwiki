@@ -6,14 +6,14 @@
 
 ## 评分总览
 
-| 维度 | 满分 | 方法 | 数据源 |
-|------|:----:|------|--------|
-| Source Authority | 20 | 来源权威度查表 + **V4 importance 兜底** | source_scores.json + rss.feeds |
-| Event Impact | 30 | 关键词命中（5 领域，同类取最高，不累加） | event_keywords.json |
-| Entity Importance | 20 | 实体权重查表（词边界匹配） | entity_weights.json |
-| Market Relevance | 20 | 资产映射图（实体/关键词→股票） | asset_graph.json |
-| Velocity | 10 | 30 分钟内同事件（同指纹）报道数 | 跨文章 Jaccard |
-| **总分** | **100** | 五项累加, 封顶 100 | — |
+| 维度                |   满分    | 方法                             | 数据源                            |
+| ----------------- | :-----: | ------------------------------ | ------------------------------ |
+| Source Authority  |   20    | 来源权威度查表 + **V4 importance 兜底** | source_scores.json + rss.feeds |
+| Event Impact      |   30    | 关键词命中（5 领域，同类取最高，不累加）          | event_keywords.json            |
+| Entity Importance |   20    | 实体权重查表（词边界匹配）                  | entity_weights.json            |
+| Market Relevance  |   20    | 资产映射图（实体/关键词→股票）               | asset_graph.json               |
+| Velocity          |   10    | 30 分钟内同事件（同指纹）报道数              | 跨文章 Jaccard                    |
+| **总分**            | **100** | 五项累加, 封顶 100                   | —                              |
 
 ## Tier 划分
 
@@ -66,15 +66,71 @@ def score_source(source_name: str) -> int:
 
 **方法**: 对 `title + description` 小写后关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。
 
-**5 个分类**（event_keywords.json，2026-08-08 实际）:
+**5 个分类 · 133 关键词**（event_keywords.json，2026-08-08 实际；每类取该类最高、跨类只取所有分类最高，不累加）:
 
-| 分类                 | 关键词数 | 高分示例                             |
-| ------------------ | :--: | -------------------------------- |
-| **finance** 金融     |  40  | 利率决议 30 / 降息 30 / 加息 30          |
-| **geopolitics** 地缘 |  29  | 战争 30 / war 30 / 冲突 25           |
-| **ai_tech** AI科技   |  29  | GPT-5 28 / GPT-4 22 / ChatGPT 20 |
-| **market** 市场      |  19  | 标普 20 / S&P 20 / 纳斯达克 20         |
-| **china** 中国       |  16  | 两会 25 / 政治局 25 / 国务院 22          |
+| 分类 | 关键词数 | 满分词 |
+|------|:--:|------|
+| **finance** 金融 | 40 | 利率决议/降息/加息/美联储/Fed/破产/熔断 = 30 |
+| **geopolitics** 地缘 | 29 | 战争/war/政变/coup/暗杀/assassin = 30 |
+| **ai_tech** AI科技 | 29 | GPT-5/AGI/超级智能 = 28 |
+| **market** 市场 | 19 | 熊市 = 22 |
+| **china** 中国 | 16 | 台海 = 28 |
+
+**完整关键词 → 分值表**：
+
+##### finance 金融（40）
+
+| 分值 | 关键词 |
+|:--:|--------|
+| 30 | 利率决议 / 降息 / 加息 / 美联储 / Fed / 破产 / 熔断 |
+| 28 | 贸易战 / 违约 / 债务危机 / 崩盘 |
+| 25 | 利率 / 央行 / ECB / 通胀 / CPI / 非农 / 制裁 / 关税 / 暴跌 / 暴涨 / crash / 停牌 / 危机 / 衰退 / recession |
+| 22 | GDP / 汇率 / 油价 / 石油 |
+| 20 | PPI / 就业 / 财报 / earnings / IPO / 人民币 / 黄金 |
+| 18 | 并购 / 收购 / 美元 |
+
+##### geopolitics 地缘（29）
+
+| 分值 | 关键词 |
+|:--:|--------|
+| 30 | 战争 / war / 政变 / coup / 暗杀 / assassin |
+| 28 | 停火 / ceasefire / 空袭 / 弹劾 / impeach / 恐怖 / terror |
+| 25 | 冲突 / conflict / 和谈 / 打击 / strike |
+| 22 | 军事 / military / NATO / 北约 |
+| 20 | 选举 / 大选 / election / G7 / G20 |
+| 18 | 联合国 / UN |
+
+##### ai_tech AI科技（29）
+
+| 分值 | 关键词 |
+|:--:|--------|
+| 28 | GPT-5 / AGI / 超级智能 |
+| 25 | OpenAI / 出口管制 / 出口限制 / export control / AI法案 / AI安全 / alignment |
+| 22 | GPT-4 / Google AI / Gemini / DeepMind / NVIDIA |
+| 20 | ChatGPT / Claude / Anthropic / GPU / 芯片 / chip / 监管 / regulation / 模型发布 / model release |
+| 18 | 机器人 / 自动驾驶 |
+| 15 | 开源 / open source |
+
+##### market 市场（19）
+
+| 分值 | 关键词 |
+|:--:|--------|
+| 22 | 熊市 |
+| 20 | 标普 / S&P / 纳斯达克 / NASDAQ / 牛市 |
+| 18 | 道指 / Dow / 轧空 |
+| 15 | 做空 / 回购 / 对冲基金 / 加密货币 / Bitcoin / 比特币 |
+| 12 | 私募 / ETF / 期权 |
+| 10 | 分红 |
+
+##### china 中国（16）
+
+| 分值 | 关键词 |
+|:--:|--------|
+| 28 | 台海 |
+| 25 | 两会 / 政治局 / 央行 / 南海 / 中美 |
+| 22 | 国务院 / 银保监 / 房地产 / 芯片 |
+| 20 | 发改委 / 楼市 / 人民币国际化 |
+| 18 | 新能源 / 电动车 / 一带一路 |
 
 ```python
 def score_impact(title, description):
