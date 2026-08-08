@@ -113,8 +113,11 @@ Qwen耗时高 → 单轮总时长涨 → pipeline慢        （硬件瓶颈）
 ## 7. 实现
 
 - 采集: `scripts/monitor_pipeline.py`（解析本地 report + pipeline.log 尾部 + news_intel.db → 指标 JSON，**实测 0-16ms 轻量**）
-- 看板: `scripts/monitor_dashboard.py` → `~/.hermes/monitor.html`（6 视图 + 告警）
-- **变化跟踪**: 每轮追加 `~/.hermes/monitor-history.jsonl`，输出 `变化` 增量 (events_delta/articles_delta) 捕获各环节 DB 变化趋势
+- 推送: `monitor_pipeline.py --push` → VPS `/internal/monitor`（INTERNAL_TOKEN）
+- **Web 看板**: **`http://100.107.117.23/admin`**（管理后台 "流水线监控"板块）— 后端 `GET /api/v1/monitor`，前端 admin 页 MonitorSection + SVG 趋势图（2026-08-08 已浏览器验证 ✅）
+- 本地 HTML 备用: `monitor_dashboard.py` → `~/.hermes/monitor.html`
+- **变化跟踪**: 每轮追加富快照 `~/.hermes/monitor-history.jsonl`（events/articles/tier），输出 `变化` 增量
+- **时间轴图**: 事件总数 / 评分文章 / Tier A 占比 3 张 SVG 折线图（无依赖、离线、轻量）
 - 展示: HTML 看板 / 前端 `/monitoring` 页（后续可选）
 - 告警: 定时运行脚本比对阈值 → 输出异常清单
 
