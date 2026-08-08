@@ -23,6 +23,10 @@
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | 采集 | rss-scanner 优化后时效下降 (4缺陷) | `hermes-cron/rss-scanner.py` | ✅ 已关闭 | tier门控+304不更新last_scan+非2xx记OK+bk共用state | 修复①-④+--full开关+follow_redirects | 限流233篇 / --full 140篇 | 08-08 |
 | [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2 | 配置 | 配置中心 ~61 源死链(404/403) 静默0抓 | `rss.feeds` 配置中心 | 🆕 待处理 | URL失效/Nitter封禁/防爬403 | 配置中心批量禁用/换URL | — | — |
 | [ISS-20260808-004](#iss-20260808-004) | 08-08 | P1 | 聚合 | 同主体跨主题错并 — Trump(伊朗战争)+Trump(古巴) 并成1事件 | `aggregator.py` `fingerprint_score` | 🆕 待处理 | 同主体绕过主题硬约束, 实体对重叠≥60即并 | 内容相似度门 + coherence 下限拒绝 | — | — |
+| [ISS-20260808-005](#iss-20260808-005) | 08-08 | P2 | 评分 | 英文关键词子串误标系统性存在（election⊂Selection/nuclear⊂模型名/market⊂marketing 等） | `scorer.py` `_kw_match_mode` | 🆕 待处理 | 点状修补 word_boundary, 无系统性碰撞扫描 | 系统性子串碰撞检测 → 批量转 word_boundary | 500篇/5000篇测试暴露 | — |
+| [ISS-20260808-006](#iss-20260808-006) | 08-08 | P2 | 评分 | 评分整体偏保守 — A=0/B=4.6%/平均27.9, LLM增强覆盖低 | `scorer.py` `score_article` | 🟡 待决策 | impact不累加 + 词边界去虚高 + 来源分主导 | 降B级门槛/impact适度累加/权威源加权 | — | — |
+| [ISS-20260808-007](#iss-20260808-007) | 08-08 | P3 | 聚合 | 中文粗分词致 velocity Jaccard 低 + 跨语言零匹配 | `scorer.py` `_make_fingerprint_set` | 🟡 待决策 | 中文整串1token + 无跨语言归一 | jieba/实体短语指纹 + KB实体ID跨语言 | — | — |
+| [ISS-20260808-008](#iss-20260808-008) | 08-08 | P3 | 性能 | velocity O(n²) — 5000篇需123s | `scorer.py` `compute_velocity` | 📋 观察 | 全量两两比较 | 指纹倒排索引 + 时间桶 | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -147,6 +151,35 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: `aggregator.py` `fingerprint_score()` 基于**实体对重叠**（subject/object/action/topic/event_type）。两篇 subject 同为 Trump → **主题硬约束被绕过**（`if primary_topic 不同 and subject 不同 → 0`，subject 相同时不阻断）；再叠加 object(United States)/action/event_type 相同 → 分数 65 ≥ `EVENT_THRESHOLD(60)` → Phase 1 并入同一事件。anchor（`subject|action|object|primary`）若完全一致更直接 +100 强制合并。**无 coherence 下限拒绝机制**——coherence < MERGE_THRESHOLD 只降 impact（line 893），不拆事件。
 - **解决**: 待方案——① 加**内容相似度门**：同主体但主主题不同的成员需标题词集 Jaccard ≥ 阈值才允许并入（防 Trump+伊朗 与 Trump+古巴 错并）；② coherence 下限拒绝：coherence < 55 的事件拆分/标记；③ anchor 100 分强制合并加内容校验；④ 事件内标题多样性检查。
 - **验证**: — · **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L5 事件聚合 / [event-dedup-fix](../event-dedup-fix.md)
+
+### ISS-20260808-005 英文关键词子串误标系统性存在
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 评分 · **状态**: 🆕 待处理
+- **现象**: `election`⊂`Selection`（LLM 论文 "Agent Selection" 误判政治）、`nuclear`⊂`NuclearDiffusion`（ML 模型名误判核能）、`war`⊂`hardware`/`forward`、`EV`⊂`every`/`event`、`oil`⊂`soil`、`market`⊂`marketing`、`rate`⊂`corporate` 等同类风险仍潜伏。
+- **复现**: 5000 篇测试（政治关键词 94→32 因 election 修复）。
+- **根因**: `_kw_match_mode` 仅点状修补（`_WORD_BOUNDARY_FORCE`），未对全部英文关键词做子串碰撞检测。
+- **解决**: 系统性子串碰撞扫描 → 碰撞词批量转 word_boundary（S1，见 [scoring-v2-analysis.md](scoring-v2-analysis.md)）。
+- **验证**: — · **关联**: [scoring-v2-analysis.md](scoring-v2-analysis.md) §二.2
+
+### ISS-20260808-006 评分整体偏保守
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 评分 · **状态**: 🟡 待决策
+- **现象**: 5000 篇 A=0、B=4.6%(232)、C=95.4%，平均 27.9 中位 20，最高 87。
+- **根因**: impact 跨类取最高不累加 + 词边界修复去虚高 + 来源分(~15)占比主导。
+- **解决**: 待决策——①B 级门槛 60→50（+4% LLM 覆盖）②impact 跨类适度累加 ③来源权威度加权。
+- **验证**: — · **关联**: [scoring-v2-analysis.md](scoring-v2-analysis.md) §二.3
+
+### ISS-20260808-007 中文粗分词致 velocity 判同偏低
+- **发现**: 2026-08-08 · **严重**: P3 · **分类**: 聚合 · **状态**: 🟡 待决策
+- **现象**: "美联储宣布降息" 为 1 token，相似中文标题 Jaccard 0.33<0.5 漏判；中英同事件零匹配。
+- **根因**: `_make_fingerprint_set` 中文整串 1 token + 无跨语言实体归一。
+- **解决**: 待决策——jieba/实体短语指纹 + KB 实体 ID 跨语言匹配（L1）。
+- **验证**: — · **关联**: [scoring-v2-analysis.md](scoring-v2-analysis.md) §二.6
+
+### ISS-20260808-008 velocity O(n²) 性能
+- **发现**: 2026-08-08 · **严重**: P3 · **分类**: 性能 · **状态**: 📋 观察
+- **现象**: 5000 篇 velocity 计算 123s。
+- **根因**: `compute_velocity` 全量两两比较。
+- **解决**: 指纹词倒排索引 + 30min 时间桶（L2）。
+- **验证**: — · **关联**: [scoring-v2-analysis.md](scoring-v2-analysis.md) §二.7
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
