@@ -118,6 +118,18 @@ Qwen耗时高 → 单轮总时长涨 → pipeline慢        （硬件瓶颈）
 - 本地 HTML 备用: `monitor_dashboard.py` → `~/.hermes/monitor.html`
 - **变化跟踪**: 每轮追加富快照 `~/.hermes/monitor-history.jsonl`（events/articles/tier），输出 `变化` 增量
 - **时间轴图**: 事件总数 / 评分文章 / Tier A 占比 3 张 SVG 折线图（无依赖、离线、轻量）
+
+## 8. 诊断增强（2026-08-08 v1.1）
+
+| 增强 | 解决挑战 |
+|------|---------|
+| **步骤耗时**（pipeline.log 各 Step 间隔）| 瓶颈层：Fact 145s 可定位最大耗时环节 |
+| **聚合输入关联**（unassigned/facts/marked）| C1：marked=0 需 `unassigned>0` 才告警（区分"无输入"vs"聚合失败"） |
+| **抓取统计**（VPS fetch_stats by_strategy + 失败域名）| 抓取环节：direct/browser/jina 成功率 + 失败域名定位 |
+| **VPS 全局计数**（articles/events/fact/story）| 整体规模 + 各库变化 |
+| **marked 告警规则优化** | 仅当 `marked=0 且 unassigned>0` 触发 |
+
+**实测**（推送验证）：步骤耗时 Fact 145s（瓶颈）· 聚合 unassigned=492/facts=50/marked=0（真实异常）· 抓取 direct 1240ok/10fail · VPS events 259/fact 4832/story 74。
 - 展示: HTML 看板 / 前端 `/monitoring` 页（后续可选）
 - 告警: 定时运行脚本比对阈值 → 输出异常清单
 
