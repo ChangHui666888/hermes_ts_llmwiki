@@ -45,14 +45,14 @@
 
 ## 开发规则：计划任务入口文件迁移（2026-08-08 新增）
 
-**涉及计划任务入口文件时，提交同步到本地生产后，需从生产环境迁移到计划任务入口 `~/AppData/Local/hermes/scripts`：**
+**涉及计划任务入口文件时，提交同步到本地生产后，需从生产环境迁移到计划任务入口 `C:\Users\ChangHui\AppData\Local\hermes\scripts`：**
 1. **只迁移入口文件**（wrapper/薄脚本），**不迁移依赖文件**（config/news_intel 等留生产 profile）。
-2. 迁移时检查入口文件的**引用/依赖路径**——必须指向**生产环境**（`../profiles/outside-deepdeek/.../search-engine-v2/scripts/...`），非测试/开发。
+2. 迁移时检查入口文件的**引用/依赖路径**——必须指向**生产环境** `C:\Users\ChangHui\AppData\Local\hermes\profiles\outside-deepdeek\skills\research\search-engine-v2\scripts\...`（非测试/开发）。
 3. 检查冲突；原路径不够明确已修正。
 
 **cron 入口文件模式**（薄 wrapper dispatch 到生产 profile）：
-- `auto-pipeline.py` → `../profiles/outside-deepdeek/.../scripts/auto-pipeline.py`
-- `rss-scanner.py` → `../profiles/outside-deepdeek/.../scripts/hermes-cron/rss-scanner.py`（2026-08-08 改 wrapper，移除 cron/config/ 副本）
+- `auto-pipeline.py` → `../profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/auto-pipeline.py`
+- `rss-scanner.py` → `../profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/hermes-cron/rss-scanner.py`（2026-08-08 改 wrapper，移除 cron/config/ 副本）
 - `config-agent-keepalive.py` → 生产 profile 的 `hermes-cron/config-agent.py`
 
 **部署**：`deploy-cron.py --apply` 只部署入口文件（DEPLOY_MAP 用 wrapper）；依赖留生产 profile。
