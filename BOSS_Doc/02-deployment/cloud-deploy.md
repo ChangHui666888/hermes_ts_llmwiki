@@ -66,12 +66,39 @@ curl localhost:80/docs                # API 文档 (Swagger)
 # 本地推送
 git add -A && git commit -m "update" && git push
 
-# 云端拉取重建
+# 一键部署 (本地执行, 依赖 paramiko + VPS_PASSWORD)
+python scripts/news-platform-v8/deploy-vps.py                # 全部服务
+python scripts/news-platform-v8/deploy-vps.py --service frontend  # 只前端
+python scripts/news-platform-v8/deploy-vps.py --check        # 只查状态
+
+# 或手动云端拉取重建
 ssh administrator@100.107.117.23
 cd /home/administrator/news-platform-v8
 git pull
-docker compose up -d --build
+cd scripts/news-platform-v8 && docker compose up -d --build   # ⚠️ compose 在子目录
 ```
+
+## 回滚（2026-08-08 补）
+
+**代码回滚**（推荐，秒级）:
+```bash
+# VPS 上回退到上一提交
+ssh administrator@100.107.117.23
+cd /home/administrator/news-platform-v8
+git log --oneline -5          # 找要回退的 commit
+git checkout <上一commit> -- scripts/news-platform-v8/   # 只回退该目录
+cd scripts/news-platform-v8 && docker compose up -d --build backend frontend
+```
+
+**镜像回滚**（docker 层）:
+```bash
+docker compose ps --format '{{.Name}} {{.Image}}'   # 记录当前镜像
+docker compose up -d --build backend=news-platform-v8-backend:<旧tag>  # 或换回旧镜像
+```
+
+**数据回滚**（PG，谨慎）: 见 `backup-restore.md`（每日 git 备份 + 一键恢复）。
+
+> ⚠️ 回滚前先 `git stash`/记录当前改动的 commit 号；回滚后验证 `curl /api/v1/dashboard` 200。
 
 ## 服务管理
 
