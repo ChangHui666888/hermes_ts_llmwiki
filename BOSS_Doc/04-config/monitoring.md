@@ -112,6 +112,10 @@ Qwen耗时高 → 单轮总时长涨 → pipeline慢        （硬件瓶颈）
 
 ## 7. 实现
 
-- 采集: `scripts/monitor_pipeline.py`（解析本地 report + pipeline.log + news_intel.db → 指标 JSON）
-- 展示: 前端 `/monitoring` 页 或 HTML 看板
+- 采集: `scripts/monitor_pipeline.py`（解析本地 report + pipeline.log 尾部 + news_intel.db → 指标 JSON，**实测 0-16ms 轻量**）
+- 看板: `scripts/monitor_dashboard.py` → `~/.hermes/monitor.html`（6 视图 + 告警）
+- **变化跟踪**: 每轮追加 `~/.hermes/monitor-history.jsonl`，输出 `变化` 增量 (events_delta/articles_delta) 捕获各环节 DB 变化趋势
+- 展示: HTML 看板 / 前端 `/monitoring` 页（后续可选）
 - 告警: 定时运行脚本比对阈值 → 输出异常清单
+
+> ⚠️ **轻量原则**: 只读 pipeline.log 尾部 150KB + 3 条 SQLite 查询 + 小 JSON，按需运行不驻留，不拖累系统。DB 变化用增量（本轮 vs 上轮），历史 jsonl 每轮追加一条。
