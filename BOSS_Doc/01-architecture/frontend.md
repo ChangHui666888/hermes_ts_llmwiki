@@ -71,7 +71,7 @@ scripts/news-platform-v8/frontend/src/
 | `/sources` | 来源注册表 | 来源权威度柱状图 (实时 event/article 数) |
 | `/map` | 地理监控 V2 | MapLibre GL 地图 + 5 区域/6 类型筛选；hover 列表联动地图标记；"All"可显示全部 (≤1000) |
 | `/login` | 登录 | JWT 认证 (localStorage) |
-| `/admin` | 管理 | 文章/用户/广告统计 + 快捷导航（**30s 自动轮询** v2.3）|
+| `/admin` | 管理 | 文章/用户/广告统计 + 快捷导航（**监控 16min / 统计 15min / 源 5min** 自动轮询 v2.3，对齐数据推送节奏）|
 | `/admin/pipeline` | Pipeline 配置 | 评分 JSON + 聚合阈值编辑 |
 | `/admin/sources` | 来源管理 | 可排序表格 (等级 S/A/B/C/D + **评分** 0-20 + 文章窗口 + 失败/状态 + 搜索) |
 | `/admin/status` | Pipeline 状态 | KPI + 事件阶段分布 + 文章 Tier 分布 + 最近活动 |
