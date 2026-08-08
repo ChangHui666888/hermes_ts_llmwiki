@@ -1,6 +1,6 @@
 # 本地开发环境
 
-> 最后更新: 2026-08-02
+> 最后更新: 2026-08-08
 
 ## 工作站信息
 
@@ -149,7 +149,7 @@
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
-| RSS 数据库 | `~/.hermes/rss-archive.db` | 98 源原始 RSS 文章 |
+| RSS 数据库 | `~/.hermes/rss-archive.db` | 197 源原始 RSS 文章 (V4 Feed Registry, 2026-08-08) |
 | 状态文件 | `~/.hermes/rss-scanner-state.json` | 死源隔离 + 去重游标 |
 | 报告文件 | `~/.hermes/rss-scanner-report.json` | 每次扫描统计 |
 
@@ -243,3 +243,43 @@ sqlite3 ~/.hermes/rss-archive.db "SELECT count(*) FROM rss_articles"
 
 > 密码存储位置: `C:\Users\ChangHui\AppData\Local\hermes\.env` → `CLOUD_SSH_PASS`
 > SSH 密钥已注册, 免密登录。SOCKS 代理不稳定时用直连。
+
+---
+
+## 测试与部署验证（2026-08-08 补全）
+
+### 测试决策表（改 X → 跑哪些测试）
+
+| 改动环节 | 测试命令 |
+|---------|---------|
+| Pipeline 编排 (`auto-pipeline.py`) | `python demo.py`（8 场景 Mock） |
+| 评分 (`scorer.py`) | `python demo.py` + 跑一轮 auto-pipeline |
+| 抓取 (`core/` `batch.py`) | `python test_fetch.py` |
+| 视频抓取 (Step 3.6) | `python test_video_fetch.py` |
+| Fact 抽取 | `python demo.py` + 查 fact 日志 |
+| 聚合 (`aggregator.py`) | `python test_aggregator.py` |
+| 中文聚合 (v4.4.3) | `python test_chinese_aggregation.py` |
+| 域名画像 | `python test_profiles.py` |
+| 后端 API | `python scripts/news-platform-v8/test_api.py` |
+| 端到端 | `python test_e2e.py` |
+| 前端 | VPS 浏览器检查 + `curl /api/v1/*` |
+
+### 部署验证步骤
+
+```bash
+# ① dev → 本地生产 profile 同步
+python scripts/sync_profile.py --check   # 看差异 (应为 0)
+python scripts/sync_profile.py --apply   # 同步 (自动备份)
+
+# ② cron 入口同步 (wrapper 指向生产 profile)
+python scripts/hermes-cron/deploy-cron.py --apply
+
+# ③ 云端 Web 部署
+ssh administrator@100.107.117.23
+cd /home/administrator/news-platform-v8 && git pull
+cd scripts/news-platform-v8 && docker compose up -d --build
+curl http://100.107.117.23/api/v1/dashboard   # 验证 200
+
+# ④ 流水线健康
+tail -20 ~/AppData/Local/hermes/profiles/outside-deepdeek/.../scripts/pipeline.log  # 最近 DONE in
+```

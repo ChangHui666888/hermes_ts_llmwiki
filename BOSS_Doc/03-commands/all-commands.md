@@ -43,6 +43,10 @@ cat pipeline.log
 
 # 部署 cron 脚本回 Hermes 目录
 python scripts/hermes-cron/deploy-cron.py --apply
+
+# dev → 本地生产 profile 增量同步 (2026-08-08)
+python scripts/sync_profile.py --check    # 只看差异
+python scripts/sync_profile.py --apply    # 备份差异后同步 (排除实验/备份/运行时产物)
 ```
 
 ## Docker（云主机）
