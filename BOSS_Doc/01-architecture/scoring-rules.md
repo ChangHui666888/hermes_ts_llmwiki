@@ -101,14 +101,14 @@ def _match_keyword(text, keyword, mode):
 
 ### 2.2 部署前后能力评估（2026-08-08, 4000 篇真实样本）
 
-| 指标 | 旧 (133词+substring) | 新 (500词+v2) | 说明 |
-|------|:--:|:--:|------|
-| 平均 impact 分 | 14.30 | 7.28 | 旧 substring 系统性虚高 |
-| impact=0 文章 | 1283 | 2619 | +1336 篇纠正为 0（原误标） |
-| 新增命中（新>旧） | — | 451 篇 | 500 词覆盖面提升 |
-| **误标修复**（word_boundary） | — | **1591 篇** | 核心收益 |
-| 真关键词精化 | — | 4 篇 | 台海→台海危机 / GPU→芯片 |
-| `Federal Reserve` 全名缺口 | — | 3 篇 | 均为低价值审批公告，可接受 |
+| 指标                      | 旧 (133词+substring) | 新 (500词+v2) | 说明                |
+| ----------------------- | :----------------: | :---------: | ----------------- |
+| 平均 impact 分             |       14.30        |    7.28     | 旧 substring 系统性虚高 |
+| impact=0 文章             |        1283        |    2619     | +1336 篇纠正为 0（原误标） |
+| 新增命中（新>旧）               |         —          |    451 篇    | 500 词覆盖面提升        |
+| **误标修复**（word_boundary） |         —          | **1591 篇**  | 核心收益              |
+| 真关键词精化                  |         —          |     4 篇     | 台海→台海危机 / GPU→芯片  |
+| `Federal Reserve` 全名缺口  |         —          |     3 篇     | 均为低价值审批公告，可接受     |
 
 **结论**：旧 scorer 纯 substring 在技术/学术文本大量误标（`war`→hardware、`UN`→Underestimated、`GPU`→GPUS 股票代码、`Fed`→Feedback）。v2 word_boundary 修复 **1591 处误标** + 500 词新增 **451 处真实命中**。平均分下降是**正确性修复**，非能力损失；tier 分布将更准确（减少虚高 A/B 级）。
 
@@ -125,7 +125,43 @@ def _match_keyword(text, keyword, mode):
 | **拉丁名 ≤3 字符**（Xi/US/BP/UK）| `\b` 词边界 + **大小写敏感**（防 'Xi' 命中希腊字母 xi、'us' 子串） |
 | **拉丁名 >3 字符** | `\b` 词边界 + 忽略大小写 |
 
-**数据规模**: entity_weights.json — **34 国 + 79 人物 + 88 公司**（含中英别名）。
+**数据规模**: entity_weights.json — **34 国 + 79 人物 + 88 公司 = 201 实体**（含中英别名）。完整实体→权重表如下（命中多个取最高，封顶 20）：
+
+##### companies 公司（88）
+
+| 权重 | 实体 |
+|:--:|--------|
+| 20 | NVIDIA / Apple / Microsoft / OpenAI / TSMC / 台积电 |
+| 18 | Google / Tesla / ASML / SpaceX / 华为 / Huawei / Alphabet |
+| 16 | Amazon / Meta / Anthropic / DeepSeek / JPMorgan / Goldman Sachs / BlackRock / Berkshire Hathaway / 伯克希尔 / 中芯国际 / SMIC / 宁德时代 / CATL / Saudi Aramco / 沙特阿美 |
+| 15 | ByteDance / AMD / Morgan Stanley / 阿里巴巴 / Alibaba / 腾讯 / Tencent / 比亚迪 / BYD |
+| 14 | TikTok / Samsung / Intel / Qualcomm / Broadcom / Vanguard / Exxon / Boeing / Lockheed / 字节跳动 / 工商银行 / ICBC / Gazprom / 俄气 / Rosneft / HSBC / Volkswagen / 大众 / BMW / 宝马 / Mercedes / 奔驰 / Siemens / 西门子 / TotalEnergies / LVMH / Airbus / 空客 / Toyota / 丰田 / SoftBank |
+| 13 | Shell / BP / Chevron / Pfizer / Moderna / Deutsche Bank / BNP Paribas / Sony / 索尼 / Foxconn / 鸿海 / MediaTek / Reliance / Tata |
+| 12 | Johnson / 美团 / 拼多多 / Yandex / Sberbank / Adani |
+
+##### persons 人物（79）
+
+| 权重 | 实体 |
+|:--:|--------|
+| 20 | Trump / 特朗普 / 川普 / Donald Trump / Powell / 鲍威尔 / Kevin Warsh / Warsh / 凯文·沃什 / 凯文沃什 / 凯文沃舎 / Federal Reserve / 美联储 / Xi / 习近平 / Putin / 普京 / Vladimir Putin |
+| 18 | 沃什 / 沃舎 / Musk / 马斯克 / Elon Musk / Sam Altman / Jensen Huang / 黄仁勋 |
+| 16 | J.D. Vance / 万斯 / Marco Rubio / 卢比奥 / Altman / 奥特曼 / Buffett / 巴菲特 / Warren Buffett / Yellen / 耶伦 / 李强 / 蔡奇 / Zelensky / 泽连斯基 / Volodymyr Zelensky / Dimon / 戴蒙 / Jamie Dimon / Tim Cook / 库克 / Sundar Pichai / 皮查伊 / Satya Nadella / 纳德拉 / Mark Zuckerberg / 扎克伯格 / Jeff Bezos / 贝索斯 / Netanyahu / 内塔尼亚胡 / Benjamin Netanyahu / Narendra Modi / 莫迪 |
+| 15 | Biden / 拜登 / Larry Ellison / Bill Ackman / Emmanuel Macron / 马克龙 |
+| 14 | Mishustin / 米舒斯京 / Lavrov / 拉夫罗夫 / Shoigu / 绍伊古 / Gates / 盖茨 / Bill Gates / Olaf Scholz / 朔尔茨 / Keir Starmer / 斯塔默 |
+
+##### countries 国家（34）
+
+| 权重 | 实体 |
+|:--:|--------|
+| 20 | North Korea / 朝鲜 |
+| 18 | China / 中国 / Russia / Russian Federation / 俄罗斯 / Iran / 伊朗 / Ukraine / 乌克兰 / Taiwan / 台湾 |
+| 17 | Israel / 以色列 |
+| 15 | United States / US / USA / 美国 / Saudi Arabia / 沙特 |
+| 14 | India / 印度 / Japan / 日本 |
+| 13 | UK / United Kingdom / 英国 / Germany / 德国 / UAE / 阿联酋 |
+| 12 | France / 法国 |
+
+> ⚠️ 拉丁名实体一律**词边界**匹配（`_entity_in_text`），故 `US` 仅匹配大写独立 `US`（不匹配小写 us 子串）；中英别名只要有一个命中即计入该实体权重。
 
 ```python
 def score_entities(title, description):
