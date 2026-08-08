@@ -243,6 +243,7 @@ def score_entities(title, description):
 | **war** | "forward"/"hardware"/"award" 含 `war` | +18 → 误挂 Lockheed/Exxon |
 | **oil** | "soil"/"boil"/"coil" 含 `oil` | +18 → 误挂 Exxon/Shell |
 | **crypto** | "cryptography" 含 `crypto` | +15 → 误挂 Coinbase（刻意保留: substring 需覆盖 cryptocurrency） |
+| **nuclear** | "NuclearDiffusion" 等模型名含 `nuclear` | +30 地缘 + 15 核能资产（500篇测试发现, 已加入 `_WORD_BOUNDARY_FORCE` 修复） |
 
 **✅ 已修复（2026-08-08, commit 见下）**：复用 Event Impact v2 的 `_kw_match_mode`（短英文词/缩写 → word_boundary；中文/短语/常规词 → substring）。**4000 篇真实样本评估：修复 1271 处误标（全部归 0），0 处真实命中丢失**——纯精度收益。真实命中（GPU/rate cut/war+oil/EV/oil spill/Bitcoin）全部保持。
 
