@@ -66,17 +66,18 @@ def score_source(source_name: str) -> int:
 
 **方法（v2, 2026-08-08）**: 对 `title + description` 关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。返回 `(分数, 命中分类, hits详情)`。
 
-**5 个分类 · 500 关键词**（event_keywords.json，2026-08-08 v2；每类取该类最高、跨类只取所有分类最高，不累加）:
+**5 个分类 · 495 关键词**（event_keywords.json，2026-08-08 v2.1；每类取该类最高、跨类只取所有分类最高，不累加）:
 
 | 分类 | 关键词数 | 高分示例 |
 |------|:--:|------|
-| **finance** 金融 | 120 | 利率决议/降息/加息/美联储/Fed/破产/熔断/银行危机/bank failure = 30 |
-| **geopolitics** 地缘 | 100 | 战争/war/政变/coup/暗杀/assassin/入侵/nuclear = 30 |
-| **ai_tech** AI科技 | 120 | GPT-5/AGI/超级智能/superintelligence = 28 |
+| **finance** 金融 | 117 | 利率决议/降息/加息/破产/熔断/银行危机/bank failure = 30 |
+| **geopolitics** 地缘 | 90 | 战争/war/政变/coup/暗杀/assassin/入侵/nuclear = 30 |
+| **ai_tech** AI科技 | 133 | GPT-5/AGI/超级智能/superintelligence = 28；先进封装/Chiplet/HBM = 20 |
 | **market** 市场 | 70 | 熊市/股市崩盘/flash crash/market crash = 22 |
-| **china** 中国 | 90 | 台海危机/中美贸易战/台海冲突 = 30 |
+| **china** 中国 | 85 | 台海危机/中美贸易战/台海冲突 = 30；核能/核电 = 18 |
 
-> 📋 完整 500 关键词清单以 `news_intel/config/event_keywords.json` 为**权威来源**（含中文+英文多词短语），此处不再全量展开。
+> 📋 完整关键词清单以 `news_intel/config/event_keywords.json` 为**权威来源**。
+> **v2.1 (2026-08-08)**：① 移除 **23 个机构重名词**（美联储/Fed/ECB/NATO/UN/G7/国务院/证监会等）→ 转正为 `organizations` 实体（避免关键词/实体双权重）；② 新增 **18 个供应链领域词**（先进封装/Chiplet/晶圆键合/光芯片/激光器芯片/MOCVD/磷化铟/砷化镓/液冷/核能/核电/反应堆/核燃料/铀矿）。
 
 ### 2.1 匹配模式（v2 升级，自动推断）
 
@@ -125,7 +126,9 @@ def _match_keyword(text, keyword, mode):
 | **拉丁名 ≤3 字符**（Xi/US/BP/UK）| `\b` 词边界 + **大小写敏感**（防 'Xi' 命中希腊字母 xi、'us' 子串） |
 | **拉丁名 >3 字符** | `\b` 词边界 + 忽略大小写 |
 
-**数据规模**: entity_weights.json — **34 国 + 79 人物 + 88 公司 = 201 实体**（含中英别名）。完整实体→权重表如下（命中多个取最高，封顶 20）：
+**数据规模**: entity_weights.json — **199 公司 + 77 人物 + 34 国 + 101 机构 = 411 实体**（含中英别名）。完整实体→权重表如下（命中多个取最高，封顶 20）。
+
+> **v1.4 (2026-08-08)**：新增 **organizations 类目**（央行/国际组织/政府机构，101 项，权重 10-20）——从 event_keywords 关键词表剥离转正，避免同一实体双权重。新增供应链实体 111 项（AI算力/先进封装/光芯片/核能四大领域上游设备/配件/材料公司）。scorer 已支持第 4 类实体，aggregator 主体/客体候选已纳入 organizations。
 
 ##### companies 公司（88）
 
@@ -181,7 +184,9 @@ def score_entities(title, description):
 1. **实体 → 资产映射**：文章已识别实体若在资产图 stocks 中 → 该资产权重
 2. **关键词 → 资产映射**：资产键（如 "GPU"/"降息"/"war"）在文本中命中 → 该资产权重
 
-**资产图**（asset_graph.json，2026-08-08 实际，24 个资产键）:
+**资产图**（asset_graph.json，2026-08-08 v1.4，39 个资产键）:
+
+> **v1.4 新增 14 个供应链领域映射**（关系）：先进封装/Chiplet/晶圆键合 → 封装设备股（ASMPT/库力索法/EV Group/AT&S/Ibiden）；光芯片/photonic chip/激光器芯片 → 光芯片股（Veeco/AIXTRON/华工科技/光库科技）；HBM → 存储股（SK海力士/美光/沪电股份）；液冷 → 冷却股（Vertiv/英维克/台达电子）；核能/核电/nuclear/反应堆 → 核电股（上海电气/东方电气/Kazatomprom/Orano）。
 
 ##### 权重 20（8 键）
 
@@ -198,17 +203,17 @@ def score_entities(title, description):
 
 ##### 权重 18（9 键）
 
-| 资产键 | 受影响资产 |
-|--------|-----------|
-| **石油** | Exxon / Chevron / Shell / BP / ConocoPhillips + 商品 CL1:COM / BZ1:COM |
-| **oil** | Exxon / Chevron / Shell / BP + 商品 CL1:COM / BZ1:COM |
-| **半导体** | TSMC / NVIDIA / AMD / Intel / ASML / Qualcomm / Samsung |
-| **semiconductor** | TSMC / NVIDIA / AMD / Intel / ASML |
-| **Bitcoin** | Coinbase / MicroStrategy / Marathon Digital + 加密货币 BTC |
-| **国防** | Lockheed Martin / RTX / Northrop Grumman / Boeing |
-| **defense** | Lockheed Martin / RTX / Northrop Grumman |
-| **战争** | Lockheed Martin / RTX / Northrop Grumman / Exxon / Chevron |
-| **war** | Lockheed Martin / RTX / Exxon / Chevron |
+| 资产键               | 受影响资产                                                                |
+| ----------------- | -------------------------------------------------------------------- |
+| **石油**            | Exxon / Chevron / Shell / BP / ConocoPhillips + 商品 CL1:COM / BZ1:COM |
+| **oil**           | Exxon / Chevron / Shell / BP + 商品 CL1:COM / BZ1:COM                  |
+| **半导体**           | TSMC / NVIDIA / AMD / Intel / ASML / Qualcomm / Samsung              |
+| **semiconductor** | TSMC / NVIDIA / AMD / Intel / ASML                                   |
+| **Bitcoin**       | Coinbase / MicroStrategy / Marathon Digital + 加密货币 BTC               |
+| **国防**            | Lockheed Martin / RTX / Northrop Grumman / Boeing                    |
+| **defense**       | Lockheed Martin / RTX / Northrop Grumman                             |
+| **战争**            | Lockheed Martin / RTX / Northrop Grumman / Exxon / Chevron           |
+| **war**           | Lockheed Martin / RTX / Exxon / Chevron                              |
 
 ##### 权重 15（4 键）
 
