@@ -1,160 +1,189 @@
 # 五维评分规则
 
-> 基于 `news_intel/scorer.py` (2026-07-29 最新代码)
-> 配置数据来源: `news_intel/config/source_scores.json`, `event_keywords.json`, `entity_weights.json`, `asset_graph.json`
+> 基于 `news_intel/scorer.py`（**2026-08-08 最新代码**，含 V4 importance 联动）
+> 配置数据源: `news_intel/config/`（source_scores.json / event_keywords.json / entity_weights.json / asset_graph.json）
+> 入口: `score_article()` 返回 `{total, source, impact, entity, market, velocity, tier, categories, entities, market_assets, velocity_count}`
 
 ## 评分总览
 
-| 维度 | 满分 | 方法 |
-|------|:----:|------|
-| Source Authority | 20 | 来源权威度查表 (70+ 源) |
-| Event Impact | 30 | 关键词命中 (5 领域, 同类取最高) |
-| Entity Importance | 20 | 实体权重查表 (公司/人物/国家) |
-| Market Relevance | 20 | 资产映射图 (实体→股票/ETF) |
-| Velocity | 10 | 30 分钟内同源报道数 |
-| **总分** | **100** | 五项累加, 封顶 100 |
+| 维度 | 满分 | 方法 | 数据源 |
+|------|:----:|------|--------|
+| Source Authority | 20 | 来源权威度查表 + **V4 importance 兜底** | source_scores.json + rss.feeds |
+| Event Impact | 30 | 关键词命中（5 领域，同类取最高，不累加） | event_keywords.json |
+| Entity Importance | 20 | 实体权重查表（词边界匹配） | entity_weights.json |
+| Market Relevance | 20 | 资产映射图（实体/关键词→股票） | asset_graph.json |
+| Velocity | 10 | 30 分钟内同事件（同指纹）报道数 | 跨文章 Jaccard |
+| **总分** | **100** | 五项累加, 封顶 100 | — |
 
 ## Tier 划分
 
 | Tier | 分数范围 | 增强方式 | 成本 |
 |:----:|:--------:|----------|:----:|
 | A | ≥ 90 | DeepSeek V4 Flash | ~$0.002/篇 |
-| B | 60–89 | Qwen3-1.7B 本地 | 免费 (60s 超时) |
-| C | < 60 | Python 规则 (零成本) | $0 |
+| B | 60–89 | Qwen3-1.7B 本地 | 免费 |
+| C | < 60 | Python 规则（零成本） | $0 |
 
 ---
 
 ## 1. Source Authority (0-20)
 
-**方法**: 查 `source_scores.json` 表, 按 RSS 来源名称直接映射。
+**方法（三级回退，2026-08-07 V4 联动）**:
+1. **source_scores.json 精确分**：`scores.get(source_name)`（71 个源，分值 5-20）
+2. **V4 importance 兜底**：源名模糊匹配 `rss.feeds` 的 importance → `S=20/A=15/B=11/C=8`
+3. **default**：`scores.get("_default", 5)`
 
 ```python
 def score_source(source_name: str) -> int:
-    scores = _load_json("source_scores.json")["scores"]
-    return scores.get(source_name, scores.get("_default", 5))
+    if source_name in scores: return scores[source_name]   # ①精确
+    for fn, iv in _get_feed_importance().items():           # ②V4 importance
+        if source_name in fn or fn in source_name:
+            return {"S":20,"A":15,"B":11,"C":8}.get(iv, 8)
+    return scores.get("_default", 5)                        # ③默认
 ```
 
-**示例分值**:
+**示例分值**（source_scores.json 部分）:
 
 | 来源 | 分值 |
 |------|:----:|
-| Reuters Top | 20 |
-| AP Top News | 20 |
-| Bloomberg Markets | 18 |
-| BBC News / CNN | 18 |
-| WSJ World | 18 |
-| NYT Home | 18 |
-| Fed Press / SEC Press | 20 |
-| Hacker News | 8 |
-| Reddit WorldNews | 5 |
-| 未知来源 | 5 (默认值) |
+| Reuters / Bloomberg | 20 |
+| Financial Times / FT | 19 |
+| Wall Street Journal / WSJ | 18 |
+| BBC / BBC World | 16 |
+| CNN / NBC / Al Jazeera | 15 |
+| ... 共 71 个源 | 5-20 |
+| 未知源 | 5（default）|
+
+> 新源（未在 source_scores 中）→ 由 V4 importance 兜底（如 Anthropic S→20 / TASS A→15）。
 
 ---
 
 ## 2. Event Impact (0-30)
 
-**方法**: 对 `title + description` 做关键词匹配。5 个领域各取最高分关键词, **不累加**, 取最大值。
+**方法**: 对 `title + description` 小写后关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。
 
-| 领域 | 最高分 | 示例关键词 |
-|------|:------:|-----------|
-| 🚨 军事/冲突 | 30 | attack, strike, war, military, sanctions |
-| ⚖️ 法律/监管 | 25 | sue, lawsuit, charged, files complaint |
-| 🏛️ 政治/外交 | 20 | summit, announces, election, policy |
-| 💰 金融/经济 | 15 | tariff, inflation, rate cut, earnings |
-| 🔬 科技/医疗 | 10 | AI, breakthrough, FDA, launch |
+**5 个分类**（event_keywords.json，2026-08-08 实际）:
+
+| 分类 | 关键词数 | 高分示例 |
+|------|:--:|------|
+| **finance** 金融 | 40 | 利率决议 30 / 降息 30 / 加息 30 |
+| **geopolitics** 地缘 | 29 | 战争 30 / war 30 / 冲突 25 |
+| **ai_tech** AI科技 | 29 | GPT-5 28 / GPT-4 22 / ChatGPT 20 |
+| **market** 市场 | 19 | 标普 20 / S&P 20 / 纳斯达克 20 |
+| **china** 中国 | 16 | 两会 25 / 政治局 25 / 国务院 22 |
 
 ```python
-for category, kw_dict in keywords.items():
-    for keyword, score in kw_dict.items():
-        if keyword.lower() in text:
-            if score > cat_best:
-                cat_best = score
-    if cat_best > max_score:
-        max_score = cat_best   # ← 跨类别取最高，不累加
+def score_impact(title, description):
+    for category, kw_dict in keywords.items():
+        cat_best = max(score for kw, score in kw_dict.items() if kw.lower() in text)
+        if cat_best > max_score: max_score = cat_best   # 跨类取最高，不累加
+    return min(max_score, 30), hit_categories
 ```
 
 ---
 
 ## 3. Entity Importance (0-20)
 
-**方法**: 从 `title + description` 中匹配预定义重要实体。按实体类型分组:
+**方法**: 从 `title + description` 匹配 entity_weights.json 已知实体（公司/人物/国家），取**最高权重** `min(max_score, 20)`；同时产出文章实体清单 `{companies, persons, countries}`。
 
-| 类型 | 示例 | 最高权重 |
-|------|------|:--------:|
-| Companies | Apple, OpenAI, Tesla, Nvidia | 20 |
-| Persons | Trump, Powell, Musk, Zelenskiy | 18 |
-| Countries | US, China, Iran, Ukraine | 15 |
+**实体匹配规则 `_entity_in_text`（v4.4.2 修复子串误标）**:
+| 实体名类型 | 匹配规则 |
+|-----------|---------|
+| **CJK 名**（含中文字符）| 子串匹配（无词边界） |
+| **拉丁名 ≤3 字符**（Xi/US/BP/UK）| `\b` 词边界 + **大小写敏感**（防 'Xi' 命中希腊字母 xi、'us' 子串） |
+| **拉丁名 >3 字符** | `\b` 词边界 + 忽略大小写 |
 
-同类型取最高分实体, 跨类型也取最大值（不累加）。
+**数据规模**: entity_weights.json — **34 国 + 79 人物 + 88 公司**（含中英别名）。
+
+```python
+def score_entities(title, description):
+    for etype, entities in weights.items():       # companies/persons/countries
+        for name, weight in entities.items():
+            if _entity_in_text(name, text):
+                found[etype].append(name)
+                max_score = max(max_score, weight)
+    return min(max_score, 20), found
+```
 
 ---
 
 ## 4. Market Relevance (0-20)
 
-**方法**: 两层匹配——实体→资产映射 + 关键词→资产映射。
+**方法**: 两条路径，取最高权重 `min(max_score, 20)`，同时产出受影响资产列表：
+1. **实体 → 资产映射**：文章已识别实体若在资产图 stocks 中 → 该资产权重
+2. **关键词 → 资产映射**：资产键（如 "GPU"/"降息"/"war"）在文本中 → 该资产权重
 
-```python
-# 第一层: 匹配到的实体 → 关联股票
-for ent in all_entities:
-    for asset_key, asset_info in graph.items():
-        if ent in asset_info.get("stocks", []):
-            max_score = max(max_score, asset_info["weight"])
+**资产图**（asset_graph.json，2026-08-08 实际）:
 
-# 第二层: 标题/摘要中的关键词 → 关联股票
-for asset_key, asset_info in graph.items():
-    if asset_key.lower() in text:
-        max_score = max(max_score, asset_info["weight"])
-```
-
-**示例映射**:
-
-| 关键词/实体 | 影响的资产 | 权重 |
-|-------------|-----------|:----:|
-| Fed, rate, Powell | SPY, QQQ, TLT, DXY | 20 |
-| Apple, AAPL | AAPL | 20 |
-| Tesla, Elon Musk | TSLA | 18 |
-| Oil, crude | USO, XLE | 18 |
-| Inflation | TIPS, TLT | 15 |
+| 资产键 | 权重 | 受影响股票 |
+|--------|:--:|------|
+| GPU / AI芯片 / 出口管制 / chip export / 降息 / rate cut / 加息 / rate hike | 20 | NVIDIA/AMD/TSMC/ASML 或 JPMorgan/GS/BoA |
+| 石油 / oil | 18 | Exxon/Chevron/Shell/BP |
+| 半导体 / semiconductor / Bitcoin / 国防 / defense / 战争 / war | 18 | TSMC/Intel 或 Lockheed/RTX/Exxon |
+| 加密货币 / crypto / 电动车 / EV | 15 | Coinbase/MSTR 或 Tesla/BYD |
+| 云计算 / cloud / 制药 / pharma | 12 | Amazon/MS/Google 或 Pfizer/Moderna |
 
 ---
 
 ## 5. Velocity (0-10)
 
-**方法**: 统计 30 分钟内同一事件被多少 RSS 源报道。通过 Jaccard 指纹比对判断是否为同一事件。
+**方法**: `score_velocity(velocity_count)` — 30 分钟内同事件报道数：
+
+| 同源报道数 | 得分 |
+|:--:|:--:|
+| ≥ 10 | 10 |
+| 5–9 | 5 |
+| 2–4 | 2 |
+| < 2 | 0 |
+
+**批量计算 `compute_velocity`**: 对每篇文章，统计 ±30 分钟内 **同指纹**（标题词集 Jaccard 相似度 ≥ 0.5）的报道数。
+
+**指纹 `_make_fingerprint_set`**: 标题分词 → 去停用词（英文 the/a/an 等 + 中文 的/了/在 等 + s/re/ve）→ 取前 8 个实词。
 
 ```python
-def score_velocity(velocity_count):
-    if velocity_count >= 10: return 10
-    if velocity_count >= 5:  return 5
-    if velocity_count >= 2:  return 2
+def score_velocity(v):
+    if v >= 10: return 10
+    if v >= 5: return 5
+    if v >= 2: return 2
     return 0
 ```
 
-**指纹生成**:
-```
-1. 标题分词 → 去停用词(38个中英文)
-2. 取前 8 个实词的 set
-3. Jaccard 相似度 ≥ 0.5 视为同一事件
+---
+
+## 6. 主入口 `score_article`
+
+```python
+def score_article(source_name, title, description, velocity_count):
+    src  = score_source(source_name)
+    imp, categories = score_impact(title, description)
+    ent_score, entities = score_entities(title, description)
+    mkt, market_assets = score_market(title, description, entities)
+    vel = score_velocity(velocity_count)
+    total = min(src + imp + ent_score + mkt + vel, 100)
+    tier = "A" if total >= 90 else "B" if total >= 60 else "C"
+    return {...}
 ```
 
-**Velocity 计算场景**:
-
-| 同时报道源数 | 得分 | 含义 |
-|:-----------:|:----:|------|
-| 0–1 源 | 0 | 独家/冷门 |
-| 2–4 源 | 2 | 多家关注 |
-| 5–9 源 | 5 | 热点发酵 |
-| 10+ 源 | 10 | 全网热点 |
+**输出字段**（落库 news_intelligence）:
+| 字段 | 说明 |
+|------|------|
+| score_total | 五维总分 0-100（封顶） |
+| score_source/impact/entity/market/velocity | 各维分 |
+| tier | A/B/C |
+| categories | 命中的 impact 分类 |
+| entities | `{companies, persons, countries}` 文章实体清单 |
+| market_assets | 受影响资产列表 |
 
 ---
 
-## 配置数据文件
+## 7. 配置数据源与修改
 
-所有评分配置存储在 `news_intel/config/` 目录下:
+| 配置 | 位置 | 生效 |
+|------|------|------|
+| 来源权威度 | `news_intel/config/source_scores.json` | 重启 pipeline |
+| 事件关键词 | `news_intel/config/event_keywords.json` | 重启 |
+| 实体权重 | `news_intel/config/entity_weights.json` | 重启 |
+| 资产图 | `news_intel/config/asset_graph.json` | 重启 |
+| 五维权重 | 配置中心「评分」Tab（source_weight 等 6 键） | 热下发 |
+| V4 importance | 配置中心「源列表」importance 字段 | 实时（scorer 兜底联动） |
 
-| 文件 | 用途 |
-|------|------|
-| `source_scores.json` | 70+ 新闻源权威度分值 |
-| `event_keywords.json` | 5 领域事件关键词与权重 |
-| `entity_weights.json` | 公司/人物/国家实体权重 |
-| `asset_graph.json` | 实体/关键词 → 股票/ETF 映射 |
+> ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。
