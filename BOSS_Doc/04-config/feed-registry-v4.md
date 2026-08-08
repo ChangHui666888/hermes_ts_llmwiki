@@ -245,6 +245,11 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 **观察项**：00:58 轮 `AGGREGATE: 0 marked`（300 unassigned/50 facts）——新分散源文章可能未达聚合阈值(60)，24h 内仍新建 17 事件整体正常。已登记 issue-tracking（ISS-20260808-001）。
 
+### 生产 profile 同步（2026-08-08 09:50）
+- **9 个 dev 文件同步到生产 profile**：news_intel(aggregator/canonicalizer/fact_pipeline/pipeline/sync) + knowledge_base(entity_alias/people.yaml) + auto-pipeline + news-pipeline。备份 `sync_backup_20260808_095052`。
+- **同步后 auto-pipeline 验证（413s 无错）**：Fact 50/50 push ok；**聚合 68 marked（修复此前 0 marked）**；CLOUD_SYNC 70 + CONTENT_PUSH 19，0 fail；VPS events 225→257（2h 新建 25）。
+- **中文聚合代码已上线**：本轮英文数据主导无 C 级 CJK 触发；中文文章入池后将走 CJK 信任门/跨语言合并。
+
 ---
 
 ## 7. 后续扩展（信息源注册中心愿景）
