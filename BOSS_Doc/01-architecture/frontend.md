@@ -56,13 +56,13 @@ scripts/news-platform-v8/frontend/src/
 |------|------|------|
 | `/` | Dashboard | 态势感知中心：6 指标(含 Total Events 全量)、By Type 类型分布(点击过滤 /events)、世界地图、Hot Events、热度图、情报流；事件卡片含 国家/实体/时间线/更新时间 |
 | `/articles` | 文章列表 | Hot(6篇) + Latest(12篇) + **顶部 6 组下拉主菜单**(/news/menu, 2026-08-08 替代源名tab) + 侧栏层级 + 来源分组(已归一化去重) |
-| `/articles/[id]` | 文章详情 | VIP/Admin 可见全文 content_md |
+| `/articles/[id]` | 文章详情 | VIP/Admin 可见全文 content_md；**事件跟踪按钮** (v2.4, 有 event 时显示 → /events/{id}) |
 | `/articles/category/[name]` | 分类筛选 | 按主题分类查看文章 |
 | `/articles/source/[name]` | 按来源筛选 | 来源文章列表 (分页) |
 | `/articles/feed/[slug]` | **V4 主菜单子类** (2026-08-07) | 按源分类过滤 (如 finance-macro/tech-ai), `/news?menu={slug}` |
 | `/articles/list` | 全部文章 | 分页 20/页、排序下拉 (最新/最热, `?sort=`) |
 | `/events` | 事件列表 | 分页 20/页、type/stage/country 筛选 + 排序下拉 (首次/更新/置信度, `?sort=`) |
-| `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph |
+| `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph；**story跟踪按钮** (v2.4, 事件归属的 story → /stories/{id}) |
 | `/stories` | 故事列表 | **四维度聚合** (Subject/Action/Object/Location 菜单切换, `?dimension=`) + 维度徽章 |
 | `/stories/[id]` | 故事时间线 | v2.1: 垂直射线时间线 + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 消除时间标记与卡片重叠 |
 | `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
