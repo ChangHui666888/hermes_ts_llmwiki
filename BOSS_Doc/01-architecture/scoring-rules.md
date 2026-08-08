@@ -337,7 +337,8 @@ def score_article(source_name, title, description, velocity_count):
 | 五维权重 | 配置中心「评分」Tab（source_weight 等 6 键） | 热下发 |
 | V4 importance | 配置中心「源列表」importance 字段（S/A/B/C/D） | 实时（scorer 兜底联动） |
 
-> ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。注意 sync_profile 默认排除 `.json`，source_scores.json 等评分配置需**手动 cp** 或调同步清单。
+> ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。
+> **v2.3 (2026-08-08)**：sync_profile 已修复纳入 `config/*.json` 评分配置同步（原排除 `.json` 需手动 cp，是配置漂移主因，见 ISS-20260808-009）；运行时/实验 JSON（fact_*.json/ner_by_article.json）仍排除。
 
 **等级同步命令（VPS）**：
 ```bash
