@@ -176,7 +176,9 @@ def feed_timeout(feed):
 | `rss.deadlink_probe_interval` | 604800 | 604800 | 死链每周探测间隔(s)=7天，修复⑤新增 |
 | `rss.tier_hot_interval` | (未设→默认 300) | 300 | hot 扫描间隔(s)，修复③新增，config 可配 |
 | `rss.tier_warm_interval` | (未设→默认 900) | 900 | warm 扫描间隔(s)，修复③新增 |
-| `rss.tier_cold_interval` | (未设→默认 900) | **900**（修复③：3600→900） | cold 扫描间隔(s)，修复③新增 |
+| `rss.tier_cold_interval` | 900 | **900**（修复③：3600→900） | cold 扫描间隔(s)，修复③新增 |
+
+> ✅ **2026-08-08 已云端同步**：上述 `rss.*` 键已全部注册到云端配置中心 `SEED_CONFIG`（backend `routes/admin_config.py`）并经 `/internal/deploy` 部署 VPS；config-agent（保活重启，白名单已含新键）60s 轮询写入本地 `pipeline-config.json`（85 键）。
 
 ---
 
