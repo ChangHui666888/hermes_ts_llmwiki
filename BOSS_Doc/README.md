@@ -44,6 +44,7 @@ News Intelligence Platform 操作手册。
 | 文档 | 说明 |
 |------|------|
 | [🌐 Feed Registry V4](04-config/feed-registry-v4.md) | **待决策** 全球信息源注册中心升级方案（10字段schema/16大类/~80新源/配置中心集成/迁移） |
+| [📊 流水线监控看板](04-config/monitoring.md) | **已设计** 监控指标/异常阈值/下钻定位/优化导向 + `monitor_pipeline.py` + `monitor_dashboard.py` |
 | [Cron 配置](04-config/cron-jobs.md) | rss-scan + auto-pipeline 计划任务 |
 
 ### 05-troubleshooting — 排障
