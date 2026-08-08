@@ -27,6 +27,22 @@
 | 密钥文件 | `C:\Users\ChangHui\AppData\Local\hermes\.env` |
 | Python 虚拟环境 | `C:\Users\ChangHui\AppData\Local\hermes\hermes-agent\venv` |
 
+---
+
+## 三环境路径拓扑（2026-08-08 确认）
+
+| 环境 | 路径 |
+|------|------|
+| **开发** | `C:\Users\ChangHui\.hermes-web-ui\coding-agent\workspace\default\global\search-engine-v2`（git 仓库，改代码处） |
+| **生产** | `C:\Users\ChangHui\AppData\Local\hermes\profiles\outside-deepdeek\skills\research\search-engine-v2`（auto-pipeline 真实运行处：news_intel/config 等） |
+| **生产 cron** | `C:\Users\ChangHui\AppData\Local\hermes\scripts`（rss-scanner.py / auto-pipeline.py wrapper / config-agent 执行处） |
+
+**部署流向**：
+- cron 脚本 → `deploy-cron.py --apply` → **生产 cron** 目录（`rss-scanner.py` 直接执行）。
+- 生产 cron 的 `auto-pipeline.py`(wrapper) → dispatch 到 **生产 profile** 的真实 `auto-pipeline.py`。
+- **config/ 包**：需同时同步到 **生产 cron**（scanner 需 config.loader，2026-08-08 修复）和 **生产 profile**（pipeline 需）。
+- ⚠️ 修改 pipeline 代码（scorer/canonicalizer/aggregator 等）后需同步 **生产 profile** 的 `news_intel/`。
+
 ### 模型配置
 
 | 配置项 | 值 |
