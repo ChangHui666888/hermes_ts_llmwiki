@@ -73,7 +73,7 @@ scripts/news-platform-v8/frontend/src/
 | `/login` | 登录 | JWT 认证 (localStorage) |
 | `/admin` | 管理 | 文章/用户/广告统计 + 快捷导航 |
 | `/admin/pipeline` | Pipeline 配置 | 评分 JSON + 聚合阈值编辑 |
-| `/admin/sources` | 来源管理 | 可排序表格 (权威/失败/状态 + 搜索) |
+| `/admin/sources` | 来源管理 | 可排序表格 (等级 S/A/B/C/D + **评分** 0-20 + 文章窗口 + 失败/状态 + 搜索) |
 | `/admin/status` | Pipeline 状态 | KPI + 事件阶段分布 + 文章 Tier 分布 + 最近活动 |
 | `/config` | 配置中心 | 14 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/**故事管理** |
 

@@ -1,7 +1,7 @@
 # 五维评分规则
 
-> 基于 `news_intel/scorer.py`（**2026-08-08 最新代码**，含 V4 importance 联动）
-> 配置数据源: `news_intel/config/`（source_scores.json / event_keywords.json / entity_weights.json / asset_graph.json）
+> 基于 `news_intel/scorer.py`（**2026-08-08 最新代码**，含 V4 importance 联动 + 197 源综合评分表）
+> 配置数据源: `news_intel/config/`（source_scores.json / event_keywords.json / entity_weights.json / asset_graph.json）+ `references/rss-importance-map.json`
 > 入口: `score_article()` 返回 `{total, source, impact, entity, market, velocity, tier, categories, entities, market_assets, velocity_count}`
 
 ## 评分总览
@@ -27,9 +27,9 @@
 
 ## 1. Source Authority (0-20)
 
-**方法（三级回退，2026-08-07 V4 联动）**:
-1. **source_scores.json 精确分**：`scores.get(source_name)`（71 个源，分值 5-20）
-2. **V4 importance 兜底**：源名模糊匹配 `rss.feeds` 的 importance → `S=20/A=15/B=11/C=8`
+**方法（三级回退，2026-08-08 综合评估表）**:
+1. **source_scores.json 精确分**：`scores.get(source_name)`（**197 源综合评分表**，分值 5-19，来自 `rss来源20分综合评估_20260808.xlsx`）
+2. **V4 importance 兜底**：源名模糊匹配 `rss.feeds` 的 importance → `S=20/A=15/B=11/C=8/D=5`
 3. **default**：`scores.get("_default", 5)`
 
 ```python
@@ -37,7 +37,7 @@ def score_source(source_name: str) -> int:
     if source_name in scores: return scores[source_name]   # ①精确
     for fn, iv in _get_feed_importance().items():           # ②V4 importance
         if source_name in fn or fn in source_name:
-            return {"S":20,"A":15,"B":11,"C":8}.get(iv, 8)
+            return {"S":20,"A":15,"B":11,"C":8,"D":5}.get(iv, 8)
     return scores.get("_default", 5)                        # ③默认
 ```
 
@@ -45,14 +45,19 @@ def score_source(source_name: str) -> int:
 
 | 来源 | 分值 |
 |------|:----:|
-| Reuters / Bloomberg | 20 |
-| Financial Times / FT | 19 |
-| Wall Street Journal / WSJ | 18 |
-| BBC / BBC World | 16 |
-| CNN / NBC / Al Jazeera | 15 |
-| ... 共 71 个源 | 5-20 |
+| IMF Blog / Fed Press / Reuters / AP / Bloomberg Markets / ECB Press / 白宫 / 各国央行 | 19 |
+| WSJ / FT / World Bank / UN News / Anadolu / 央视新闻 / 新华网时政 | 18 |
+| CNBC / BBC News / Anthropic / NYT / Nature / 财新 | 17 |
+| Al Jazeera / 第一财经 / CNN Edition / Foreign Policy / SCMP | 16 |
+| TechCrunch / Guardian World / 澎湃 / Seeking Alpha / TIME | 15 |
+| BleepingComputer / ZeroHedge / a16z / Fox News / Ars Technica | 14 |
+| GitHub Blog / Hacker News / Reddit | 12-11 |
+| Nitter 系列 / Product Hunt / Lobsters / Stack Overflow Blog | 10 |
+| LLVM / Dev.to / Nitter 个人账号 | 9 |
+| 停用源 | 8 |
 | 未知源 | 5（default）|
 
+> **评分数据流**：Excel 综合评估表（建议等级 + 综合评分）→ ① `source_scores.json`（四舍五入整数分，scorer 精确分）② `references/rss-importance-map.json`（权威 {等级, 浮点分}）→ `update_source_importance.py` 同步等级到配置中心 `rss.feeds`。
 > 新源（未在 source_scores 中）→ 由 V4 importance 兜底（如 Anthropic S→20 / TASS A→15）。
 
 ---
@@ -63,13 +68,13 @@ def score_source(source_name: str) -> int:
 
 **5 个分类**（event_keywords.json，2026-08-08 实际）:
 
-| 分类 | 关键词数 | 高分示例 |
-|------|:--:|------|
-| **finance** 金融 | 40 | 利率决议 30 / 降息 30 / 加息 30 |
-| **geopolitics** 地缘 | 29 | 战争 30 / war 30 / 冲突 25 |
-| **ai_tech** AI科技 | 29 | GPT-5 28 / GPT-4 22 / ChatGPT 20 |
-| **market** 市场 | 19 | 标普 20 / S&P 20 / 纳斯达克 20 |
-| **china** 中国 | 16 | 两会 25 / 政治局 25 / 国务院 22 |
+| 分类                 | 关键词数 | 高分示例                             |
+| ------------------ | :--: | -------------------------------- |
+| **finance** 金融     |  40  | 利率决议 30 / 降息 30 / 加息 30          |
+| **geopolitics** 地缘 |  29  | 战争 30 / war 30 / 冲突 25           |
+| **ai_tech** AI科技   |  29  | GPT-5 28 / GPT-4 22 / ChatGPT 20 |
+| **market** 市场      |  19  | 标普 20 / S&P 20 / 纳斯达克 20         |
+| **china** 中国       |  16  | 两会 25 / 政治局 25 / 国务院 22          |
 
 ```python
 def score_impact(title, description):
@@ -179,11 +184,18 @@ def score_article(source_name, title, description, velocity_count):
 
 | 配置 | 位置 | 生效 |
 |------|------|------|
-| 来源权威度 | `news_intel/config/source_scores.json` | 重启 pipeline |
+| 来源权威度 | `news_intel/config/source_scores.json`（197 源综合评分表） | 重启 pipeline |
+| 等级→分兜底映射 | `references/rss-importance-map.json` + 配置中心 `rss.feeds` importance | update_source_importance.py 同步 / 实时 |
 | 事件关键词 | `news_intel/config/event_keywords.json` | 重启 |
 | 实体权重 | `news_intel/config/entity_weights.json` | 重启 |
 | 资产图 | `news_intel/config/asset_graph.json` | 重启 |
 | 五维权重 | 配置中心「评分」Tab（source_weight 等 6 键） | 热下发 |
-| V4 importance | 配置中心「源列表」importance 字段 | 实时（scorer 兜底联动） |
+| V4 importance | 配置中心「源列表」importance 字段（S/A/B/C/D） | 实时（scorer 兜底联动） |
 
-> ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。
+> ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。注意 sync_profile 默认排除 `.json`，source_scores.json 等评分配置需**手动 cp** 或调同步清单。
+
+**等级同步命令（VPS）**：
+```bash
+# backend 容器内，按 Excel 建议等级更新 settings rss.feeds 的 importance
+docker compose exec backend python /host/scripts/news-platform-v8/update_source_importance.py
+```

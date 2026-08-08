@@ -25,23 +25,25 @@ hermes cron remove <id>
 ## RSS
 
 ```bash
-python ~/.hermes/scripts/rss-scanner.py
-sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
-rm ~/.hermes/rss-scanner-state.json       # 重置隔离
-cat ~/.hermes/rss-scanner-report.json     # 查看报告
+python C:/Users/ChangHui/AppData/Local/hermes/scripts/rss-scanner.py
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+rm C:/Users/ChangHui/.hermes/rss-scanner-state.json       # 重置隔离
+cat C:/Users/ChangHui/.hermes/rss-scanner-report.json     # 查看报告
 ```
 
 ## Pipeline
 
 ```bash
-cd ~/.hermes/scripts
-python auto-pipeline.py                   # 手动运行生产 pipeline
+cd ~/AppData/Local/hermes/scripts
+python auto-pipeline.py                   # 手动运行生产 pipeline (wrapper → 生产 profile)
 
-# 日志
+# 日志 (生产 profile 运行处)
+cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
 cat pipeline.log
 # PowerShell: Get-Content .\pipeline.log -Tail 50
 
-# 部署 cron 脚本回 Hermes 目录
+# 部署 cron 脚本回 Hermes 目录 (开发仓库根)
+cd ~/.hermes-web-ui/coding-agent/workspace/default/global/search-engine-v2
 python scripts/hermes-cron/deploy-cron.py --apply
 
 # dev → 本地生产 profile 增量同步 (2026-08-08)
@@ -53,10 +55,10 @@ python scripts/sync_profile.py --apply    # 备份差异后同步 (排除实验/
 
 ```bash
 ssh administrator@100.107.117.23
-cd news-platform-v8
+cd news-platform-v8/scripts/news-platform-v8
 docker compose ps
 docker compose up -d
-docker compose logs api
+docker compose logs backend
 ```
 ## 完整使用方法
 
@@ -66,6 +68,8 @@ docker compose logs api
 本地: Windows 11, Python 3.11, git-bash
 Hermes: ~/AppData/Local/hermes
 云主机: 100.107.117.23 (administrator)
+⚠️ sqlite3/python 是 Windows 原生程序，不展开 `~`。命令基于 git-bash；
+   在 PowerShell 运行请用绝对路径 C:/Users/ChangHui/...（cd/cat/rm 可识别 `~`）
 ```
 
 ---
@@ -110,25 +114,25 @@ schtasks /create /tn "Hermes-Full-Backup" /tr "C:\Users\ChangHui\AppData\Local\h
 
 ```bash
 # 手动运行
-python ~/AppData/Local/hermes/scripts/rss-scanner.py
+python C:/Users/ChangHui/AppData/Local/hermes/scripts/rss-scanner.py
 
 # 查询
-sqlite3 ~/.hermes/rss-archive.db "SELECT source,title,date FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT source,title,date FROM rss_articles ORDER BY created_at DESC LIMIT 10"
 
 # 按分类
-sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE category='通讯社' LIMIT 10"
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE category='通讯社' LIMIT 10"
 
 # 关键词搜索
-sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE title LIKE '%Trump%Iran%' LIMIT 10"
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT source,title FROM rss_articles WHERE title LIKE '%Trump%Iran%' LIMIT 10"
 
 # 今日新增
-sqlite3 ~/.hermes/rss-archive.db "SELECT COUNT(*) FROM rss_articles WHERE date(created_at)=date('now','localtime')"
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT COUNT(*) FROM rss_articles WHERE date(created_at)=date('now','localtime')"
 
 # 查看报告
-cat ~/.hermes/rss-scanner-report.json
+cat C:/Users/ChangHui/.hermes/rss-scanner-report.json
 
 # 重置隔离
-rm ~/.hermes/rss-scanner-state.json
+rm C:/Users/ChangHui/.hermes/rss-scanner-state.json
 ```
 
 ---
@@ -161,7 +165,8 @@ cat pipeline.log
 ### 三.5、Fact Layer (L10, Schema V1.0)
 
 ```bash
-# 手动执行 (⚠️ 需系统 Python311, 有 gliner/transformers/torch; LM Studio Qwen 在线)
+# 手动执行 (在 profile scripts 目录; ⚠️ 需系统 Python311, 有 gliner/transformers/torch; LM Studio Qwen 在线)
+cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
 C:\Users\ChangHui\AppData\Local\Programs\Python\Python311\python.exe ^
   news_intel/fact_pipeline.py --limit 50 --api http://100.107.117.23 --workers 4 --verbose
 
@@ -175,7 +180,7 @@ docker exec news-platform-v8-postgres-1 psql -U news_admin -d news_intel -c "SEL
 
 参数: `--db` 本地DB(默认profile) / `--limit N` 篇数 / `--api` VPS地址 / `--workers N` 并发线程 / `--verbose` 每篇明细日志
 输出: `[load]→[GLiNER]串行→[extract]多线程→[push]→[save]`，推送成功 `{"ok":N,"fail":0}` 即入库。
-详细设计: `references/fact-schema-v1.md` + `references/fact-extractor-tuning.md`。
+详细设计: `~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/references/` 无此文档；在设计仓库 `~/.hermes-web-ui/coding-agent/workspace/default/global/search-engine-v2/references/fact-schema-v1.md` + `fact-extractor-tuning.md`。
 
 ---
 
@@ -230,7 +235,7 @@ python deploy-vps.py --check            # 只检查状态
 
 ```bash
 ssh administrator@100.107.117.23
-cd /home/administrator/news-platform-v8
+cd /home/administrator/news-platform-v8/scripts/news-platform-v8
 
 # 启动/停止
 docker compose up -d
@@ -238,12 +243,12 @@ docker compose down
 
 # 状态
 docker compose ps
-docker compose logs api --tail 20
+docker compose logs backend --tail 20
 
 # 重建
 git pull
-docker compose build --no-cache api
-docker compose build --no-cache web
+docker compose build --no-cache backend
+docker compose build --no-cache frontend
 docker compose up -d
 
 # 数据库
@@ -251,7 +256,7 @@ docker compose exec postgres psql -U news_admin -d news_intel -c "SELECT COUNT(*
 docker compose exec postgres psql -U news_admin -d news_intel -c "\dt"
 
 # API 测试
-curl http://localhost/health
+curl http://localhost/api/v1/dashboard
 curl http://localhost/news
 curl http://localhost/news/hot
 ```
@@ -286,13 +291,15 @@ cat ~/AppData/Local/hermes/scripts/logs/git-backup.log
 
 ```bash
 # 本地 SQLite
-sqlite3 ~/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+sqlite3 C:/Users/ChangHui/.hermes/rss-archive.db "SELECT source,title FROM rss_articles ORDER BY created_at DESC LIMIT 10"
+cd ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts
 sqlite3 news_intel/news_intel.db "SELECT tier,COUNT(*),AVG(score_total) FROM news_intelligence GROUP BY tier"
 sqlite3 news_intel/news_intel.db "SELECT extraction_method,COUNT(*) FROM news_content GROUP BY 1"
 
 # 云 PostgreSQL
 ssh administrator@100.107.117.23
-docker compose -f ~/news-platform-v8/docker-compose.yml exec postgres \
+cd ~/news-platform-v8/scripts/news-platform-v8
+docker compose exec postgres \
   psql -U news_admin -d news_intel -c "SELECT COUNT(*) FROM articles"
 ```
 

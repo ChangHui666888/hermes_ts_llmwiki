@@ -271,7 +271,7 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 |------|----------|------|:-------:|
 | **config-agent.py** (`scripts/hermes-cron/`) | 全部 11 字段 (name/url/region/tier/category/subcategory/country/language/type/importance/enabled) | 从 VPS `/admin/pipeline/config/export-internal` 拉取 → 白名单 `_sanitize_feeds` 校验 → 写本地 `pipeline-config.json` | ✅ V4 |
 | **rss-scanner.py** (`scripts/hermes-cron/`) | `url`(抓取) · `region`(intl→SOCKS5 代理/cn→直连) · `tier`(hot/warm/cold 扫描顺序) · `name`(源名落库) · `category`(分类落库) · `enabled`(启停) | RSS 扫描引擎 → `rss_articles` 表 | ✅ V4 (P4) |
-| **scorer.py** (`scripts/news_intel/`) | `importance` (S/A/B/C → 20/15/11/8 兜底分) | `score_source` 来源权威度维度（source_scores.json 精确分优先） | ✅ V4 |
+| **scorer.py** (`scripts/news_intel/`) | `importance` (S/A/B/C/D → 20/15/11/8/5 兜底分) | `score_source` 来源权威度维度（source_scores.json 197 源综合评分表优先） | ✅ V4 |
 | **sources_v1.py** (`apps/api/routes/`) | `category`（按源名模糊匹配） | 公共 `/sources` 页 16 类徽章 | ✅ V4 |
 | **news.py** (`apps/api/routes/`) | `category`+`subcategory`（`/news/menu` 层级 + `/news?menu={slug}` 过滤） | 首页 6 组主菜单 + feed 页 | ✅ V4 |
 | **aggregator.py** (`scripts/news_intel/`) | 不直接消费源列表（阈值经 config 读取） | 事件聚合 | — |
@@ -283,7 +283,7 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 | `url` | scanner | 抓取地址 |
 | `region` | scanner | 网络路由：intl 走 SOCKS5 / cn 直连 |
 | `tier` | scanner | 扫描频率：hot=先扫/warm/cold |
-| `importance` | **scorer** | 评分权重：S/A/B/C → 20/15/11/8（source_scores 精确分优先） |
+| `importance` | **scorer** | 评分权重：S/A/B/C/D → 20/15/11/8/5（source_scores 精确分优先；等级按 Excel 评估表同步） |
 | `category` | scanner + sources_v1 + news.py | 16 大类（分类落库 + 菜单层级） |
 | `subcategory` | news.py | 主菜单子类（menu 过滤） |
 | `country`/`language` | 展示元数据 | 地缘统计/跨语言（暂未用于扫描路由） |
@@ -317,7 +317,8 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 | 列 | 数据来源 |
 |----|---------|
-| 来源名称 / 所属分类 / 类型 / 权威度(importance S/A/B/C) | `rss.feeds` 配置（197 源，权威注册表） |
+| 来源名称 / 所属分类 / 类型 / 等级(importance S/A/B/C/D) | `rss.feeds` 配置（197 源，权威注册表） |
+| **评分（综合评分 0-20）** | `/admin/rss/sources/stats` 读 `source_scores.json`（Excel 综合评估表，2026-08-08）|
 | 实际数量(总) + 近7天/近3天/24h/4h 新增 | 云端 `Article.created_at` 按 `source_name` 窗口统计（published_at 全 NULL，用 created_at） |
 | 状态 `alive`/`failed`/`dead_link` | 本地 scanner 健康（`~/.hermes/rss-scanner-state.json`）→ `POST /internal/sources/health` → Setting `rss.health` |
 | 连续失败次数 `fail` | 同上（scanner 连续失败计数，含死链阈值 60） |

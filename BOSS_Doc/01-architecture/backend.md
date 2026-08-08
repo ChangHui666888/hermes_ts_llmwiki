@@ -85,6 +85,7 @@ V1 标准约束 (2026-07-29 起):
 | DELETE | `/admin/rss/sources/{name}` | rss_sources.py | **删除 RSS 源** |
 | POST | `/admin/rss/sources/{name}/toggle` | rss_sources.py | **启用/禁用 RSS 源** |
 | GET | `/admin/rss/profiles` | rss_sources.py | 域名抓取策略 (22域名) |
+| GET | `/admin/rss/sources/stats` | rss_sources.py | 全源健康+文章窗口统计（含 **评分** 0-20 综合分 + 等级 S/A/B/C/D） |
 | GET | `/admin/curation/events` | event_curation.py | **手动聚合** 事件列表(含聚合/覆盖/剔除数) |
 | GET | `/admin/curation/events/{id}` | event_curation.py | 事件"被聚合的文章"(自动+手动-排除, 含勾选态) |
 | GET | `/admin/curation/articles` | event_curation.py | 文章列表/搜索 (`subject`实体/`object`实体/`action`动作词/`keyword`全文) |
