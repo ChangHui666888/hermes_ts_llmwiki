@@ -19,6 +19,8 @@
 | auto-pipeline | every 15m | auto-pipeline.py | ✅ |
 | config-agent | 后台常驻 | config-agent.py | ✅ 保活 (60s 轮询) |
 
+> 📖 rss-scanner 的 tier 分级扫描/隔离/增量限流规则见 [rss-scanner-rate-limit.md](rss-scanner-rate-limit.md)。
+
 ```powershell
 hermes cron create "every 5m"  --script "rss-scanner.py"   --no-agent --deliver "local" --name "rss-scanner"
 hermes cron create "every 15m" --script "auto-pipeline.py" --no-agent --deliver "local" --name "auto-pipeline"

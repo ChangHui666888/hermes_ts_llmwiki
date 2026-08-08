@@ -19,6 +19,8 @@
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3 | 实体库 | 关系库在生产中几乎不使用 | `relations.yaml`/`entity_relationship` | 📋 观察 | 关系仅展示层 + REL_ 白名单 | 评估关系图谱接入生产 | — | — |
 | [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3 | Fact | Fact 抽取硬编码参数需配置化 | `fact_pipeline.py:39-42/132/252` | 📋 观察 | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死 | 挂到配置中心「AI增强」Tab | — | — |
 | [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3 | 聚合 | 新分散源聚合覆盖偏低 (0 marked) | `aggregator.py` | 📋 观察 | 新增源每源文章少, 未达 event_threshold(60) | 观察/调低阈值或查 fused 指纹 | — | — |
+| [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2 | 采集 | rss-scanner 优化后时效下降 (4缺陷) | `hermes-cron/rss-scanner.py` | ✅ 已关闭 | tier门控+304不更新last_scan+非2xx记OK+bk共用state | 修复①-④+--full开关+follow_redirects | 限流233篇 / --full 140篇 | 08-08 |
+| [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2 | 配置 | 配置中心 ~61 源死链(404/403) 静默0抓 | `rss.feeds` 配置中心 | 🆕 待处理 | URL失效/Nitter封禁/防爬403 | 配置中心批量禁用/换URL | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -121,6 +123,20 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: 新增大量分散 feed 每源文章少，可能未达 `aggregate.event_threshold`(60)。
 - **解决**: 观察后续覆盖；若持续偏低可调低阈值或检查 fused 指纹（待评估）。
 - **验证**: — · **关联**: [feed-registry-v4.md](../04-config/feed-registry-v4.md) §9
+
+### ISS-20260808-002 rss-scanner 优化后时效下降 (4缺陷)
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 采集 · **状态**: ✅ 已关闭
+- **现象**: 5 项优化(perf `af3087f`)后单轮新增 0–2 篇，老文件 `bk/rss-scanner.py` 全扫 14 篇 —— 疑"无法获取"。
+- **根因**: ①tier 门控冷源 60min 积压；②304 源不更新 `last_scan` 恒到期；③非 2xx(404/403) 被记 OK 永不隔离；④bk 与生产共用 state/report 互相覆盖；另 httpx 0.28 默认不跟重定向致 NYT 等 301 源 0 抓。
+- **解决**: 修复①-④ + `follow_redirects=True` + 新增 `--full` 不限流开关 + tier 间隔 config 可配（`rss.tier_*_interval`）。
+- **验证**: 限流跑新增 **233** 篇 / `--full` 全量 **140** 篇（远超老文件 14）；死链自动隔离生效。详情 [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md)。
+
+### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
+- **现象**: 修复②上线首轮暴露 61 个 HTTP 4xx（此前全部被静默记为 OK、0 抓、永不隔离）。含 18 Nitter 全 403 + 27 个 404（White House/AFP/新华网/央视/Anthropic/Google AI…）+ 11 个 403（SEC/Politico/OpenAI/Economist/NASA…）。
+- **根因**: 配置中心 `rss.feeds` 中 URL 失效 / Nitter 实例封禁 / 目标站防爬 403。
+- **解决**: 待配置中心「源列表」批量禁用/换 URL（`enabled=false` 或更新 url），config-agent 60s 同步后生效（预计活跃 192→~130）。
+- **验证**: — · **关联**: [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md) §6
 
 ### ISS-20260711-001 db.close() 后查询崩溃
 - **发现**: 2026-07-11 · **严重**: P1 · **分类**: Pipeline · **状态**: ✅ 已关闭
