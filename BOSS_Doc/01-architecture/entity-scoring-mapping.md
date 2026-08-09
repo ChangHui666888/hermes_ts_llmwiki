@@ -176,3 +176,66 @@
 - companies.yaml: **+150 公司→细分赛道 sub_segments 关联**（+69 更细赛道关联）
 - **100% 评分实体映射到 KB**（561/561，loader.resolve 全解析）
 - ⚠️ 注意: 细分赛道名与公司名可冲突（如 `HBM` 也解析到 COMP_HUDBAY_MINERALS 股票代码）——评分关键词用赛道、实体识别用公司，分层消费。
+
+---
+
+## 7. 多维实体关系模型（关系基数 + 实际关系）
+
+> 评分/知识库中的实体关系按基数建模，全部可入 KB `relations.yaml`（REL_ 106 种）+ 云端 `entity_relationship` 表。
+
+### 7.1 关系类型与基数
+
+| 关系 | 基数 | 方向 | 示例 | KB 承载 |
+|------|:--:|------|------|---------|
+| **国家 → 公司** | 1:N | 母国归属 | China → 华为/中芯/中际旭创；US → NVIDIA/Apple | `company.country` |
+| **公司 → 行业** | M:1 | 主营行业 | TSMC→半导体；JPMorgan→金融 | `company.industry` |
+| **公司 → 细分赛道** | **N:M** | 多赛道运营 | NVIDIA→GPU/AI芯片/HBM/出口管制；TSMC→先进封装/Chiplet | `company.sub_segments` |
+| **公司 → 母公司** | M:1 | 隶属 | 海思→华为；抖音→字节 | `parent` |
+| **公司 → 子公司** | 1:N | 控股 | 华为→海思半导体 | `subsidiaries` |
+| **细分赛道 → 父行业** | M:1 | 归类 | 磷化铟/光芯片→光通信 | `IND_SUB_*.sub_of` |
+| **组织 → 国家** | M:1 | 属地 | 美联储→US；证监会→China | `org.country` |
+| **人物 → 组织** | N:M | 任职 | 鲍威尔→美联储；Trump→US政府 | `person.organization` |
+| **公司 → 供应链上游** | N:M | 设备/材料供应 | ASML→TSMC（光刻）；中微→中芯（刻蚀） | `REL_SUPPLIES` |
+
+### 7.2 N:M 关键关系（公司 ↔ 细分赛道，实测）
+
+| 公司 | 跨赛道数 | 赛道 |
+|------|:--:|------|
+| TSMC | 6 | 先进封装/Chiplet/AI芯片/GPU/半导体/出口管制 |
+| NVIDIA | 5 | GPU/AI芯片/HBM/出口管制/AI巨头 |
+| AMD | 5 | GPU/AI芯片/半导体/出口管制/AI巨头 |
+| ASML | 4 | 半导体/出口管制/半导体设备/光刻 |
+| 中微公司 | 3 | 国产替代/先进封装/半导体设备 |
+
+### 7.3 关系来源与落库
+
+```
+评分配置(asset_graph/value_tiers/entity_weights)
+  → 细分赛道分组 (N:M)
+  → knowledge_base: IND_SUB_* 实体 + company.sub_segments (KB V1, 已入)
+  → 云端 entity_relationship 表 (由 backfill_entity_model.py 从 entity-network.json 生成, 仅 12 类)
+  → 配置中心「实体关系」Tab (CRUD + 重新生成)
+```
+
+## 8. Web 配置中心「实体关系」检查（2026-08-09）
+
+### 8.1 功能现状
+- **页面**: 配置中心「实体关系」Tab（`/config` → 🕸️ 实体关系）
+- **管理**: 实体 + 别名 + 实体关系 + 事件关系（4 张表）
+- **API**: `GET/POST /admin/entity-relations` · `DELETE /admin/entity-relations/{id}` · `POST /admin/entity-relations/regenerate`
+- **关系类型**: **仅 12 个硬编码** `[appoints, works_with, partners, competes, supplies, invests, conflicts, leads, controls, member_of, export_control, precedes]`
+- **重新生成**: `backfill_entity_model.py` 从 **entity-network.json**（旧体系）重建 entity_relationship
+
+### 8.2 发现的问题（两套实体系统脱节）
+
+| # | 问题 | 影响 |
+|---|------|------|
+| 1 | **配置中心关系类型仅 12 个**，KB relations.yaml 有 **106 个 REL_** | 多维关系（supplies/IN_SEGMENT 等）无法在 Web 表达 |
+| 2 | **backfill 从 entity-network.json 生成**，非 knowledge_base/*.yaml | 本次 KB 富化（561 实体/40 赛道）**不反映到配置中心** |
+| 3 | **公司→细分赛道 N:M 关系未入云端关系表** | Web 实体关系看不到赛道归属 |
+| 4 | 12 个类型缺 `IN_SEGMENT/IN_INDUSTRY/SUPPLIES_OF` 等 | 无法表达多维映射 |
+
+### 8.3 建议（后续）
+1. **扩展前端关系类型下拉**：从 KB `relations.yaml` 106 种动态加载（或补充 IN_SEGMENT/SUPPLIES_OF/IN_INDUSTRY）
+2. **backfill 改读 knowledge_base/*.yaml**：`company.sub_segments` → 云端 `entity_relationship`（IN_SEGMENT 关系）
+3. **或同步 entity-network.json**：把 KB 富化结果同步到旧体系
