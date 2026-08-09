@@ -195,6 +195,14 @@ python test_aggregator.py --hours 24 --window 12 --limit 50
 # 验证 + 生成 Insight
 python test_aggregator.py --hours 24 --window 12 --limit 50 --insight
 
+# ⭐ 一键重聚合最近 N 小时/天的未分配文章 (2026-08-09, 非破坏性/幂等, ISS-20260809-010 配套)
+#    当轮增量聚合凑不够 ≥2 文章不出事件时, 用这个手动放宽窗口把事件补出来。
+#    只聚合 最近N小时/天 + 未分配(event_id为空) 的 A/B(+中文C) 文章; 新事件落库+推VPS, 不碰存量。
+python reaggregate_recent.py --hours 24             # 最近 24 小时
+python reaggregate_recent.py --days 3               # 最近 3 天
+python reaggregate_recent.py --hours 12 --no-push   # 只本地聚合落库, 不推送
+python reaggregate_recent.py --hours 24 --window 48 # 指定聚合窗口(默认48h)
+
 # Python API
 python -c "
 from news_intel.aggregator import aggregate_events
