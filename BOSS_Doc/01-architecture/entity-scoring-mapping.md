@@ -235,7 +235,23 @@
 | 3 | **公司→细分赛道 N:M 关系未入云端关系表** | Web 实体关系看不到赛道归属 |
 | 4 | 12 个类型缺 `IN_SEGMENT/IN_INDUSTRY/SUPPLIES_OF` 等 | 无法表达多维映射 |
 
-### 8.3 建议（后续）
-1. **扩展前端关系类型下拉**：从 KB `relations.yaml` 106 种动态加载（或补充 IN_SEGMENT/SUPPLIES_OF/IN_INDUSTRY）
-2. **backfill 改读 knowledge_base/*.yaml**：`company.sub_segments` → 云端 `entity_relationship`（IN_SEGMENT 关系）
-3. **或同步 entity-network.json**：把 KB 富化结果同步到旧体系
+### 8.3 实施完成（2026-08-09, commits `bca9e0c`+`1298971`+`0cc3f80`）
+
+✅ **建议 1 — 关系类型接 KB**：
+- 后端新增 `GET /admin/entity-relations/types`：读 KB `relations.yaml`（+2 新类型 IN_SEGMENT/IN_INDUSTRY → 108 种）+ 12 旧类型 = **116 种**
+- 前端配置中心「实体关系」Tab 下拉改为拉取该 API（回退旧 12 类型）
+
+✅ **建议 2 — backfill 改读 KB V1**：
+- `load_kb_v1()` 从 knowledge_base/*.yaml 构建 kb（实体/组织/关联）
+- 关联派生：`company.sub_segments → in_segment` · `parent → parent_of` · `industry → in_industry` · `subsidiaries → subsidiary_of`
+- 细分赛道 IND_SUB_* 也入 entities（type=Industry），保证关联可解析
+- 修复 FK 约束（删残留别名前先删 entity_alias 引用）
+- **实测**: 实体 27056 · 实体关系 **4 → 223**（in_segment 218）· 事件关系 83
+
+**落地示例**（云端 entity_relationship）:
+```
+Innolight --in_segment--> 光通信 / 光模块
+NVIDIA    --in_segment--> GPU / AI芯片 / 出口管制 / 半导体 / AI巨头
+```
+
+> ⚠️ 后续: 配置中心「实体关系」页拉全量 2.7 万实体，序列化较慢（>120s）；建议分页/懒加载。
