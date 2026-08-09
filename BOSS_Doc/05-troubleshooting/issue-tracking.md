@@ -28,7 +28,7 @@
 | [ISS-20260808-007](#iss-20260808-007) | 08-08 | P3 | 聚合 | 中文粗分词致 velocity Jaccard 低 + 跨语言零匹配 | `scorer.py` `_make_fingerprint_set` | 🟡 待决策 | 中文整串1token + 无跨语言归一 | jieba/实体短语指纹 + KB实体ID跨语言 | — | — |
 | [ISS-20260808-008](#iss-20260808-008) | 08-08 | P3 | 性能 | velocity O(n²) — 5000篇需123s | `scorer.py` `compute_velocity` | 📋 观察 | 全量两两比较 | 指纹倒排索引 + 时间桶 | — | — |
 | [ISS-20260808-009](#iss-20260808-009) | 08-08 | P1 | 采集 | sync 游标卡死 — 391篇同刻时间戳占满LIMIT致文章不再入库/推送 | `sync.py` `_fetch_batch` | ✅ 已关闭 | scanner批量写入同秒时间戳, `created_at>=水印`游标被同刻重复占满 | 复合游标(created_at,id) + 旧水印严格大于 | catchup 1254篇, 水印推进到23:22 | 08-08 |
-| [ISS-20260809-010](#iss-20260809-010) | 08-09 | P1 | 聚合 | 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠 | `auto-pipeline.py`/`aggregator.py` | 🔧 修复中 | 增量 SELECT 缺 `rr.article_url`, 聚合器 `a.get("url","")` 恒空 → View 按钮/完整链路缺失 + evidence/timeline 去重折叠 | SELECT 补 `rr.article_url as url` (与 reaggregate_all 对齐) | — | — |
+| [ISS-20260809-010](#iss-20260809-010) | 08-09 | P1 | 聚合 | 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠 | `auto-pipeline.py`/`aggregator.py` | ✅ 已关闭 | 增量 SELECT 缺 `rr.article_url`, 聚合器 `a.get("url","")` 恒空 → View 按钮/完整链路缺失 + evidence/timeline 去重折叠 | SELECT 补 `rr.article_url as url` (与 reaggregate_all 对齐) | 生产 fused 只读 100事件: evidence url 99/100 + chain url 100/100 | 08-09 |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -193,11 +193,11 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **关联**: [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md) · [cron-debug.md](cron-debug.md)
 
 ### ISS-20260809-010 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠
-- **发现**: 2026-08-09 · **严重**: P1 · **分类**: 聚合 · **状态**: 🔧 修复中
+- **发现**: 2026-08-09 · **严重**: P1 · **分类**: 聚合 · **状态**: ✅ 已关闭
 - **现象**: `EVT-20260809-140` 等所有近期新事件详情页 Evidence / Evolution / Information Flow 区块无 "View Source →" / "View →" 按钮、链路短且不可点；旧事件 `EVT-20260728-218` 完整。API 对比: 新事件 `evidence[].url` 0/1、`source_chain[].url` 0/2；旧事件 5/5、10/10。
 - **根因**: 增量入口 `auto-pipeline.py` Step 4.5 的 SELECT 漏 `rr.article_url`, 传给 `aggregate_events()` 的文章 dict 无 `url` 键 → `aggregator.py:1068/1101/1154` 的 `a.get("url","")` 恒空; 且 `url` 是 evidence(1069)/timeline(1111) 去重键, 空串折叠致各只留 1 条。全量 `reaggregate_all.py` 含 url, 故旧事件/全量重算正常。
 - **解决**: `auto-pipeline.py` SELECT 追加 `rr.article_url as url`（与 reaggregate_all 对齐）；`cron-sync.py`/`test_aggregator.py` 同步修复。仅修复前进（存量空 URL 事件不回填）。
-- **验证**: 待生产 — 新事件 `evidence[0].url`/`source_chain[0].url` 非空、evidence 条数恢复；与 `EVT-20260728-218` 形状一致。
+- **验证**: 生产 profile 已同步 (sync diff=0) + 只读验证: ①默认聚合 6/6 事件带 url; ②真实 fused 模式(50 facts + 全量未分配) 100 事件: evidence url 99/100、chain url 100/100、evidence≥2 91/100, 样本 `EVT-20260809-396` evidence 5/chain 9/timeline 12 全带 url, 形状与 `EVT-20260728-218` 一致。新事件 URL 随下一轮 pipeline 生效。
 - **关联**: [data-flow-fields.md](../01-architecture/data-flow-fields.md) L5
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
