@@ -70,17 +70,18 @@ MODEL_ AI模型           TECH_  技术     LAW_   法律
 | 文件 | 数量 | 数据源 |
 |------|-----|--------|
 | countries | **249** | ISO 3166 + G8 43 国政体/联盟关系 |
-| organizations | **~100** | KB + 央行/政府机构/国际组织 (2026-08-09 富化: 美联储/证监会/白宫/东盟等) |
-| companies | **~8300** | SEC 10K美股 + KB 全球 + **国产替代/光通信/机器人/供应链公司** (2026-08-09 +130) |
-| people | **~18,800** | Wikidata + 精选 + 蔡奇/卢拉等 (2026-08-09) |
+| organizations | **58** | KB + 央行/政府机构/国际组织 (2026-08-09 富化: 美联储/证监会/白宫/东盟等) |
+| companies | **8,145** | SEC 10K美股 + KB 全球 + **国产替代/光通信/机器人/供应链公司** (2026-08-09 +130) |
+| people | **18,800** | Wikidata + 精选 + 蔡奇/卢拉等 (2026-08-09) |
 | locations | 40 (全带坐标) | canonicalizer 33城 + 地缘, G6 补 lat/lon |
-| industries | **69** | GICS 25 + **40 细分赛道 IND_SUB_** (先进封装/光通信/机器人/EDA/磷化铟等, 2026-08-09) |
+| industries | **69** | GICS 25 + **44 细分赛道 IND_SUB_** (先进封装/光通信/机器人/EDA/磷化铟等, 2026-08-09) |
 | actions | **81** | ACTION_CATALOG (G3 扩充, 含 zh/past/noun), 引擎识别 46 |
 | relations | **108** | RELATIONS_CATALOG + **IN_SEGMENT/IN_INDUSTRY** (2026-08-09) |
 | event_types | **29** (157 细分) | G4 EVENT_TYPES_CATALOG, 含 zh |
-| entity_alias | 85 | 中英别名 + 政府转喻 |
+| entity_alias | 88 | 中英别名 + 政府转喻 |
 
-> **2026-08-09 富化**: 561 评分实体 100% 映射 KB（companies/organizations/people 扩充）+ 40 细分赛道 + IN_SEGMENT 多维关系。详见 [entity-scoring-mapping.md](entity-scoring-mapping.md)。
+> **2026-08-09 富化**: 561 评分实体 100% 映射 KB（companies +130/organizations +39/people +2）+ **44 细分赛道** + 130 公司→赛道 sub_segments + IN_SEGMENT 多维关系。详见 [entity-scoring-mapping.md](entity-scoring-mapping.md)。
+> **2026-08-09 实测扫描**（`knowledge_base/` 目录）: countries 249 / organizations **58** / companies **8,145** / people **18,800** / locations 40 / industries **69**(44 细分赛道) / actions 81 / relations 108 / event_types 29 / entity_alias 88。
 
 扩种工具: `scripts/knowledge_base/import_seed.py` (ISO + SEC 下载, 幂等重跑)
 
