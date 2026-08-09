@@ -24,9 +24,9 @@
 
 | KB 组件 | 状态 | 说明 |
 |---------|:--:|------|
-| **actions.yaml（81 动作）** | 🟡 闲置 | loader 全量加载, 但动作检测用 `aggregator.py ACTION_MAP` **硬编码**, 不从 yaml 读; 仅 generate_kb.py 生成用 |
-| **event_types.yaml（29 类型）** | 🟡 闲置 | 事件类型分类用 `_classify_topics` 硬编码, 不从 yaml 读 |
-| **locations.yaml（40）** | 🟡 闲置 | 地点解析用 `canonicalizer CITY_TO_COUNTRY` 硬编码, 不从 yaml 读 |
+| **actions.yaml（81 动作）** | ✅ 已激活 (2026-08-09) | `_get_action_map()` 从 actions.yaml 加载 49 个 ACTION_MAP 动作 (补 patterns en/zh); 空则回退硬编码 |
+| **event_types.yaml（29 类型）** | ✅ 已激活 (2026-08-09) | `_get_topic_signals()` 从 event_types.yaml topic_signals 加载 12 主题; 空则回退硬编码 |
+| **locations.yaml（40）** | ✅ 已激活 (2026-08-09) | `_get_city_country()` 从 locations.yaml 加载 34 城市→国家; 空则回退硬编码 |
 | **industries（GICS 25）** | 🟡 半闲置 | IND_SUB_ 细分赛道用; GICS 行业仅作 company.industry 字段, 无运行时按行业查询 |
 | **relations.yaml（108 种定义）** | 🟡 半闲置 | 仅用于类型下拉; 实际关系实例由 backfill 派生 (sub_segments/parent), 非读 relations.yaml 数据 |
 | **entity-network.json（旧体系）** | 🔴 回退 | backfill 已改读 KB V1 (KB_V1_CANDIDATES 优先), entity-network 仅失败时回退; 配置中心实体管理仍引用 |
