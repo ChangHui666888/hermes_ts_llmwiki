@@ -352,6 +352,34 @@ B noThink → 2.2s/篇, 覆盖100%, 语义可比 (偶发幻觉→由验证门拦
 - 设计: `references/fact-schema-v1.md` · 调优: `references/fact-extractor-tuning.md`
 - 脚本: `scripts/news_intel/fact_pipeline.py` (多线程, --verbose 明细)
 
+### Fact Schema V2（2026-08-10, ISS-20260810-012）— facts[] + 结构化 SAO
+
+> 背景: 单 fact 结构丢多事实; 生产后处理把 Qwen 正确输出降质(动作落 OTHER / 客体切碎 ENT_ 垃圾 / 值被实体化)。P0 升级。
+
+```json
+{
+  "article_id": 17779,
+  "article_url": "https://...",
+  "facts": [
+    {
+      "subject":  {"name": "OpenAI", "entity_id": "COMP_OPENAI", "type": "Company"},
+      "action":   {"type": "ACQUIRE", "status": "completed", "polarity": "positive", "verb": "acquired"},
+      "object":   {"name": "NextSlide", "entity_id": null, "type": "Company"},
+      "time":     {"raw": "2026-08-10", "value": null},
+      "location": {"name": "San Francisco", "entity_id": "LOC_SAN_FRANCISCO", "type": "Location"},
+      "confidence": 0.91,
+      "evidence": "OpenAI acquired NextSlide and will integrate its technology into ChatGPT."
+    }
+  ]
+}
+```
+
+关键规则:
+- **facts[]**: 一篇文章最多 ~3 条事实(如 `OpenAI acquired NextSlide and will integrate...` → ACQUIRE + INTEGRATE 两条)。
+- **action.type**: 规范动作(扩充 CANONICAL_ACTIONS, 词表外动词不再落 OTHER);**action.status** ∈ completed/ongoing/planned/denied/proposed/rumored;**action.polarity** ∈ positive/negative/neutral。
+- **subject/object/time/location**: 结构化对象。object 若是**值/数字/日期/短语**(`$0.22`/`81st anniversary`/`AI chip fears ease`)→ `entity_id=null`、不进 entities 列表(**实体化门控**, 不再生成 ENT_ 临时 id)。
+- 每条 fact 带 **confidence + evidence**(支持句), 聚合器按 best-fact(非 OTHER + 高 confidence)取用。
+
 ---
 
 ## L5 — 事件聚合 (aggregator.py)

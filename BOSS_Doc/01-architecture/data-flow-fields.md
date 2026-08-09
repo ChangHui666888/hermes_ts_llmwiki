@@ -162,6 +162,8 @@ events (事件)
 | entity_type | GLiNER/推断 | Country/Person/Company/Organization/Location/Other |
 | role | Canonicalizer | SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER |
 
+> **Schema V2（2026-08-10, ISS-20260810-012）**: fact 表新增 `subject_name`/`subject_entity_id`/`object_name`/`object_entity_id`/`action_status`/`action_polarity`/`evidence`; 一篇文章产 `facts[]`(≤3 条)。`object` 为值/数字/日期/短语时 `entity_id=null` 且**不进 fact_entity**(不再生成 ENT_ 临时 id)。`action.status` ∈ completed/ongoing/planned/denied/proposed/rumored; `action.polarity` ∈ positive/negative/neutral。
+
 **产出**: 单条事实 + 参与者角色（支持多主体/多客体: "Trump, DOJ"→2 SUBJECT）
 **实测**: 纯新闻 B 占比 74%、快路径(A/C) 26%、B noThink 2.2s/篇 (8.5×提速)
 
