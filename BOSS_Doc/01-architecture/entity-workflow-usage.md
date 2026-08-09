@@ -7,6 +7,73 @@
 
 ---
 
+## 0. 三步骤实体调用链（评分/抽取/聚合, 权威参考 2026-08-09）
+
+### 0.1 调用链全景
+
+```
+① 评分 (scorer.py) — 用评分配置 JSON (不用 KB)
+   sync.py → score_article(title, description)
+   ├── score_source    → source_scores.json    (197 源)
+   ├── score_impact    → event_keywords.json   (511 词)
+   ├── score_entities  → entity_weights.json   (559 实体)
+   ├── score_market    → asset_graph.json      (39 资产键)
+   └── _value_reward   → value_tiers.json      (T1-T10 分级)
+   加载: config.loader (配置中心联动), 非 knowledge_base.loader
+
+② 抽取 (fact_pipeline → canonicalizer) — 用 KB V1
+   fact_pipeline (GLiNER/Qwen 抽实体)
+   → canonicalizer.resolve_entity(实体, gliner_type)
+       ├── knowledge_base.loader.resolve() → 中英别名 → 稳定 ID (PERS_TRUMP/COMP_NVIDIA)
+       └── _get_city_country()             → locations.yaml (城市→国家)
+   → fact_entity 落库: entity_id = KB 稳定 ID
+
+③ 聚合 (aggregator.py) — 用 KB V1 (间接) + 三大本体 yaml
+   aggregate_events(articles, facts, ner)
+   ├── _canonicalize(实体)   → resolve_entity → KB loader (中英别名归一)
+   ├── _detect_action        → _get_action_map()     → actions.yaml (49 动作正则)
+   ├── _classify_topics      → _get_topic_signals()  → event_types.yaml (12 主题)
+   └── country/participants  → _get_city_country()   → locations.yaml (34 城市)
+```
+
+### 0.2 实体/关系使用对比
+
+| 步骤 | 实体源 | 关系类型 | 关键函数 | 用 KB? |
+|------|--------|---------|---------|:--:|
+| **评分** | entity_weights(559) + value_tiers(T1-T10) | 实体→权重 / 实体→分级 | `score_entities`/`_value_reward` | ❌ 用 config JSON |
+| **抽取** | knowledge_base yaml (实体+别名) | 中英别名→稳定 ID | `resolve_entity`→`loader.resolve` | ✅ KB |
+| **聚合** | KB + 三大本体 (actions/event_types/locations) | 实体归一 / 动作 / 主题 / 地点 | `_canonicalize`/`_detect_action`/`_classify_topics` | ✅ KB |
+
+### 0.3 配置文件完整路径（dev 仓库 + 生产 profile）
+
+**评分配置** `scripts/news_intel/config/`:
+
+| 文件 | dev 路径 | 生产 profile 路径 | 规模 |
+|------|---------|-----------------|:--:|
+| source_scores.json | `<repo>/scripts/news_intel/config/source_scores.json` | `~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/news_intel/config/` | 197 源 |
+| event_keywords.json | 同目录 | 同 profile 目录 | 511 词 |
+| entity_weights.json | 同目录 | 同 profile 目录 | 559 实体 |
+| asset_graph.json | 同目录 | 同 profile 目录 | 39 键 |
+| value_tiers.json | 同目录 | 同 profile 目录 | T1-T10 |
+
+**知识库本体** `knowledge_base/`:
+
+| 文件 | dev 路径 | 生产 profile 路径 | 规模 | 消费方 |
+|------|---------|-----------------|:--:|------|
+| countries.yaml | `<repo>/knowledge_base/countries.yaml` | `~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/knowledge_base/` | 249 | 抽取/聚合 |
+| companies.yaml | 同目录 | 同 profile 目录 | 8,145 | 抽取/聚合/backfill |
+| people.yaml | 同目录 | 同 profile 目录 | 18,800 | 抽取/聚合 |
+| organizations.yaml | 同目录 | 同 profile 目录 | 58 | 抽取/聚合/backfill |
+| entity_alias.yaml | 同目录 | 同 profile 目录 | 88 | 抽取/聚合 |
+| **actions.yaml** | 同目录 | 同 profile 目录 | 81 (+patterns) | 聚合 `_get_action_map` |
+| **event_types.yaml** | 同目录 | 同 profile 目录 | 29 + topic_signals(12) | 聚合 `_get_topic_signals` |
+| **locations.yaml** | 同目录 | 同 profile 目录 | 40 | 抽取/聚合 `_get_city_country` |
+| industries.yaml | 同目录 | 同 profile 目录 | 69 (44 细分赛道) | backfill (in_segment) |
+| relations.yaml | 同目录 | 同 profile 目录 | 108 | 配置中心关系类型 API |
+
+> 注: `<repo>` = `C:/Users/ChangHui/.hermes-web-ui/coding-agent/workspace/default/global/search-engine-v2`
+> 生产 profile = `C:/Users/ChangHui/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2`
+
 ## 1. 总览表（工作流各环节 × 实体使用）
 
 ### 知识库使用 vs 闲置审计（2026-08-09 实测）
