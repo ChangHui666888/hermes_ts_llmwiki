@@ -187,12 +187,12 @@ events (事件)
 | **source_count** | 聚合器 | 涉及来源数 |
 | **article_count** | 聚合器 | 关联文章数 |
 | **article_ids** | 聚合器 | 关联文章 ID 列表 |
-| **doc_refs** | 聚合器 | 引用文档 |
+| **doc_refs** | 聚合器 | `[{url, title}]` |
 | **actors** | 聚合器 | `[{entity, type, role}]` |
 | **keywords** | 聚合器 | 主题标签 |
 | **related_entities** | 聚合器 | 关联实体 |
 | **evidence** | 聚合器 | `[{quote, source, url}]` |
-| **source_chain** | 聚合器 | `[{role: break/follow, source}]` |
+| **source_chain** | 聚合器 | `[{role: break/follow, source_id, source_name, time, url}]` |
 | **timeline** | 聚合器 | `[{time, update, source}]` |
 | **llm_analysis** | enhancers | DeepSeek 事件分析 |
 | first_seen / last_updated | 聚合器 | 时间窗口 |
@@ -200,6 +200,8 @@ events (事件)
 | tone / goldstein | 🔮 | 冲突分析 (未填充) |
 
 **产出**: 事件 Dossier 全字段
+
+> **⚠️ URL 必带规则 (2026-08-09, ISS-20260809-010)**: 所有聚合入口（增量 `auto-pipeline.py` Step 4.5 / 全量 `reaggregate_all.py` / 备选 `cron-sync.py`）喂给 `aggregate_events` 的 SELECT **必须含 `rr.article_url as url`**。漏选会致 evidence/source_chain/doc_refs 的 `url` 恒空（前端 EvidenceCard/SourceChain 的 View 按钮消失）；且 `url` 同时是 evidence/timeline 的**去重键**，空串折叠后证据/时间线各只剩 1 条（链路看起来断）。
 
 ### L6 — 云端同步 → PostgreSQL
 

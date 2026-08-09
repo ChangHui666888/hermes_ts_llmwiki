@@ -207,8 +207,8 @@ httpx>=0.27
   "actors": [...],
   "keywords": ["Military", "Energy"],
   "related_entities": [...],
-  "evidence": [{"quote": "...", "source": "DW News"}],
-  "source_chain": [{"role": "break", "source_name": "DW News"}],
+  "evidence": [{"quote": "...", "source": "DW News", "url": "https://..."}],
+  "source_chain": [{"role": "break", "source_name": "DW News", "url": "https://..."}],
   "timeline": [{"time": "...", "update": "...", "source": "..."}],
   "llm_analysis": null
 }
