@@ -22,7 +22,7 @@
 | 项 | 值 |
 |------|------|
 | 脚本 | `~/.hermes/scripts/rss-scanner.py` |
-| 调度 | Hermes cron, 每30min, no_agent |
+| 调度 | Hermes cron, 每15min, no_agent |
 | 源 | 94 RSS feed，10 分类 |
 | 代理 | 境外 → `127.0.0.1:10808`，国内直连 |
 | 输出 | `~/.hermes/rss-archive.db`（6字段） |

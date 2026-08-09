@@ -16,7 +16,7 @@
 
 ```
 本地 Windows (Hermes + cron)
-  rss-scanner (5m) → ~/.hermes/rss-archive.db (98 源, 中文: 人民网/中新网直连 + DW中文/RFI中文/BBC中文走代理)
+  rss-scanner (5m) → ~/.hermes/rss-archive.db (197 源, 中文: 人民网/中新网直连 + DW中文/RFI中文/BBC中文走代理)
   config-agent (5m): VPS 配置中心 → ~/.hermes/pipeline-config.json (60s 轮询 + :8890 推送)
   auto-pipeline (15m) 8 步 (auto-pipeline.py):
     Step0   清理占位行 → Step1 sync.py 水印游标 → news_intel.db (五维评分/tier)
@@ -39,7 +39,7 @@ Web (Sentinel Intelligence)
   实体画像: KB(27K 实体/41K 别名) + 事件派生 双层数据
 ```
 
-关键演进 (2026-08-06/07): **v4.4.3 中文聚合**（中文源采集→Qwen 事实抽取→KB 中英别名归一→保守跨语言匹配）；**Knowledge Base V1**（10 本体 YAML + 中英别名→Entity ID, 8,038 公司/18,790 人物/249 国）；**Story 演化层**（story+story_event, 时间线打包）；**实体画像/关系网络**（entity_alias/entity_relationship, sync_kb_to_db 27K 实体入库）；**配置中心 14 Tab**（RSS/Pipeline/AI/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/监控）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节 与 [knowledge-base.md](knowledge-base.md)。
+关键演进 (2026-08-06/07): **v4.4.3 中文聚合**（中文源采集→Qwen 事实抽取→KB 中英别名归一→保守跨语言匹配）；**Knowledge Base V1**（10 本体 YAML + 中英别名→Entity ID, ~8,300 公司/~18,800 人物/249 国）；**Story 演化层**（story+story_event, 时间线打包）；**实体画像/关系网络**（entity_alias/entity_relationship, sync_kb_to_db 27K 实体入库）；**配置中心 14 Tab**（RSS/Pipeline/AI/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/监控）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节 与 [knowledge-base.md](knowledge-base.md)。
 
 ---
 
@@ -110,14 +110,14 @@ search-engine-v2/scripts/
 
 ```
 rss-scanner.py (Hermes cron, every 5m, no-agent)
-98源 → feedparser → SQLite rss-archive.db
+197源 → feedparser → SQLite rss-archive.db
 境外走 SOCKS5 :10808, 国内直连
 ```
 
 | 参数 | 值 | 位置 |
 |------|:--:|------|
 | 采集频率 | 5min | Hermes Cron |
-| RSS 源数 | 98 (10 类, 含中文央媒/国际中文源) | `rss-scanner.py` FEEDS |
+| RSS 源数 | 197 (16 类, 含中文央媒/国际中文源) | `rss-scanner.py` FEEDS |
 | 隔离失败次数 | 3 | `rss-scanner.py:255` |
 | 隔离时长 | 30min (1800s) | `rss-scanner.py:255` |
 | 去重键 | `link` UNIQUE | `rss-archive.db` |
@@ -136,7 +136,7 @@ sync_recent() → score_article(source_name, title, description, velocity_count)
 
 | 维度 | 满分 | 方法 | 位置 |
 |------|:--:|------|------|
-| Source Authority | 20 | `source_scores.json` 查表 (70+源) | `scorer.py:68` |
+| Source Authority | 20 | `source_scores.json` 查表 (197源) | `scorer.py:68` |
 | Event Impact | 30 | `event_keywords.json` 5领域关键词, 同类取最高 | `scorer.py:78` |
 | Entity Importance | 20 | `entity_weights.json` 查表 (公司/人物/国家) | `scorer.py:109` |
 | Market Relevance | 20 | `asset_graph.json` 资产映射 | `scorer.py:135` |
@@ -147,7 +147,7 @@ sync_recent() → score_article(source_name, title, description, velocity_count)
 | 总分封顶 | 100 | `scorer.py:241` |
 | Velocity 窗口 | 30min | `scorer.py:295` |
 | Jaccard 阈值 | ≥0.5 | `scorer.py:295` |
-| 停用词 | 38个 | `scorer.py:274-277` |
+| 停用词 | 130+个 | `scorer.py:274-277` |
 | 指纹词数 | 8 | `scorer.py:278` |
 | 🚫 LLM | 无 (纯查表+正则) | |
 
@@ -389,7 +389,7 @@ article → GLiNER(实体锚定,串行) → ThreadPool[快路径A/C | B noThink]
 |------|:--:|------|
 | Sync 时间窗口 | 2h (可配 `pipeline.sync_hours`) | `auto-pipeline.py` Step 1 |
 | Fetch 批量 | 20 篇/批 (Step 3) · 聚合 300 篇 (Step 4.5) | `auto-pipeline.py` |
-| Cron 频率 | every 15m (auto-pipeline) | Hermes Cron |
+| Cron 频率 | every 5m (rss-scanner) · **15m (auto-pipeline)** · **15m (monitor-pipeline)** | Hermes Cron |
 | 日志 | `scripts/pipeline.log` (分步统计) | `auto-pipeline.py:39` |
 | 进程锁 | `.pipeline.lock` (防并发) | `auto-pipeline.py` |
 

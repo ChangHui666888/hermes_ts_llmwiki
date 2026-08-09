@@ -38,7 +38,7 @@
 
 | Phase | 模块 | 状态 | 依赖 |
 |-------|------|:--:|------|
-| 0 触发器 | Hermes cron (每30min) | ✅ | Hermes gateway 运行中 |
+| 0 触发器 | Hermes cron (每15min) | ✅ | Hermes gateway 运行中 |
 | 1 采集 | RSS Scanner → rss-archive.db | ✅ | feedparser, SOCKS5 |
 | 1 评分 | sync.py + scorer.py | ✅ | source_scores.json |
 | 2 全文抓取 | **batch.py + fetchers.py** | ✅ | httpx, trafilatura, Chromium |

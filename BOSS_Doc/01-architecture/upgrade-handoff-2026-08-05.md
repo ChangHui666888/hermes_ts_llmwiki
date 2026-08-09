@@ -28,8 +28,8 @@
 ### 4. Knowledge Base V1（全球实体关系知识库）
 - **Phase 1**: `knowledge_base/` 9+1 本体 YAML + `loader.py`（中英别名→稳定 Entity ID）
 - **Phase 2**: ENTITY_CANONICAL 73 条迁入 KB（回归 73/73）；ACTION_MAP 补中文模式；fingerprint 同主体 +25；country/topic 硬约束对同主体放宽 → **中英统一聚合**（NVIDIA+英伟达→1 事件实测）
-- **扩种子**: `import_seed.py` ISO 249 国 + SEC 8,038 公司（法定名归一去重幂等）
-- **Wikidata 人物**: `import_wikidata_people.py` 30国×6职业×DOB 窄查询分页 → people.yaml；中文别名 rdfs:label 捕获 → **18,790 人 / 3,670 含中文别名**
+- **扩种子**: `import_seed.py` ISO 249 国 + SEC ~8,300 公司（法定名归一去重幂等）
+- **Wikidata 人物**: `import_wikidata_people.py` 30国×6职业×DOB 窄查询分页 → people.yaml；中文别名 rdfs:label 捕获 → **~18,800 人 / 3,670 含中文别名**
 - **SEC 行业富化**: `enrich_company_industry.py` 精选映射 ~168 家（Wikidata 批量 P249+P452 不可靠）
 
 ### 5. Phase 3 实体画像 / 关系网络 / Story
@@ -45,13 +45,13 @@
 |---|---|---|
 | 国家 | 249 | ISO 3166 |
 | 公司 | 8,038 | SEC 10K + KB 全球（~168 带行业） |
-| 人物 | **18,790** | Wikidata（3,670 含中文别名）+ 精选 |
+| 人物 | **~18,800** | Wikidata（3,670 含中文别名）+ 精选 |
 | 位置 | 40 | canonicalizer 33 城 + 地缘 |
 | 行业/动作/关系/事件类型 | 25 / 26 / 36 / 12 | GICS + canonicalizer + KB |
 | 实体别名 | 85+（KB）+ 41,110（DB） | 中英 + Wikidata zh |
 
 ### 云端 DB（VPS PG）
-- entities **27,176** / entity_alias **41,110** / entity_relationship 26 / event_relations 28
+- entities **27,176** / entity_alias **41,110** / entity_relationship 223 / event_relations 83
 - story **12** / story_event ~90
 - events ~158 / articles 1,349
 
@@ -84,7 +84,7 @@
 | **主题型 Story** | 当前派生按 subject（实体为中心）；"芯片战"这类跨实体主题需按关键词/主题聚类（如 title 含 "chip/export control" → "US-China Chip War"） |
 | **Story 手动聚合** | 配置中心加 Story 管理 Tab（类似事件校对），人工把事件归入故事 |
 | **跨语言检索** | 按 Entity ID 的多语言搜索（中文搜"英伟达"命中 NVIDIA 实体及其事件） |
-| **人物 3000 目标** | 已超（18,790），但含部分冷门；如需精选 notable 集可加 notability 过滤（sitelinks 查询慢，需分批） |
+| **人物 3000 目标** | 已超（~18,800），但含部分冷门；如需精选 notable 集可加 notability 过滤（sitelinks 查询慢，需分批） |
 | **国家富化** | 249 国中仅 40+ 大国含 capital/currency，其余为空（ISO CSV 无此字段） |
 
 ### P3 — 已知限制

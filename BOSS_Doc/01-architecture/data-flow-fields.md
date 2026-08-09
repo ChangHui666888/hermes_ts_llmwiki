@@ -87,7 +87,7 @@ events (事件)
 | link | feed | 文章 URL (UNIQUE) |
 | created_at | 系统 | 入库时间 |
 
-**产出**: 98 源原始文章流
+**产出**: 197 源原始文章流
 
 ### L1 — 五维评分 → `news_intelligence` 表
 

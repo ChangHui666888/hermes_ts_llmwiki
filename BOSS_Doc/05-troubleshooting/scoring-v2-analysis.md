@@ -96,7 +96,7 @@
 
 | 改进 | 验证 |
 |------|------|
-| Event Impact v2（500 词 + word_boundary） | 修复 1591 误标 + 新增 451 命中 |
+| Event Impact v2（511 词 + word_boundary） | 修复 1591 误标 + 新增 451 命中 |
 | Market Relevance v2（资产键 word_boundary） | 修复 1271 误标，0 丢失 |
 | 停用词表补全（33→130+） | `as`/`amid` 不再稀释 Jaccard |
 | 实体库 v1.4（organizations 类目 101 + 供应链公司 111 + 领域关键词 18 + 资产映射 14） | 5000 篇 0 错误 |

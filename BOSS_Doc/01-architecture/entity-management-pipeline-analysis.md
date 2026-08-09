@@ -14,7 +14,7 @@
 
 - **实体管理 Tab** 管理 `entity-network.json`（静态画像 KB，13 国深度关系）——下游是实体画像页与 DB 回填，**不影响 Pipeline 归一**。
 - **实体关系 Tab** 管理 PG 四张表（`entities/entity_alias/entity_relationship/event_relations`）——其中**实体名确实来自业务流程**（事件 subject/object/actors 派生），是流程实体真实回流的一环。
-- **Pipeline 实体归一**（Fact 抽取、本体验证）用 `knowledge_base/*.yaml`（KB V1，249 国/8038 公司/18790 人物）——由 AI 工作流(wiki+git)维护，**配置中心 UI 够不到**。
+- **Pipeline 实体归一**（Fact 抽取、本体验证）用 `knowledge_base/*.yaml`（KB V1，249 国/~8300 公司/~18800 人物）——由 AI 工作流(wiki+git)维护，**配置中心 UI 够不到**。
 
 三套实体数据源互相独立，靠 `backfill_entity_model.py` / `sync_kb_to_db.py` / `fill_entity_kb.py` 三个脚本单向桥接。
 
@@ -122,8 +122,8 @@
 
 | 脚本 | 逻辑 | 产出 |
 |---|---|---|
-| `backfill_entity_model.py`（容器内跑，幂等） | ① `collect_kb_entities`（KB entity-network 149 实体）+ `collect_event_entities`（events 表 subject/object/actors 派生 **35** 实体）→ 用 `CANON_NAME` 硬编码 canonical（Donald Trump→Trump）合并去重 → upsert `entities`；② `entity_alias` 重建（KB aliases + `CANON_ALIASES` 中英别名表）；③ `entity_relationship` 重建（**KB associations → from/to entity_id**，26 条）；④ `event_relations` 重建（**同 subject 事件按 first_seen 时间序 → precedes 边**，28 条） | 云端 4 张实体/关系表 |
-| `sync_kb_to_db.py`（容器内跑） | 把 `knowledge_base/*.yaml` 的 **KB V1 全量**（18790 人物/8038 公司/249 国）upsert 进 `entities` + 别名进 `entity_alias`（27176 实体/41110 别名） | entities/entity_alias 补齐 |
+| `backfill_entity_model.py`（容器内跑，幂等） | ① `collect_kb_entities`（KB entity-network 149 实体）+ `collect_event_entities`（events 表 subject/object/actors 派生 **35** 实体）→ 用 `CANON_NAME` 硬编码 canonical（Donald Trump→Trump）合并去重 → upsert `entities`；② `entity_alias` 重建（KB aliases + `CANON_ALIASES` 中英别名表）；③ `entity_relationship` 重建（**KB associations + in_segment**，223 条）；④ `event_relations` 重建（**同 subject 事件按 first_seen 时间序 → precedes 边**，28 条） | 云端 4 张实体/关系表 |
+| `sync_kb_to_db.py`（容器内跑） | 把 `knowledge_base/*.yaml` 的 **KB V1 全量**（~18800 人物/~8300 公司/249 国）upsert 进 `entities` + 别名进 `entity_alias`（27176 实体/41110 别名） | entities/entity_alias 补齐 |
 | `fill_entity_kb.py`（本地跑） | 把事件派生但 KB 缺失的实体补进 `entity-network.json`（如 Anthropic/SpaceX→US companies）+ 类型修正（Buffett→Person）+ 重新生成 `data_entity_kb.py` | entity-network.json 反向吸收流程实体 |
 
 ### 环节 6 — 展示（entities 画像 + stories）｜ 合并 KB + DB + 事件
@@ -157,7 +157,7 @@
 ### ✅ 已打通的关联（配置中心 ←→ 业务流程实体）
 
 1. **事件派生实体 → DB entities**: Pipeline 事件的 subject/object/actors 名 → `events` 表 → `backfill_entity_model.py` 的 `collect_event_entities()` 提取 35 个事件派生实体，与 KB 149 实体合并 upsert 进 `entities` 表（云端 **27,176 实体 / 41,110 别名**）。"实体关系"Tab 里能看到真实流程实体。
-2. **KB associations → entity_relationship**: 实体管理 Tab 编辑的 associations → 回填 `entity_relationship`（26 条）→ 画像页"关系网络"。配置中心→展示闭环。
+2. **KB associations → entity_relationship**: 实体管理 Tab 编辑的 associations → 回填 `entity_relationship`（223 条）→ 画像页"关系网络"。配置中心→展示闭环。
 3. **同 subject 事件 → event_relations**: backfill 按 `subject_name` 分组、按 first_seen 时间序派生 `precedes` 边（28 条）→ 实体关系 Tab + `/events/{id}/relations`。
 4. **fill_entity_kb.py 反向补齐**: 事件派生的新实体可一键并入 entity-network.json（`fill_entity_kb.py:17 KB_ADD`，如 Anthropic/SpaceX→US companies），再经 UI 校验/保存/同步 Git。**这是事件→KB 的唯一回流口，但仍是手动触发、只补展示库。**
 
@@ -175,10 +175,10 @@
 
 | 实体库 | 规模（实测） | 用途 | 管理入口 | 配置中心 UI 能改？ | 影响 Pipeline 抽取？ |
 |---|---|---|---|---|---|
-| `knowledge_base/*.yaml` (KB V1) | 249国/8038公司/18790人物/81动作/106关系/29事件类型 + 85别名 | Fact 归一 / 本体验证 / 中英统一 | AI 工作流(wiki+git+generate/import 脚本) | ❌ | ✅ **是（唯一源头）** |
-| `config/entity_weights.json` | 34国+79人物+88公司 | 评分实体维度 | 手改文件 | ❌ | ✅ 是（评分） |
+| `knowledge_base/*.yaml` (KB V1) | 249国/~8300公司/~18800人物/81动作/106关系/29事件类型 + 85别名 | Fact 归一 / 本体验证 / 中英统一 | AI 工作流(wiki+git+generate/import 脚本) | ❌ | ✅ **是（唯一源头）** |
+| `config/entity_weights.json` | 340公司+84人物+34国+101机构 | 评分实体维度 | 手改文件 | ❌ | ✅ 是（评分） |
 | `references/entity-network.json` + `data_entity_kb.py` | 13国深度关系 + 8组织 + 26关联 | 画像元数据/关系网络 | **配置中心"实体管理"Tab** | ✅ | ❌ 否（仅画像/回填） |
-| PG `entities/entity_alias/entity_relationship/event_relations` | 27176/41110/26/28 | 画像关系/事件关系 | **配置中心"实体关系"Tab** + backfill | ✅ | ❌ 否（读侧） |
+| PG `entities/entity_alias/entity_relationship/event_relations` | 27176/41110/223/83 | 画像关系/事件关系 | **配置中心"实体关系"Tab** + backfill | ✅ | ❌ 否（读侧） |
 | 本地 SQLite `entity_registry` | 57 | 事件聚合过程登记 | 自动 | ❌ | 中间态 |
 
 ```
@@ -203,7 +203,7 @@
 **目标**: 配置中心"实体管理"Tab 保存时，同时把实体同步进 Pipeline 用的 `knowledge_base/companies.yaml/people.yaml`，使 UI 改实体 → 下次 Pipeline 实体归一生效。
 
 - **改动点**: `routes/entities.py:admin_save_entities` 保存后追加一步——把 `entity-network.json` 的 leaders/business/companies 实体 upsert 进 `knowledge_base/people.yaml/companies.yaml`（带 aliases），再调 `knowledge_base/generate_kb.py` 重建 loader 索引（或增量重建）。
-- **同步面**: 新实体 → YAML section；已有实体只改 country/type 等元数据 → 不覆盖 KB V1 已有的 18790 人物/8038 公司，仅 upsert 交集。
+- **同步面**: 新实体 → YAML section；已有实体只改 country/type 等元数据 → 不覆盖 KB V1 已有的 ~18800 人物/~8300 公司，仅 upsert 交集。
 - **生效**: 下次 Pipeline 运行（loader 懒加载；需同步 profile 副本 `knowledge_base/` + `canonicalizer.py` 到生产目录）。
 - **风险**: loader 索引 30K 条重建 ~8.7s；需处理 UI 保存的 name 与 KB canonical 不一致（如 "Donald Trump" vs "Trump"）。
 - **工作量**: 中（后端单文件 + 生成脚本调用 + 回归）。

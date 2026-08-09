@@ -43,7 +43,7 @@
 | 数据集 | 覆盖 | 用途 |
 |:-----|:-----|:-----|
 | `frontend/src/lib/country-coords.ts` | **195 国 + 别名 (209 条目)** | 地图坐标（全部联合国成员） |
-| `scripts/news_intel/config/entity_weights.json` | **34 国**（含中英别名）+ 79 人物 + 88 公司 | 实体识别权重 |
+| `scripts/news_intel/config/entity_weights.json` | **340 公司 + 84 人物 + 34 国 + 101 机构**（含中英别名） | 实体识别权重 |
 | `references/entity-network.json` + `data_entity_kb.py` | **13 国深度关系** + 8 全球组织 + 16 关联 | 实体画像（领导人/企业/关联） |
 
 > ⚠️ **"全世界所有国家"（195 国）覆盖的是地图坐标库；实体关系画像目前只深度覆盖 13 个关键国家。** 其余 ~182 国只有坐标/权重、无深度实体关系。若需实体关系覆盖全部国家，需扩展 entity-network.json（大工程，列入待办）。

@@ -12,7 +12,7 @@
 | 层 | 规则 | 值 | 作用 |
 |----|------|:--:|------|
 | 外层调度 | Hermes Cron 频率 | **every 5m** | 全局扫描入口 |
-| 内层分频 | Tier 间隔 | hot 5min / warm 15min / cold 60min | 按源重要性控制扫描频率 |
+| 内层分频 | Tier 间隔 | hot 5min / warm 15min / cold 15min | 按源重要性控制扫描频率 |
 | 失败冻结 | 连续失败阈值 | **≥3 次 → 隔离 3600s (60min)** | 故障源自动冷却 |
 | 死链降级 | 连续失败 60 次 | **标记死链 → 每周探测 1 次，恢复回归** | 长期死源退出常规扫描，避免每轮白抓 |
 | 增量抓取 | ETag / Last-Modified | 304 直接跳过下载 | 内容未变免下载解析 |
@@ -29,7 +29,7 @@
 ### 2.1 间隔定义
 
 ```python
-TIER_INTERVAL = {"hot": 5 * 60, "warm": 15 * 60, "cold": 60 * 60}
+TIER_INTERVAL = {"hot": 5 * 60, "warm": 15 * 60, "cold": 15 * 60}
 
 def is_due(state, feed):
     tier = feed.get("tier", "warm")                      # 缺省 warm
@@ -51,7 +51,7 @@ def is_due(state, feed):
 | warm | 15 min | 3 | ~31 |
 | cold | **15 min**（修复③：60→15） | 3 | ~31 |
 
-> **修复③ (2026-08-08)**：cold 60min→15min，财经/资讯源积压上限从 60 分钟降到 15 分钟；间隔改为 config 可配（`rss.tier_{hot,warm,cold}_interval`，见 §8）。
+> **修复③ (2026-08-08)**：cold 15min→15min，财经/资讯源积压上限从 60 分钟降到 15 分钟；间隔改为 config 可配（`rss.tier_{hot,warm,cold}_interval`，见 §8）。
 > **修复① (2026-08-08)**：304 源也更新 `last_scan` —— 修复前 304 源恒为"到期"每轮重抓（实测到期量虚高到 37–83）；修复后回到正常 tier 节奏。
 
 ---
@@ -187,7 +187,7 @@ def feed_timeout(feed):
 ### ✅ 已完成（2026-08-08，与本文档同 commit）
 1. 缺陷①：304 源也更新 `last_scan`（还原 tier 门控语义，压掉恒到期）。
 2. 缺陷②：非 2xx 状态码计失败 → 自动隔离；`follow_redirects=True` 恢复 NYT 等 301 源。
-3. 缺陷③：cold 60min → 15min，间隔 config 可配。
+3. 缺陷③：cold 15min → 15min，间隔 config 可配。
 4. 缺陷④：`bk/rss-scanner.py` 改用独立 state/report/wiki 路径。
 5. 新增 `--full` / `--no-limit` 开关：不限流全量扫描（对比测试用）。
 6. 同步生产（`sync_profile.py --apply`）+ 实测（限流 233 篇 / --full 140 篇）。

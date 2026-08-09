@@ -79,7 +79,7 @@ V1 标准约束 (2026-07-29 起):
 | PUT | `/admin/pipeline/config/{key}` | admin_config.py | 更新单条配置 (保存后实时推送本地) |
 | POST | `/admin/pipeline/config/batch` | admin_config.py | 批量更新配置 |
 | POST | `/admin/pipeline/config/reset` | admin_config.py | 重置配置到默认值 |
-| GET | `/admin/rss/sources` | rss_sources.py | RSS 源列表 (98源, 配置覆盖) |
+| GET | `/admin/rss/sources` | rss_sources.py | RSS 源列表 (197源, 配置覆盖) |
 | POST | `/admin/rss/sources` | rss_sources.py | **添加 RSS 源** |
 | PUT | `/admin/rss/sources/{name}` | rss_sources.py | **编辑 RSS 源** |
 | DELETE | `/admin/rss/sources/{name}` | rss_sources.py | **删除 RSS 源** |
@@ -114,7 +114,7 @@ V1 标准约束 (2026-07-29 起):
 | `/admin/sources` | 来源注册表 (可排序表格) |
 | `/admin/status` | Pipeline 状态页 |
 | `/admin/pipeline` | Pipeline 配置 |
-| `/config` | 配置中心 (13 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型) |
+| `/config` | 配置中心 (14 Tab: RSS参数/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/监控)/Pipeline/AI增强/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型) |
 | `/entities` | 实体中心 |
 | `/entities/[name]` | 实体画像页 |
 

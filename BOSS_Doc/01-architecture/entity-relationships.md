@@ -70,7 +70,7 @@ Trump: Donald Trump / 特朗普 / 川普 / President Trump · Putin: Влади�
 
 ---
 
-## 3. 实体-实体关系（26 条，KB associations 接入）
+## 3. 实体-实体关系（223 条，KB associations 接入）
 
 | 从 | 关系 | 到 |
 |----|------|----|

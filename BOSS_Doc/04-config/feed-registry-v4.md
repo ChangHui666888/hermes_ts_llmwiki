@@ -98,7 +98,7 @@ Community   → Reddit / HackerNews / ProductHunt
 
 ## 3. 源清单（目标 170–200，去重后）
 
-> 现有 98 源 + 新增 ~80 源。⚠️ **导入前必须 URL probe 验证**（见 §5 风险）。
+> 现有 197 源 + 新增 ~80 源。⚠️ **导入前必须 URL probe 验证**（见 §5 风险）。
 
 ### 3.1 新增源（按 16 类，提案清单）
 
@@ -301,7 +301,7 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 |------|------|
 | 全局 HTTP Client Pool（CN/PROXY 共享，复用连接） | 15-30% |
 | SQLite 内存 known_ids 去重 + `executemany` 批量 + WAL PRAGMA | 50-80% |
-| Tier 分级扫描频率（hot 5min/warm 15min/cold 60min） | 网络压力降 50% |
+| Tier 分级扫描频率（hot 5min/warm 15min/cold 15min） | 网络压力降 50% |
 | ETag/Last-Modified 增量（304 免下载） | 大幅减少重复下载 |
 | as_completed 即时解析入库（不等全部下载完） | 10-20% |
 

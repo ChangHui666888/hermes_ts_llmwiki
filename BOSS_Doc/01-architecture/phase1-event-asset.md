@@ -137,7 +137,7 @@ Day 7  结果
 
 |            模块            |  状态   | 实现                                                      |
 | :----------------------: | :---: | ------------------------------------------------------- |
-|  1 Source Intelligence   | ✅ 已实现 | `scorer.py` Source Authority (source_scores.json, 70+源) |
+|  1 Source Intelligence   | ✅ 已实现 | `scorer.py` Source Authority (source_scores.json, 197源) |
 | 2 Document Understanding | ✅ 已实现 | L6 enhance_qwen (Qwen3) + L4 extractor (规则)             |
 |   3 Entity Extraction    | ✅ 已实现 | L1 entity_weights.json + L6 Qwen3 entities              |
 |    4 Event Extraction    | ✅ 已实现 | V4.3 `aggregator.py` (SAEO fingerprint + Event-Centric) |

@@ -166,7 +166,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | sources | 24-36 | RSS 来源注册 (VPS 24; 本地 source_registry 36) |
 | entities | **27,176** | 实体注册 (KB V1 sync_kb_to_db 导入 + 事件派生) |
 | entity_alias | **41,110** | 结构化别名 (中英/简称, sync_kb_to_db) |
-| entity_relationship | **26** | 实体-实体关系 (KB associations + backfill) |
+| entity_relationship | **223** | 实体-实体关系 (KB associations + backfill) |
 | event_relations | **28** | 事件-事件关系 (同 subject 时间序 precedes) |
 | story | **12** | Story 打包 (derive 同 subject 事件) |
 | story_event | **~90** | 故事-事件关联 (position 排序) |
