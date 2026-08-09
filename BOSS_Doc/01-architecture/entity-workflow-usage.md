@@ -9,6 +9,45 @@
 
 ## 1. 总览表（工作流各环节 × 实体使用）
 
+### 知识库使用 vs 闲置审计（2026-08-09 实测）
+
+#### 实际使用（运行时活跃）
+
+| KB 组件 | 消费方 | 用途 |
+|---------|--------|------|
+| countries/companies/people/organizations/entity_alias yaml | `canonicalizer.resolve_entity`（loader.resolve）| Fact 抽取实体中英别名 → 稳定 ID |
+| industries（IND_SUB_ 细分赛道）| `backfill_entity_model.py` | 公司→细分赛道 in_segment 关系 |
+| relations（类型下拉）| `entity_relations.py /types` API | 配置中心关系类型 108 种 |
+| 云端 entities/entity_alias/entity_relationship/event_relations | 实体列表/画像/关系网络/事件关系 API + 配置中心 | 前端 `/entities/[name]` 画像、`/config` 实体关系 Tab |
+
+#### ⚠️ 闲置 / 未使用（2026-08-09 实测）
+
+| KB 组件 | 状态 | 说明 |
+|---------|:--:|------|
+| **actions.yaml（81 动作）** | 🟡 闲置 | loader 全量加载, 但动作检测用 `aggregator.py ACTION_MAP` **硬编码**, 不从 yaml 读; 仅 generate_kb.py 生成用 |
+| **event_types.yaml（29 类型）** | 🟡 闲置 | 事件类型分类用 `_classify_topics` 硬编码, 不从 yaml 读 |
+| **locations.yaml（40）** | 🟡 闲置 | 地点解析用 `canonicalizer CITY_TO_COUNTRY` 硬编码, 不从 yaml 读 |
+| **industries（GICS 25）** | 🟡 半闲置 | IND_SUB_ 细分赛道用; GICS 行业仅作 company.industry 字段, 无运行时按行业查询 |
+| **relations.yaml（108 种定义）** | 🟡 半闲置 | 仅用于类型下拉; 实际关系实例由 backfill 派生 (sub_segments/parent), 非读 relations.yaml 数据 |
+| **entity-network.json（旧体系）** | 🔴 回退 | backfill 已改读 KB V1 (KB_V1_CANDIDATES 优先), entity-network 仅失败时回退; 配置中心实体管理仍引用 |
+
+#### 双实体源说明（评分用 vs 知识库用）
+
+```
+评分 (scorer.py 运行时活跃):  entity_weights.json(559) + value_tiers.json(T1-T10) + asset_graph.json(39)
+知识库 (canonicalizer/backfill 活跃): knowledge_base/*.yaml → 实体 ID / 关系
+两套独立: 评分用权重表, 知识库用稳定 ID — 评分实体已 100% 映射 KB (561/561)
+```
+
+#### 云端实体表（全部活跃, 2026-08-09 实测数据）
+
+| 表 | 行数 | 消费 |
+|----|:--:|------|
+| entities | 27,366 | 实体列表/画像/事件 SAO |
+| entity_alias | 41,089 | 实体管理/画像别名 |
+| entity_relationship | 223 | 画像"关系网络" + 配置中心实体关系 |
+| event_relations | 83 | 事件关系 + 配置中心 |
+
 ### GLiNER/Qwen 实体抽取实测（2026-08-09, 100 篇文章）
 
 | 指标 | **GLiNER** (英文锚定) | **Qwen noThink** (中文/兜底) |
