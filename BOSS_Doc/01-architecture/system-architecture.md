@@ -39,7 +39,7 @@ Web (Sentinel Intelligence)
   实体画像: KB(27K 实体/41K 别名) + 事件派生 双层数据
 ```
 
-关键演进 (2026-08-06/07): **v4.4.3 中文聚合**（中文源采集→Qwen 事实抽取→KB 中英别名归一→保守跨语言匹配）；**Knowledge Base V1**（10 本体 YAML + 中英别名→Entity ID, 8,038 公司/18,790 人物/249 国）；**Story 演化层**（story+story_event, 时间线打包）；**实体画像/关系网络**（entity_alias/entity_relationship, sync_kb_to_db 27K 实体入库）；**配置中心 13 Tab**（RSS/Pipeline/AI/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节 与 [knowledge-base.md](knowledge-base.md)。
+关键演进 (2026-08-06/07): **v4.4.3 中文聚合**（中文源采集→Qwen 事实抽取→KB 中英别名归一→保守跨语言匹配）；**Knowledge Base V1**（10 本体 YAML + 中英别名→Entity ID, 8,038 公司/18,790 人物/249 国）；**Story 演化层**（story+story_event, 时间线打包）；**实体画像/关系网络**（entity_alias/entity_relationship, sync_kb_to_db 27K 实体入库）；**配置中心 14 Tab**（RSS/Pipeline/AI/评分/聚合/抓取/源列表/域名/状态/事件校对/实体管理/实体关系/数据模型/监控）。详见 [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) v4.4.3 节 与 [knowledge-base.md](knowledge-base.md)。
 
 ---
 
