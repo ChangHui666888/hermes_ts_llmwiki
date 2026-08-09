@@ -89,7 +89,7 @@ def score_source(source_name: str) -> int:
 
 **方法（v2, 2026-08-08）**: 对 `title + description` 关键词命中。遍历 5 个分类，**每个分类取该类最高分，最终取所有分类最高（不累加，防标题党刷分）**。返回 `(分数, 命中分类, hits详情)`。
 
-**5 个分类 · 495 关键词**（event_keywords.json，2026-08-08 v2.1；每类取该类最高、跨类只取所有分类最高，不累加）:
+**5 个分类 · 511 关键词**（event_keywords.json，2026-08-08 v2.1；每类取该类最高、跨类只取所有分类最高，不累加）:
 
 | 分类 | 关键词数 | 高分示例 |
 |------|:--:|------|
@@ -303,12 +303,13 @@ def score_velocity(v):
 
 ```python
 def score_article(source_name, title, description, velocity_count):
-    src  = score_source(source_name)
-    imp, categories = score_impact(title, description)
-    ent_score, entities = score_entities(title, description)
-    mkt, market_assets = score_market(title, description, entities)
-    vel = score_velocity(velocity_count)
-    total = min(src + imp + ent_score + mkt + vel, 100)
+    src  = score_source(source_name)                    # ① 来源权威度 0-20
+    imp, categories, impact_hits = score_impact(title, description)  # ② 事件影响力 0-30
+    ent_score, entities = score_entities(title, description)  # ③ 实体重要性 0-20 (含 organizations)
+    mkt, market_assets = score_market(title, description, entities)  # ④ 市场关联 0-20
+    vel = score_velocity(velocity_count)               # ⑤ 传播速度 0-10
+    reward = _value_reward(src, categories, market_assets, velocity_count, entities, impact_hits)  # ⑥ 价值奖励 0-30
+    total = min(src + imp + ent_score + mkt + vel + reward, 100)
     tier = "A" if total >= 90 else "B" if total >= 60 else "C"
     return {...}
 ```
@@ -316,11 +317,13 @@ def score_article(source_name, title, description, velocity_count):
 **输出字段**（落库 news_intelligence）:
 | 字段 | 说明 |
 |------|------|
-| score_total | 五维总分 0-100（封顶） |
+| score_total | 总分 0-100（五维 + 价值奖励，封顶） |
 | score_source/impact/entity/market/velocity | 各维分 |
+| **reward** | 价值奖励分 0-30（权威源/关键词/资产/多源/实体分级 T1-T10） |
 | tier | A/B/C |
 | categories | 命中的 impact 分类 |
-| entities | `{companies, persons, countries}` 文章实体清单 |
+| impact_hits | 命中的关键词详情 [{keyword, score, event_type}] |
+| entities | `{companies, persons, countries, organizations}` 文章实体清单 |
 | market_assets | 受影响资产列表 |
 
 ---
@@ -331,10 +334,12 @@ def score_article(source_name, title, description, velocity_count):
 |------|------|------|
 | 来源权威度 | `news_intel/config/source_scores.json`（197 源综合评分表） | 重启 pipeline |
 | 等级→分兜底映射 | `references/rss-importance-map.json` + 配置中心 `rss.feeds` importance | update_source_importance.py 同步 / 实时 |
-| 事件关键词 | `news_intel/config/event_keywords.json`（500 词, v2 match 模式） | 重启 |
-| 实体权重 | `news_intel/config/entity_weights.json` | 重启 |
-| 资产图 | `news_intel/config/asset_graph.json` | 重启 |
+| 事件关键词 | `news_intel/config/event_keywords.json`（**511 词**, v2 match 模式） | 重启 |
+| 实体权重 | `news_intel/config/entity_weights.json`（**companies 340 / persons 84 / countries 34 / organizations 101**） | 重启 |
+| **实体价值分级** | `news_intel/config/value_tiers.json`（**T1-T10**, 奖励权重 + 分级实体名） | 重启（懒加载缓存） |
+| 资产图 | `news_intel/config/asset_graph.json`（39 资产键, 含供应链领域映射） | 重启 |
 | 五维权重 | 配置中心「评分」Tab（source_weight 等 6 键） | 热下发 |
+| 价值奖励权重 | 配置中心「评分」Tab（`value.reward_*`） | 热下发 |
 | V4 importance | 配置中心「源列表」importance 字段（S/A/B/C/D） | 实时（scorer 兜底联动） |
 
 > ⚠️ 改 config/ 后需 `python scripts/sync_profile.py --apply` 同步生产 profile（见 [local-env.md](../02-deployment/local-env.md)）。
@@ -345,3 +350,16 @@ def score_article(source_name, title, description, velocity_count):
 # backend 容器内，按 Excel 建议等级更新 settings rss.feeds 的 importance
 docker compose exec backend python /host/scripts/news-platform-v8/update_source_importance.py
 ```
+
+---
+
+## 8. 相关规则（评分体系的配套规则）
+
+| 规则 | 位置 | 要点 |
+|------|------|------|
+| **部署必查** | [local-env.md](../02-deployment/local-env.md)「部署必查清单」· CLAUDE.md | 改配置/代码后必须 `sync_profile.py --apply` + `--check` 确认差异=0；git push ≠ 已部署；新增脚本必须纳入 SYNC_LIST/DEPLOY_MAP/cron |
+| **聚合规则** | [pipeline-l0-l7-rules.md](pipeline-l0-l7-rules.md) L5 | fingerprint_score / EVENT_THRESHOLD=60 / MERGE_THRESHOLD=75 / 跨语言=50 / 复合游标 |
+| **实体库维护** | [entity-kb-maintenance.md](entity-kb-maintenance.md) | 双源架构（配置中心=展示 / KB=实体）；改 JSON 需部署才生效 |
+| **测试验证** | CLAUDE.md「测试验证」| 改 scorer → `python demo.py` + 跑一轮 auto-pipeline |
+| **问题登记** | [issue-tracking.md](../05-troubleshooting/issue-tracking.md) | 评分/聚合问题按 ISS-编号登记 |
+| **监控** | [monitoring.md](../04-config/monitoring.md) | monitor_pipeline 每 15m 推送评分分维度 |
