@@ -65,7 +65,7 @@
 | people.yaml | 同目录 | 同 profile 目录 | 18,800 | 抽取/聚合 |
 | organizations.yaml | 同目录 | 同 profile 目录 | 58 | 抽取/聚合/backfill |
 | entity_alias.yaml | 同目录 | 同 profile 目录 | 88 | 抽取/聚合 |
-| **actions.yaml** | 同目录 | 同 profile 目录 | 81 (+patterns) | 聚合 `_get_action_map` |
+| **actions.yaml** | 同目录 | 同 profile 目录 | 137 (+patterns) | 聚合 `_get_action_map` |
 | **event_types.yaml** | 同目录 | 同 profile 目录 | 29 + topic_signals(12) | 聚合 `_get_topic_signals` |
 | **locations.yaml** | 同目录 | 同 profile 目录 | 40 | 抽取/聚合 `_get_city_country` |
 | industries.yaml | 同目录 | 同 profile 目录 | 69 (44 细分赛道) | backfill (in_segment) |
