@@ -47,30 +47,40 @@ X/Nitter: 18 源
 
 ---
 
-## L1 — 五维评分 (scorer.py)
+## L1 — 五维评分 (scorer.py, v2.2)
 
-### 评分公式 (总分100)
+### 评分公式 (总分100, v2.2 加价值奖励)
 
 ```
-score_total = source(20) + impact(30) + entity(20) + market(20) + velocity(10)
+total = source(20) + impact(30) + entity(20) + market(20) + velocity(10) + 价值奖励(0-30)，封顶100
+reward = 权威源+4 · 关键词分类(finance+5/geopolitics+6/market+5/china+3) · 机器人词+4 · 市场资产+3 · 多源+3 · 实体分级T1-T10(累加,封顶20)
 ```
 
 ### 各维度规则
 
 | 维度 | 满分 | 方法 | 上限 |
 |:-----|:----:|:-----|:----:|
-| Source | 20 | source_scores.json 查表, 未知=5 | — |
-| Impact | 30 | event_keywords.json 5领域, **同类取最高** (非累加) | min(30) |
-| Entity | 20 | entity_weights.json 查表 | min(20) |
-| Market | 20 | asset_graph.json 实体/关键词→资产 | min(20) |
+| Source | 20 | source_scores.json 197源查表, 未知=5, V4 importance 兜底 | — |
+| Impact | 30 | event_keywords.json **511词** 5领域, **同类取最高** (非累加) | min(30) |
+| Entity | 20 | entity_weights.json **559实体** (companies340/persons84/countries34/orgs101) | min(20) |
+| Market | 20 | asset_graph.json **39键** 实体/关键词→资产 | min(20) |
 | Velocity | 10 | Jaccard 指纹 ±30min | ≥10源=10, ≥5=5, ≥2=2, <2=0 |
+| **价值奖励** | 0-30 | 权威源/价值关键词/资产/多源/**实体分级T1-T10** | 实体奖励封顶20 |
+
+### 价值奖励实体分级 (value_tiers.json T1-T10)
+
+```
+T1 GDP大国一把手+8 · T2 二把手+6 · T3 政府机构+5 · T4 央行/国际组织+4
+T5 金融巨头+6 · T6 AI巨头+6 · T7 国产替代+7 · T8 韬定律先进封装+7 · T9 机器人+6 · T10 光通信+6
+命中多级累加 (Trump+美联储=T1+T4=12)，实体奖励封顶20
+```
 
 ### Tier 判定
 
 ```
-A: score ≥ 90 → DeepSeek
-B: 60 ≤ score < 90 → Qwen3
-C: score < 60 → Python
+A: total ≥ 90 → DeepSeek
+B: 60 ≤ total < 90 → Qwen3
+C: total < 60 → Python
 ```
 
 ### Velocity 指纹
@@ -79,7 +89,7 @@ C: score < 60 → Python
 窗口: 30min
 Jaccard 阈值: ≥0.5
 指纹词数: 8 (英文>1字符 + 中文)
-停用词: 38 个
+停用词: 130+ (v2.1 补全英文功能词 as/amid/by/from + 新闻框架词)
 ```
 
 ---
@@ -317,13 +327,25 @@ GLiNER / Qwen 改用同一 _get_text (fact_pipeline.py) — 之前只读 summary
 共享 GLiNER 实体: 经 aggregate_events(ner_by_article) 注入 legacy 指纹 (同一 NER 源)
 ```
 
-### 实测（50 篇）
+### 实测（50 篇基线 + 100 篇 2026-08-09）
 
 ```
 A 验证通过 → 100% 准确 (title_hit)   | 纯新闻 B 占比 74% (内容复杂度下限)
 B noThink → 2.2s/篇, 覆盖100%, 语义可比 (偶发幻觉→由验证门拦截)
 事实入库: fact 行 + fact_entity 行 (Role: SUBJECT/OBJECT/...)
 ```
+
+**2026-08-09 100 篇实测（GLiNER/Qwen 效率准确率）**:
+
+| 指标 | GLiNER (英文锚定) | Qwen noThink (中文/兜底) |
+|------|:--:|:--:|
+| 耗时 | 68ms/篇 | 6.2s/篇 |
+| 吞吐 | ~53,000 篇/时 | ~580 篇/时 |
+| 英文准确 | ✅ 高 (Samsung 0.97/Maruti 0.96 全对) | — |
+| 中文准确 | ❌ 差 (空/边界错) | ✅ 高 (特朗普→行政命令 3/3) |
+| 实体置信 | 0.859 | — |
+
+> 印证设计: 英文走 GLiNER 快路径(零 LLM 成本), 中文走 Qwen 兜底(准确优先)。GLiNER small-v1 对中文边界不精准(ISS-20260806-001/002)。
 
 ### 相关文档
 
