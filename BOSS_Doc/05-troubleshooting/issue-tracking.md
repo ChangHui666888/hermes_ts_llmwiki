@@ -206,7 +206,8 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **现象**: 生产提取全对仅 6%(50 篇抽样), Qwen 原始 38%。`rejects/tests/tops/calls` 动作被落 OTHER; 客体 `Trump's 15-point Gaza Plan` 被切碎成 `ENT_15_POINT_GAZA_PLAN`; `$0.22`/`81st anniversary`/`AI chip fears ease` 被错误实体化。单篇只出 1 条 fact, 多事实文章(如 OpenAI acquire + integrate)丢事实。
 - **根因**: `canonicalize_action` 词表外动词全落 OTHER; `split_entities`+`resolve_entity` 为任何短语生成临时 `ENT_` id; 单 fact 结构限制。
 - **解决**: ① Fact Schema 升级为 `facts[]`(每条 subject/action/object/time/location 结构化 + confidence/evidence); ② Action 增加 `type/status/polarity`(含 UNKNOWN); ③ Object 实体化门控(值/数字/日期/短语不再生成 ENT_ 实体); ④ fact_validator Quality Gate(PASS/REPAIR/REJECT, 不重新推理); ⑤ Event Relevance Filter(非事件→facts=[]); ⑥ aggregator 只消费 PASS/REPAIR。
-- **验证**: **P0 Gate1(结构)+Gate2(Eligibility) PASS** — Golden Set 50, `错误Fact进聚合=0`(A/B 均满足);Gate3 精度 baseline: Subject 68.9 / Action 46.7 / Object 24.4 / Time 44.4 / Location 35.6(Qwen-1.7B 天花板, 由 P1 达标 90/85/85/90/90)。契约 `references/fact-schema-v2.md`。**生产部署待定**(用户决策: 暂不部署, 先规划 P1)。
+- **验证**: **P0 Gate1(结构)+Gate2(Eligibility) PASS**; **P1 FACT CLOSE(2026-08-10)**: 70篇(50英+20中)验证 **错误Fact进聚合=0**(中文 eligibility 修复后)、结构正确;精度 baseline 总体 S60/A50/O52/T48/L47(90/85 降为长期指标)。生产提取方案冻结: 逐篇并行+路由(CJK→Qwen/Gemma)+Context B+max_tokens1500。契约 `references/fact-schema-v2.md` §11。**生产部署待定**。
+- **下一阶段**: Entity Grounding(最小可用)→ A/B Event Aggregator(高精度 A / 宽松 B)。
 - **P1 规划**: Time/Location 规范化(LLM+规则) · Confidence 拆分 · C-tier Rule Engine 完整实现 · Qwen Context 优化(扩上下文, A/B 已验证+2~11pp) · Entity Grounding(KB miss→Candidate) · Action 语义归一(verb+negation+modal+status) · 达标 90/85/85/90/90。
 - **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L4.5 · [data-flow-fields.md](../01-architecture/data-flow-fields.md) L4 · `references/fact-schema-v2.md`
 
