@@ -18,10 +18,10 @@
 | [ISS-20260807-003](#iss-20260807-003) | 08-07 | P2  | 实体库      | backfill CANON_NAME 硬编码 canonical 漂移                                      | `backfill_entity_model.py:29-54`        | 🟡 待决策 | 三处 canonical 手工维护                                                                                | 方案C 收敛 entity_alias                                     |                             —                              |   —   |
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3  | 实体库      | 关系库在生产中几乎不使用                                                              | `relations.yaml`/`entity_relationship`  | 📋 观察  | 关系仅展示层 + REL_ 白名单                                                                                | 评估关系图谱接入生产                                              |                             —                              |   —   |
 | [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3  | Fact     | Fact 抽取硬编码参数需配置化                                                          | `fact_pipeline.py:39-42/132/252`        | 📋 观察  | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死                                                         | 挂到配置中心「AI增强」Tab                                         |                             —                              |   —   |
-| [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3  | 聚合       | 新分散源聚合覆盖偏低 (0 marked)                                                     | `aggregator.py`                         | 📋 观察  | 新增源每源文章少, 未达 event_threshold(60)                                                                 | 阈值已由配置中心降至50并生效(aggregator消费) → 观察                   |             08-11 AGGREGATE 正常(7 ok/14 marked)              |   —   |
+| [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3  | 聚合       | 新分散源聚合覆盖偏低 (0 marked)                                                     | `aggregator.py`                         | 📋 观察  | 新增源每源文章少, 未达 event_threshold(60)                                                                 | 阈值已由配置中心降至50并生效(aggregator消费) → 观察                      |             08-11 AGGREGATE 正常(7 ok/14 marked)             |   —   |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2  | Pipeline | 存活源但文章=0 — sync 批次积压致 70+ 大源文章未推送                                         | `news_intel/sync.py`                    | 📋 观察  | 游标批次 LIMIT 积压 + 旧文在水印前                                                                           | 提高 LIMIT/按源均衡/查 AP 采集                                   |                             —                              |   —   |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2  | 采集       | rss-scanner 优化后时效下降 (4缺陷)                                                 | `hermes-cron/rss-scanner.py`            | ✅ 已关闭  | tier门控+304不更新last_scan+非2xx记OK+bk共用state                                                         | 修复①-④+--full开关+follow_redirects                         |                    限流233篇 / --full 140篇                    | 08-08 |
-| [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2  | 配置       | 配置中心 ~61 源死链(404/403) 静默0抓                                                | `rss.feeds` 配置中心                        | 📋 观察  | URL失效/Nitter封禁/防爬403; 死链现由scanner自动隔离                                                          | 自动隔离已生效(78源) + 剩配置中心人工清理(enabled=false/换URL)          |         08-11 scanner: 196源/115活跃/78隔离/3死链             |   —   |
+| [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2  | 配置       | 配置中心 ~61 源死链(404/403) 静默0抓                                                | `rss.feeds` 配置中心                        | 📋 观察  | URL失效/Nitter封禁/防爬403; 死链现由scanner自动隔离                                                            | 自动隔离已生效(78源) + 剩配置中心人工清理(enabled=false/换URL)            |             08-11 scanner: 196源/115活跃/78隔离/3死链             |   —   |
 | [ISS-20260808-004](#iss-20260808-004) | 08-08 | P1  | 聚合       | 同主体跨主题错并 — Trump(伊朗战争)+Trump(古巴) 并成1事件                                    | `aggregator.py` `fingerprint_score`     | 🆕 待处理 | 同主体绕过主题硬约束, 实体对重叠≥60即并                                                                           | 内容相似度门 + coherence 下限拒绝                                 |                             —                              |   —   |
 | [ISS-20260808-005](#iss-20260808-005) | 08-08 | P2  | 评分       | 英文关键词子串误标系统性存在（election⊂Selection/nuclear⊂模型名/market⊂marketing 等）         | `scorer.py` `_kw_match_mode`            | 🆕 待处理 | 点状修补 word_boundary, 无系统性碰撞扫描                                                                     | 系统性子串碰撞检测 → 批量转 word_boundary                           |                       500篇/5000篇测试暴露                       |   —   |
 | [ISS-20260808-006](#iss-20260808-006) | 08-08 | P2  | 评分       | 评分整体偏保守 — A=0/B=4.6%/平均27.9, LLM增强覆盖低                                     | `scorer.py` `score_article`             | 🟡 待决策 | impact不累加 + 词边界去虚高 + 来源分主导                                                                       | 降B级门槛/impact适度累加/权威源加权                                  |                             —                              |   —   |
@@ -29,14 +29,18 @@
 | [ISS-20260808-008](#iss-20260808-008) | 08-08 | P3  | 性能       | velocity O(n²) — 5000篇需123s                                               | `scorer.py` `compute_velocity`          | 📋 观察  | 全量两两比较                                                                                           | 指纹倒排索引 + 时间桶                                            |                             —                              |   —   |
 | [ISS-20260808-009](#iss-20260808-009) | 08-08 | P1  | 采集       | sync 游标卡死 — 391篇同刻时间戳占满LIMIT致文章不再入库/推送                                    | `sync.py` `_fetch_batch`                | ✅ 已关闭  | scanner批量写入同秒时间戳, `created_at>=水印`游标被同刻重复占满                                                      | 复合游标(created_at,id) + 旧水印严格大于                           |                 catchup 1254篇, 水印推进到23:22                  | 08-08 |
 | [ISS-20260809-010](#iss-20260809-010) | 08-09 | P1  | 聚合       | 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠               | `auto-pipeline.py`/`aggregator.py`      | ✅ 已关闭  | 增量 SELECT 缺 `rr.article_url`, 聚合器 `a.get("url","")` 恒空 → View 按钮/完整链路缺失 + evidence/timeline 去重折叠 | SELECT 补 `rr.article_url as url` (与 reaggregate_all 对齐) | 生产 fused 只读 100事件: evidence url 99/100 + chain url 100/100 | 08-09 |
-| [ISS-20260810-012](#iss-20260810-012) | 08-10 | P1  | Fact     | Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控 | `fact_pipeline.py`/`canonicalizer.py`   | ✅ 已关闭  | 生产后处理破坏 Qwen 输出(动作落OTHER/客体切碎ENT_垃圾); 单fact丢多事实; 值($0.22)被实体化                                    | facts[]+结构化SAO+action状态/极性+实体门控+A/B事件聚合               |    08-11 生产运行: A事件=38/B=32, facts/batch 200; 质量目标另立    | 08-11 |
+| [ISS-20260810-012](#iss-20260810-012) | 08-10 | P1  | Fact     | Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控 | `fact_pipeline.py`/`canonicalizer.py`   | ✅ 已关闭  | 生产后处理破坏 Qwen 输出(动作落OTHER/客体切碎ENT_垃圾); 单fact丢多事实; 值($0.22)被实体化                                    | facts[]+结构化SAO+action状态/极性+实体门控+A/B事件聚合                 |      08-11 生产运行: A事件=38/B=32, facts/batch 200; 质量目标另立      | 08-11 |
 | [ISS-20260811-013](#iss-20260811-013) | 08-11 | P2  | 配置       | tier 阈值配置漂移 — `ai.tier_a_threshold=95` 未被 scorer 消费(硬编码 A≥90/B≥60/C<60)   | `scorer.py:348`                         | 🆕 待处理 | 配置中心有 `ai.tier_a_threshold=95`, scorer 未读, 用硬编码 90/60                                            | scorer 读配置中心阈值                                          |                             —                              |   —   |
-| [ISS-20260811-014](#iss-20260811-014) | 08-11 | P1  | Fact     | VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表                             | `fact_pipeline.py` main 推送              | 🆕 待处理 | 验证门仅用于 A/B+聚合, 推送 /internal/facts/batch 送全量 payloads                                             | 推送前过 validate_facts, 只送 PASS/REPAIR                     |       08-11 生产实锤: push 48 vs A/B 仅38(10条REJECT已入库)      |   —   |
+| [ISS-20260811-014](#iss-20260811-014) | 08-11 | P1  | Fact     | VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表                             | `fact_pipeline.py` main 推送              | 🆕 待处理 | 验证门仅用于 A/B+聚合, 推送 /internal/facts/batch 送全量 payloads                                             | 推送前过 validate_facts, 只送 PASS/REPAIR                     |        08-11 生产实锤: push 48 vs A/B 仅38(10条REJECT已入库)        |   —   |
 | [ISS-20260811-015](#iss-20260811-015) | 08-11 | P2  | Fact     | Fact AI 提取失败静默降级 — 无重试/无失败指标/永久丢失                                         | `fact_pipeline.py` qwen_fact            | 🆕 待处理 | qwen_fact 异常→返回[], 文章无 fact 且被标记不重抽                                                              | AI 失败重试 + 失败指标 + 重抽队列                                   |                             —                              |   —   |
-| [ISS-20260811-016](#iss-20260811-016) | 08-11 | P3  | 实体       | 中文人名类型标签错误(高市早苗→CTRY, 应 Person)                                           | `entity_alias.yaml`/`canonicalizer.py`   | 🆕 待处理 | entity_alias.yaml 3处人物误标CTRY(SAM_ALTMAN/TAKAICHI_SANAE/TIM_COOK), curated层先建先赢覆盖PERS                                               | 修数据: CTRY_*改PERS_ + 清重复别名键; 可选CJK启发式兜底               |                             —                              |   —   |
-| [ISS-20260811-017](#iss-20260811-017) | 08-11 | P3  | Fact     | LLM 垃圾短语主体(Negotiation with Iran 当 subject)                               | `fact_pipeline.py`/`fact_validator.py`   | 🆕 待处理 | LLM 提取把整句/短语当 subject; _is_value_phrase 只查开头介词/动词, 名词开头3词短语漏过                                                | 主体短语质量门扩展(句中介词/动名词/复合短语检测)                      |                             —                              |   —   |
+| [ISS-20260811-016](#iss-20260811-016) | 08-11 | P3  | 实体       | 中文人名类型标签错误(高市早苗→CTRY, 应 Person)                                           | `entity_alias.yaml`/`canonicalizer.py`  | 🆕 待处理 | entity_alias.yaml 3处人物误标CTRY(SAM_ALTMAN/TAKAICHI_SANAE/TIM_COOK), curated层先建先赢覆盖PERS             | 修数据: CTRY_*改PERS_ + 清重复别名键; 可选CJK启发式兜底                  |                             —                              |   —   |
+| [ISS-20260811-017](#iss-20260811-017) | 08-11 | P3  | Fact     | LLM 垃圾短语主体(Negotiation with Iran 当 subject)                               | `fact_pipeline.py`/`fact_validator.py`  | 🆕 待处理 | LLM 提取把整句/短语当 subject; _is_value_phrase 只查开头介词/动词, 名词开头3词短语漏过                                    | 主体短语质量门扩展(句中介词/动名词/复合短语检测)                              |                             —                              |   —   |
 | [ISS-20260811-018](#iss-20260811-018) | 08-11 | P3  | 聚合       | 增量聚合已标记文章不重聚(事件不刷新)                                                       | `auto-pipeline.py` Step 4.5             | 📋 观察  | 只聚 event_id 为空文章, 标记后不再重聚                                                                        | 需重聚合机制(按需 re-aggregate)                                 |                             —                              |   —   |
 | [ISS-20260811-019](#iss-20260811-019) | 08-11 | P3  | 文档       | CLAUDE.md 文档漂移(RSS 98源→实际196; 评分缺价值奖励描述)                                  | `CLAUDE.md`                             | ✅ 已关闭  | 文档快照未随 扩源/评分奖励 更新                                                                                | 更新 CLAUDE.md 到实际(196源/价值奖励)                             |              CLAUDE.md 7b8fca5 已修(196源/价值奖励)               | 08-11 |
+| [ISS-20260811-020](#iss-20260811-020) | 08-11 | P2  | 实体库      | backfill 关系方向反转 — parent_of/subsidiary_of 语义颠倒                                  | `backfill_entity_model.py:165-173`      | 🆕 待处理 | 边生成 from/to 写反: 公司→其母公司被生成为"公司parent_of母公司"                                              | 反转边方向: parent_of from=父→子; subsidiary_of from=子→父         |                 —                              |   —   |
+| [ISS-20260811-021](#iss-20260811-021) | 08-11 | P3  | 实体库      | in_segment 混入非赛道概念(AI巨头/出口管制/降息/加息/战争/国防)                                | `companies.yaml`/`industries.yaml`      | 🆕 待处理 | sub_segments 指向政策/主题/状态标签类 Industry 实体, 非细分赛道                                        | 剔除/改类非赛道词(政策/主题/标签)                                     |                 —                              |   —   |
+| [ISS-20260811-022](#iss-20260811-022) | 08-11 | P3  | 实体库      | 实体命名不一致致关系分裂(Kulicke & Soffa 双ID / ASML HOLDING / Tongfu 2ID)                | KB 合并/backfill upsert                 | 🆕 待处理 | 大小写/后缀不一致 + 名称 upsert 无规范化 → 同公司多实体行                                            | 名称规范化(canonical) + 合并重复实体                                  |                 —                              |   —   |
+| [ISS-20260811-023](#iss-20260811-023) | 08-11 | P3  | 实体库      | 关系覆盖大量丢失 — in_industry(260)全丢 + 子公司未解析被静默丢弃                              | `companies.yaml`/`backfill_entity_model.py` | 🆕 待处理 | industry 自由文本非实体名; 子公司(VMware/TikTok等)无独立实体 → to_id 解析失败丢弃                            | 行业文本→实体映射 + 补子公司实体/宽松解析                                |                 —                              |   —   |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1  | Pipeline | db.close() 后查询崩溃                                                          | `news_intel/pipeline.py:141-150`        | ✅ 已关闭  | close 后仍执行查询                                                                                     | 统计移到 close 前                                            |                            运行通过                            | 07-11 |
 
 ---
@@ -69,19 +73,19 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 
 ### 3.1 主表字段
 
-| 字段 | 规则 | 示例 |
-|------|------|------|
-| **ID** | `ISS-YYYYMMDD-NNN`（发现日 + 三位日序；跨日不重排） | ISS-20260807-001 |
-| **发现** | 发现日期 `MM-DD`（完整日期见详情节） | 08-07 |
-| **严重** | P0 紧急（阻塞生产/数据丢失）/ P1 高（功能或数据错误）/ P2 中（边界/体验）/ P3 低（改进/待办） | P1 |
-| **分类** | 采集 / 评分 / Fact / 聚合 / 推送 / DB / 后端API / 前端 / 配置中心 / 实体库 / 部署 / 性能 / 安全 / 其他 | 实体库 |
-| **标题** | 一句话问题描述 | 事件/Fact 实体 ID 双轨 |
-| **模块/文件** | 主要涉及代码文件（file:line 优先） | aggregator.py:1195 |
-| **状态** | §2 状态机徽章 | 🟡 待决策 |
-| **根因** | 一句话根因 | 两套 ID 生成方案 |
-| **修复/方案** | 修复内容或方案名 | 方案B 统一 loader |
-| **验证** | 验证方式 | demo.py / curl |
-| **关闭** | 关闭日期 `MM-DD` | 07-11 |
+| 字段        | 规则                                                                          | 示例                 |
+| --------- | --------------------------------------------------------------------------- | ------------------ |
+| **ID**    | `ISS-YYYYMMDD-NNN`（发现日 + 三位日序；跨日不重排）                                        | ISS-20260807-001   |
+| **发现**    | 发现日期 `MM-DD`（完整日期见详情节）                                                      | 08-07              |
+| **严重**    | P0 紧急（阻塞生产/数据丢失）/ P1 高（功能或数据错误）/ P2 中（边界/体验）/ P3 低（改进/待办）                   | P1                 |
+| **分类**    | 采集 / 评分 / Fact / 聚合 / 推送 / DB / 后端API / 前端 / 配置中心 / 实体库 / 部署 / 性能 / 安全 / 其他 | 实体库                |
+| **标题**    | 一句话问题描述                                                                     | 事件/Fact 实体 ID 双轨   |
+| **模块/文件** | 主要涉及代码文件（file:line 优先）                                                      | aggregator.py:1195 |
+| **状态**    | §2 状态机徽章                                                                    | 🟡 待决策             |
+| **根因**    | 一句话根因                                                                       | 两套 ID 生成方案         |
+| **修复/方案** | 修复内容或方案名                                                                    | 方案B 统一 loader      |
+| **验证**    | 验证方式                                                                        | demo.py / curl     |
+| **关闭**    | 关闭日期 `MM-DD`                                                                | 07-11              |
 
 ### 3.2 详情节字段（§4，非平凡问题必填）
 
@@ -125,6 +129,7 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **现象**: relations.yaml(106)/associations/entity_relationship 仅展示层 + ontology_validator REL_ 前缀白名单。
 - **解决**: 评估关系图谱（competitor/investor/part_of）接入事件/fact 生成的路径（待决策是否立项）。
 - **验证**: — · **关联**: [entity-management-pipeline-analysis.md](../01-architecture/entity-management-pipeline-analysis.md) §一
+- **2026-08-11 补充**: 关系数据当前**质量不可用**是未被消费的重要原因之一 —— 516 源边仅 223 落库、母公司/子公司方向颠倒、in_segment 混入非赛道词、命名分裂。详见 **ISS-20260811-020/021/022/023**。
 
 ### ISS-20260807-006 Fact 抽取硬编码参数需配置化
 - **发现**: 2026-08-07 · **严重**: P3 · **分类**: Fact · **状态**: 📋 观察
@@ -266,6 +271,41 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: 文档快照未随 扩源/评分奖励 更新; 报告曾据此出错(98源)。
 - **解决**: 更新 CLAUDE.md 到实际(196源/价值奖励/Step0-6)。记忆文件同步: cron-flow 98→196, MEMORY.md 197→196。
 - **验证**: CLAUDE.md `7b8fca5`(196源/价值奖励/tier硬编码说明); 记忆已核对。 · **关联**: `pipeline-e2e-review-2026-08-10.md`
+
+### ISS-20260811-020 backfill 关系方向反转 — parent_of/subsidiary_of 语义颠倒
+- **发现**: 2026-08-11 · **严重**: P2 · **分类**: 实体库 · **状态**: 🆕 待处理
+- **现象**: `entity_relationship` 中 Alphabet↔Google 出现双向冲突: `Alphabet subsidiary_of Google` + `Google parent_of Alphabet` —— 两个方向都反了且互为冗余。正确语义应为 `Alphabet parent_of Google` / `Google subsidiary_of Alphabet`。
+- **复现**: 配置中心「实体关系」Tab(223 条关系)可见; 或查 `entity_relationship` 表。
+- **根因**: `backfill_entity_model.py:165-173` 边生成 from/to 写反:
+  - `parent_of` 生成 `{from: 公司, to: 其 parent}` → 读作"公司是其母公司的母公司" ❌
+  - `subsidiary_of` 生成 `{from: 公司, to: 其 subsidiary}` → 读作"公司是其子公司的子公司" ❌
+  - `companies.yaml` 数据本身正确(`Alphabet.subsidiaries=[Google]`、`Google.parent=Alphabet`),错在 backfill 边方向。
+- **解决**: 反转边方向 — `parent_of`: `from=parent → to=company`; `subsidiary_of`: `from=subsidiary → to=company`。改后 DELETE+重建 `entity_relationship`。
+- **验证**: 修复后应见 `Alphabet parent_of Google` / `Google subsidiary_of Alphabet`, 无反向冗余。 · **关联**: ISS-20260807-004 · ISS-20260811-021/022/023(关系数据质量组)
+
+### ISS-20260811-021 in_segment 混入非赛道概念(AI巨头/出口管制/降息/加息/战争/国防)
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 实体库 · **状态**: 🆕 待处理
+- **现象**: 「实体关系」Tab 中 `in_segment`(细分赛道)目标混入非赛道概念:NVIDIA/AMD/ASML→`出口管制`(5家)、Goldman/JPMorgan→`降息`(4)/`加息`(3)、LOCKHEED→`战争`(4)/`国防`(3)、Google/Intel/Meta/OpenAI/Anthropic 等 15 家→`AI巨头`(地位标签)。
+- **复现**: `companies.yaml` 的 `sub_segments` 字段抽查 + 关系 Tab 列表。
+- **根因**: `sub_segments` 指向了 `industries.yaml` 中"政策/主题/状态标签"类实体, 并非细分赛道; 这些词被当 Industry 实体建入。
+- **解决**: ①从 `sub_segments`/`industries.yaml` 剔除 降息/加息/战争/国防/出口管制/AI巨头; ②如需保留, 改用别的 relation_type(in_policy/in_theme), 不占用 `in_segment`。
+- **验证**: — · **关联**: ISS-20260811-020 · ISS-20260807-004
+
+### ISS-20260811-022 实体命名不一致致关系分裂
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 实体库 · **状态**: 🆕 待处理
+- **现象**: 同一公司被拆成多个实体, 关系各自挂载:`Kulicke & Soffa` 与 `KULICKE & SOFFA INDUSTRIES` 各一组 in_segment;`ASML HOLDING` vs `ASML`;`Tongfu Microelectronics` 双 ID(COMP_TONGFU / COMP_TONGFU_MICROELECTRONICS);`IQE/ADR` 重复多条。
+- **复现**: 实体列表按 "Kulicke & Soffa"/"ASML" 搜索; `companies.yaml` 同名检查(8145 公司 1 处同名双 ID)。
+- **根因**: KB 公司与行情 ticker 两源合并, name upsert 无大小写/后缀规范化 → 同一公司多行。
+- **解决**: 名称规范化(统一 canonical / 全大写 / 去后缀)后再 upsert; 合并存量重复实体; 关系按 canonical 去重。
+- **验证**: — · **关联**: ISS-20260811-020 · ISS-20260807-004
+
+### ISS-20260811-023 关系覆盖大量丢失 — in_industry 全丢 + 子公司未解析丢弃
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 实体库 · **状态**: 🆕 待处理
+- **现象**: 源边 516 条仅落库 223;`in_industry`(260 条, Semiconductor/Automotive/Oil & Gas/optical/Banking…)一条未落; 子公司关系大量丢弃(Amazon→Zoox / Broadcom→VMware / ByteDance→TikTok / Meta→Instagram / Microsoft→GitHub / Intel→Altera / NVIDIA→Mellanox / Huawei→海思 等)。
+- **复现**: `companies.yaml` 提取 516 边 vs `entity_relationship` 223 对比; 配置中心 Tab 无 in_industry 类型。
+- **根因**: ①`industry` 字段为自由文本(非实体名)→ backfill `to_id` 解析失败丢弃; ②子公司在 KB 无独立实体 → 关系静默丢失。
+- **解决**: ①行业自由文本→实体映射(如 Semiconductor→半导体/半导体设备); ②补子公司实体或支持关系指向"未解析名"(宽松解析/创建占位实体)。
+- **验证**: — · **关联**: ISS-20260811-020 · ISS-20260807-004
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 📋 观察
