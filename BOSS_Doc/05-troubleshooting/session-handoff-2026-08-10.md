@@ -33,10 +33,11 @@ P0→P1 Fact 提取层: **契约冻结 + 结构正确性(错误Fact=0)+ 收尾**
 
 | 优先级 | 任务 | 说明 |
 |---|---|---|
-| 🔴 | **Entity Grounding 最小可用**(#38) | KB命中→entity_id, miss→Candidate; 不做复杂KG |
-| 🔴 | **A/B Event Aggregator + Case1-4 验证**(#39) | A高精度宁拆勿错/B宽松; Case1同事件→A, Case2同实体不同事件不误并, Case3关联→B, Case4无关不进 |
-| 🟠 | **生产部署**: sync_profile --apply → VPS `ALTER TABLE fact ADD COLUMN subject_name/object_name/action_status/action_polarity/evidence` → 生产跑一轮验证 | 结构正确性优先; 精度不阻塞 |
-| 🟡 | 精度长期指标(90/85/85/90/90) | 降为长期优化, 非阻塞; 需更强模型或 P1 各项叠加 |
+| ✅ | **Entity Grounding 最小版**(#38) | 已做(`34b4b31`): KB→id / miss→Candidate |
+| ✅ | **A/B Event Aggregator + 生产接入 + Web验证**(#39) | 已做(`c848656`/`e1938b5`/`1667c6d`): pipeline落库+推VPS → /api/v1/ab-events → /ab-events页; **Web 测试数据已验证, 真实数据待下轮 pipeline** |
+| 🟠 | **fact 表新列 ALTER**: VPS `ALTER TABLE fact ADD COLUMN subject_name/object_name/action_status/action_polarity/evidence` | A/B 已部署, 但 fact 表新列未 ALTER(旧 fact 无新列) |
+| 🟠 | **下轮 pipeline 验证真实 A/B**: 跑一轮生产 fact_pipeline → curl /api/v1/ab-events 看真实 B/A | 确认生产自动推 A/B |
+| 🟡 | 精度长期指标(90/85/85/90/90) | 降为长期优化, 非阻塞 |
 | 🟡 | P1-2~P1-7(grounding/action语义/Time-Loc归一/confidence/C-tier) | 并入下一阶段按需做 |
 
 ## 五、关键决策(冻结,勿改)
