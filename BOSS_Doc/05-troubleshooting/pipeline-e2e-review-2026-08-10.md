@@ -151,56 +151,90 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 
 ---
 
-## 四、全流水线流程图(数据流 + 分流)
+## 四、全流水线流程图(带数据明细)
+
+### 4.1 流程图(每环节标注数据)
 
 ```mermaid
 flowchart TD
-    %% ① 采集/评分
-    A[RSS 98源] --> B[评分 scorer A/B/C]
-    B --> C[抓取 cascade]
-    C --> D[(news_content SQLite)]
+    subgraph STAGE1["① 采集 RSS"]
+        A1["RSS 98源<br/>scanner 5m"] --> A2["rss_raw 表<br/>id / url / title / description /<br/>published_at / source_name"]
+    end
 
-    %% ② Fact 提取(事件相关性门 + 语言路由)
-    D --> E{事件相关性门<br/>fact_eligibility}
-    E -- NON_EVENT<br/>分析/综述/观点 --> E0[facts=[] 不产Fact]
-    E -- EVENT/UNCERTAIN --> F{语言路由}
-    F -- 中文CJK --> G1[Qwen qwen3-1.7b<br/>中文prompt]
-    F -- 英文+GLiNER锚定 --> G2[GLiNER快路径A<br/>无动作fact]
-    F -- 英文兜底 --> G3[Gemma gemma-4-e2b-it<br/>英文prompt]
-    G1 & G3 --> H{Context B<br/>标题+摘要+正文<br/>max_tokens1500}
-    G2 --> I[(facts[] Schema V2)]
-    H --> I
-    E0 --> I
+    subgraph STAGE2["② 评分 scorer"]
+        B1["news_intelligence<br/>score_total = source20+impact30+entity20+market20+velocity10<br/>tier: A≥90 / B≥60 / C<60<br/>category / tags / entities"]
+        A2 --> B1
+        B1 --> B2["分流: A/B→AI Fact; C→规则/GLiNER"]
+    end
 
-    %% ③ 验证门(分流)
-    I --> V{验证门 fact_validator}
-    V -- PASS --> V1[直接使用]
-    V -- REPAIR --> V2[用修复后<br/>unknown→null等]
-    V -- REJECT --> V3[排除<br/>Inc/无动作/值主体]
-    V1 --> W
-    V2 --> W
+    subgraph STAGE3["③ 抓取 cascade"]
+        C1["news_content<br/>id / intel_id / article_url / content_md / content_len<br/>fetch_strategy / fetch_cost"]
+        B2 --> C1
+        C1 -. "级联 direct→archive→google_cache→jina→tavily→browser" .-> C1
+    end
 
-    %% ④ 下游分流
-    W[PASS/REPAIR facts] --> AB[A/B聚合 aggregate_ab<br/>A高精度/B实体脉络]
-    W --> AG[事件聚合 aggregate_events<br/>_best_valid_fact]
-    V3 -. 全REJECT→legacy回退 .-> AG
-    AB --> AB1[(ab_event/ab_bundle 本地)]
-    AB --> AB2[推VPS /internal/ab-events]
-    AB1 --> AB2
-    AG --> E1[event_registry]
-    E1 --> P1[推VPS /internal/events/batch]
-    I -- 全量含REJECT ⚠️ --> P2[推VPS /internal/facts/batch]
-    P2 --> PG[(VPS PG fact 16列)]
+    subgraph STAGE4["④ Fact 提取"]
+        D0["输入 Context B<br/>title + description/summary + 正文前4段<br/>max_tokens=1500 · 线程池6 · 每模型信号量≤3"]
+        C1 --> D0
+        D0 --> D1{"事件相关性门<br/>fact_eligibility"}
+        D1 -- "NON_EVENT 分析/综述/观点" --> D1X["输出 facts=[] 空"]
+        D1 -- "EVENT/UNCERTAIN" --> D2{"语言路由"}
+        D2 -- "中文CJK" --> D3["Qwen qwen3-1.7b<br/>中文 FACT_PROMPT"]
+        D2 -- "英文+GLiNER锚定<br/>主体+客体+标题命中" --> D4["GLiNER 快路径A<br/>无动作fact"]
+        D2 -- "英文兜底" --> D5["Gemma gemma-4-e2b-it<br/>英文 FACT_PROMPT_EN"]
+        D3 & D4 & D5 --> D6["输出 facts[] Schema V2<br/>每条: subject{name,entity_id,type,object_type}<br/>action{type,status,polarity,verb}<br/>object{name,entity_id,type,object_type}<br/>time{raw} / location{name} /<br/>confidence / evidence / evidence_type"]
+        D1X --> D6
+    end
 
-    %% ⑤ Web
-    AB2 --> API1[/api/v1/ab-events/]
-    P1 --> API2[/api/v1/events/]
-    PG --> API3[/api/v1/facts 预留/]
-    API1 --> W1[Web /ab-events]
-    API2 --> W2[Web /events]
+    subgraph STAGE5["⑤ 验证门 fact_validator"]
+        E1{"判定 PASS/REPAIR/REJECT"}
+        D6 --> E1
+        E1 -- "REJECT:<br/>SUBJECT_EMPTY / SUBJECT_NOT_ENTITY<br/>ACTION_EMPTY / SUBJECT_JUNK_SUFFIX" --> E1X["排除 facts=[]"]
+        E1 -- "REPAIR:<br/>TIME_NOT_TIME→null<br/>LOCATION_UNKNOWN→null<br/>OBJECT_EMPTY" --> E2["用修复后版本"]
+        E1 -- "PASS" --> E3["直接用"]
+        E2 --> F0
+        E3 --> F0
+    end
+
+    subgraph STAGE6["⑥ 分流 + 聚合"]
+        F0[PASS/REPAIR facts] --> F1["A/B 事件聚合 aggregate_ab<br/>A: 同(subject_id+action_type+object_id) 宁拆勿错<br/>B: 同 subject_id 的 A事件 → 实体脉络"]
+        F0 --> F2["事件聚合 aggregate_events<br/>_best_valid_fact 只取 PASS/REPAIR<br/>fused 指纹 / legacy 兜底"]
+        E1X -. "全REJECT→该篇legacy指纹" .-> F2
+        F1 --> G1[("ab_event/ab_bundle 本地SQLite<br/>a_event_id/b_event_id/subject/action/object/n_facts")]
+        F2 --> G2[("event_registry 本地<br/>event_id/title/subject/action/object/evidence/source_chain/timeline")]
+    end
+
+    subgraph STAGE7["⑦ 推送 VPS"]
+        G1 --> H1["POST /internal/ab-events<br/>json {a_events, b_events}"]
+        G2 --> H2["POST /internal/events/batch"]
+        F0 -- "⚠️ 全量(含REJECT)" --> H3["POST /internal/facts/batch<br/>json payloads 全量"]
+        H3 --> H4[("VPS PG fact 表 16列<br/>action_type/action_status/subject_name/object_name/...")]
+        H1 --> H5[("VPS PG ab_event/ab_bundle")]
+        H2 --> H6[("VPS PG events")]
+    end
+
+    subgraph STAGE8["⑧ Web 展示"]
+        H5 --> I1["GET /api/v1/ab-events<br/>→ B事件含A事件"]
+        H6 --> I2["GET /api/v1/events"]
+        I1 --> J1["页面 /ab-events<br/>实体脉络 + 高精度事件"]
+        I2 --> J2["页面 /events<br/>事件列表+详情(Evidence/SourceChain/Timeline)"]
+    end
 ```
 
-### 关键分流点
+### 4.2 各环节数据明细
+
+| 环节 | 输入数据 | 处理 | 输出数据 |
+|---|---|---|---|
+| ①采集 | RSS XML | scanner 5m | `rss_raw`: url/title/description/published_at/source_name |
+| ②评分 | rss_raw | 五维评分(A≥90/B≥60/C<60) | `news_intelligence`: score_total/tier/category/tags/entities |
+| ③抓取 | 待抓 URL | cascade 9策略 | `news_content`: article_url/content_md/fetch_strategy/fetch_cost |
+| ④提取 | title+summary+body | 事件门+语言路由+Context B | `facts[]`: subject/action/object/time/location/confidence/evidence/evidence_type |
+| ⑤验证门 | facts[] | PASS/REPAIR/REJECT | `{verdict, repaired, reasons}` |
+| ⑥分流 | PASS/REPAIR facts | A/B聚合 / fused聚合 | `ab_event/ab_bundle` + `event_registry` |
+| ⑦推送 | 各库 | /internal/* 3 端点 | VPS PG: fact(16列)/ab_event/ab_bundle/events |
+| ⑧Web | VPS PG | /api/v1/* | 页面: /ab-events /events |
+
+### 4.3 关键分流点
 
 | 分流 | 依据 | 去向 |
 |---|---|---|
@@ -210,7 +244,7 @@ flowchart TD
 | S4 下游 | PASS+REPAIR → A/B+聚合(fused); REJECT全拒 → legacy 回退; **⚠️ 推送例外: 全量(含REJECT)进VPS fact 表** | 见上 |
 | S5 A/B 两级 | A: 同(subject+action+object)宁拆勿错; B: 同实体A事件 | A/B 事件 |
 
-### 数据流汇总
+### 4.4 数据流汇总
 ```
 本地SQLite: news_content → news_intelligence(facts_json) → fact_pipeline_payload.json
           → event_registry → ab_event/ab_bundle
@@ -218,3 +252,11 @@ flowchart TD
 VPS PG:    articles / fact(16列) / ab_event / ab_bundle / events
 Web API:   /api/v1/facts? / ab-events / events → Next.js
 ```
+
+### 4.5 数据缺口(已在图标注)
+
+| 缺口 | 说明 | 影响 |
+|---|---|---|
+| ⚠️ facts/batch 推送全量 | 含 REJECT 垃圾事实(未过验证门) | VPS fact 表污染, 与聚合/A/B 用的事实不一致 |
+| fact 表 16 列 | 含新列 subject_name/object_name/action_status/action_polarity/evidence | 已 ALTER, 正常 |
+| A/B 只用 PASS/REPAIR | 干净, 与 fact 表全量不一致 | 建议推送前过验证门(方案A) |
