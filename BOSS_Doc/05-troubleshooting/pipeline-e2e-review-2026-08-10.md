@@ -30,13 +30,13 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 
 ### 环节2: 评分(scorer)
 
-| 项 | 内容 |
-|---|---|
-| **问题** | 评分偏保守(A=0/B=4.6%), 英文关键词子串误标(election⊂Selection, ISS-20260808-005/006) |
-| **如何产生** | impact 不累加 + 词边界只点状修补 |
-| **影响** | 大量文章落 C 级 → 无 AI Fact 增强 → 有效 Fact 少 → 事件覆盖低 |
-| **方案** | A. 降 B 级门槛/impact 累加; B. 词边界系统性修复(子串碰撞扫描) |
-| **评估** | A 提升覆盖(注意噪音), B 提升精度; 建议 B 先(A 需验证噪音) |
+| 项        | 内容                                                                     |
+| -------- | ---------------------------------------------------------------------- |
+| **问题**   | 评分偏保守(A=0/B=4.6%), 英文关键词子串误标(election⊂Selection, ISS-20260808-005/006) |
+| **如何产生** | impact 不累加 + 词边界只点状修补                                                  |
+| **影响**   | 大量文章落 C 级 → 无 AI Fact 增强 → 有效 Fact 少 → 事件覆盖低                           |
+| **方案**   | A. 降 B 级门槛/impact 累加; B. 词边界系统性修复(子串碰撞扫描)                              |
+| **评估**   | A 提升覆盖(注意噪音), B 提升精度; 建议 B 先(A 需验证噪音)                                  |
 
 ### 环节3: 抓取(cascade)
 
@@ -148,3 +148,73 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 2. **聚合整合**: 新 A/B 是否替代原 aggregate_events(P3)? 还是并行观察?
 3. **P2 Market Impact** 是否现在启动(路线图下一大块)?
 4. **中文覆盖**: 是否增补中文源(影响大但需验证)?
+
+---
+
+## 四、全流水线流程图(数据流 + 分流)
+
+```mermaid
+flowchart TD
+    %% ① 采集/评分
+    A[RSS 98源] --> B[评分 scorer A/B/C]
+    B --> C[抓取 cascade]
+    C --> D[(news_content SQLite)]
+
+    %% ② Fact 提取(事件相关性门 + 语言路由)
+    D --> E{事件相关性门<br/>fact_eligibility}
+    E -- NON_EVENT<br/>分析/综述/观点 --> E0[facts=[] 不产Fact]
+    E -- EVENT/UNCERTAIN --> F{语言路由}
+    F -- 中文CJK --> G1[Qwen qwen3-1.7b<br/>中文prompt]
+    F -- 英文+GLiNER锚定 --> G2[GLiNER快路径A<br/>无动作fact]
+    F -- 英文兜底 --> G3[Gemma gemma-4-e2b-it<br/>英文prompt]
+    G1 & G3 --> H{Context B<br/>标题+摘要+正文<br/>max_tokens1500}
+    G2 --> I[(facts[] Schema V2)]
+    H --> I
+    E0 --> I
+
+    %% ③ 验证门(分流)
+    I --> V{验证门 fact_validator}
+    V -- PASS --> V1[直接使用]
+    V -- REPAIR --> V2[用修复后<br/>unknown→null等]
+    V -- REJECT --> V3[排除<br/>Inc/无动作/值主体]
+    V1 --> W
+    V2 --> W
+
+    %% ④ 下游分流
+    W[PASS/REPAIR facts] --> AB[A/B聚合 aggregate_ab<br/>A高精度/B实体脉络]
+    W --> AG[事件聚合 aggregate_events<br/>_best_valid_fact]
+    V3 -. 全REJECT→legacy回退 .-> AG
+    AB --> AB1[(ab_event/ab_bundle 本地)]
+    AB --> AB2[推VPS /internal/ab-events]
+    AB1 --> AB2
+    AG --> E1[event_registry]
+    E1 --> P1[推VPS /internal/events/batch]
+    I -- 全量含REJECT ⚠️ --> P2[推VPS /internal/facts/batch]
+    P2 --> PG[(VPS PG fact 16列)]
+
+    %% ⑤ Web
+    AB2 --> API1[/api/v1/ab-events/]
+    P1 --> API2[/api/v1/events/]
+    PG --> API3[/api/v1/facts 预留/]
+    API1 --> W1[Web /ab-events]
+    API2 --> W2[Web /events]
+```
+
+### 关键分流点
+
+| 分流 | 依据 | 去向 |
+|---|---|---|
+| S1 事件相关性门 | 分析/综述/观点/解读(中英) | → facts=[] |
+| S2 语言路由 | 中文→Qwen / 英文→Gemma / 英文+GLiNER锚定→快路径A | 3 条抽取路径 |
+| S3 验证门 | PASS / REPAIR / REJECT | → 使用 / 修复后 / 排除 |
+| S4 下游 | PASS+REPAIR → A/B+聚合(fused); REJECT全拒 → legacy 回退; **⚠️ 推送例外: 全量(含REJECT)进VPS fact 表** | 见上 |
+| S5 A/B 两级 | A: 同(subject+action+object)宁拆勿错; B: 同实体A事件 | A/B 事件 |
+
+### 数据流汇总
+```
+本地SQLite: news_content → news_intelligence(facts_json) → fact_pipeline_payload.json
+          → event_registry → ab_event/ab_bundle
+推送VPS:   /internal/facts/batch(全量⚠️) + /internal/ab-events(PASS/REPAIR) + /internal/events/batch
+VPS PG:    articles / fact(16列) / ab_event / ab_bundle / events
+Web API:   /api/v1/facts? / ab-events / events → Next.js
+```
