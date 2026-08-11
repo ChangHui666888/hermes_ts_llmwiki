@@ -1,6 +1,6 @@
 # 全流水线问题评估报告(2026-08-10)
 
-> 视角: **整体流水线 RSS(98源)→评分→抓取→Fact→事件聚合→推送→VPS→Web**。
+> 视角: **整体流水线 RSS(196源)→评分→抓取→Fact→事件聚合→推送→VPS→Web**。
 > 目标: 逐环节列出当前问题 + 遗留任务, 说明"如何产生/具体影响", 给出不同方案并评估。
 > 关联: 审查报告 `fact-extraction-p1-review.md` · 交接 `session-handoff-2026-08-10.md` · 契约 `references/fact-schema-v2.md`
 
@@ -9,7 +9,7 @@
 ## 零、流水线全景
 
 ```
-RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事件聚合 ──推送──→ PostgreSQL(VPS) ──→ Web
+RSS(196源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事件聚合 ──推送──→ PostgreSQL(VPS) ──→ Web
    │                │              │(Qwen/Gemma)  │(A/B两级)    │(internal/*)    │(Next.js)
    └─死链/中文稀缺     └─抓取失败       └─精度天花板     └─巨型误并/       └─重复堆积        └─展示
 ```
@@ -18,34 +18,37 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 
 ## 一、逐环节问题 + 方案评估
 
-### 环节1: RSS 采集(上游)
+### 环节1: RSS 采集(上游) — 核实: **196 源**
 
-| 项 | 内容 |
+| 项 | 核实内容 |
 |---|---|
-| **问题** | ① ~61 源死链(404/403, ISS-20260808-003); ② 中文源稀缺(近 5000 篇仅 5 篇中文) |
-| **如何产生** | 源 URL 失效/Nitter 封禁; 中文源占比低 |
-| **影响** | 中文信息覆盖不足 → 事件/实体图谱偏英文; 死链浪费抓取预算 |
-| **方案** | A. 死链批量禁用(配置中心) — 省预算; B. 增补中文源(新华社/联合早报等) — 提升中文覆盖 |
-| **评估** | B 影响大(补中文信息短板), A 成本低; 建议 A 立做, B 按需 |
+| **源数** | **196 源**(VPS `rss.feeds`, config-agent 60s 同步到 `~/.hermes/pipeline-config.json`; 缺失回退 12 硬编码源) |
+| **表** | `rss_raw` 19 列(guid/source_name/article_url/title/description/published_at/content_encoded/...) |
+| **问题** | ① 部分源死链/封禁(health 跟踪); ② 中文源稀缺(近 5000 篇仅 5 中文, ISS-20260811-016 关联) |
+| **方案** | A. 死链批量禁用(配置中心); B. 增补中文源 |
+| **评估** | B 补中文信息短板, A 省预算 |
 
-### 环节2: 评分(scorer)
+### 环节2: 评分(scorer) — 核实: 五维 + **v2.2 价值奖励**
 
-| 项        | 内容                                                                     |
-| -------- | ---------------------------------------------------------------------- |
-| **问题**   | 评分偏保守(A=0/B=4.6%), 英文关键词子串误标(election⊂Selection, ISS-20260808-005/006) |
-| **如何产生** | impact 不累加 + 词边界只点状修补                                                  |
-| **影响**   | 大量文章落 C 级 → 无 AI Fact 增强 → 有效 Fact 少 → 事件覆盖低                           |
-| **方案**   | A. 降 B 级门槛/impact 累加; B. 词边界系统性修复(子串碰撞扫描)                              |
-| **评估**   | A 提升覆盖(注意噪音), B 提升精度; 建议 B 先(A 需验证噪音)                                  |
-
-### 环节3: 抓取(cascade)
-
-| 项 | 内容 |
+| 项 | 核实内容 |
 |---|---|
-| **问题** | 部分站点级联全失败 → 无正文, Fact 只能靠标题/摘要 |
-| **影响** | 这些文章 Fact 信息少, 事件聚合精度受限 |
-| **方案** | A. 增补 archive/jina 兜底; B. 对 Fact 关键文章强制重试 |
-| **评估** | 影响中等; 建议按需, 不优先 |
+| **公式** | `score_total = source(0-20)+impact(0-30)+entity(0-20)+market(0-20)+velocity(0-10)+value_reward(0-30)`, cap 100 |
+| **tier** | **硬编码** `≥90→A / ≥60→B / else→C`(scorer.py:348)。⚠️ 配置中心 `ai.tier_a_threshold=95` **未消费**(ISS-20260811-013) |
+| **五维** | source: source_scores/feed importance(S/A/B/C/D=20/15/11/8/5); impact: 500词表取最高; entity: entity_weights 最高; market: asset_graph 映射; velocity: 10+/5+/2+源→10/5/2 |
+| **v2.2 价值奖励** | `_value_reward`(0-30): source≥16+4/finance+5/geopolitics+6/market+5/china+3/robot+4/market_assets+3/velocity+3; **实体分级** value_tiers.json T1-T10(一把手+8...光通信+6, cap 20); 可配 `value.reward_*` |
+| **问题** | 英文子串误标(ISS-008-005/006); 阈值配置漂移(ISS-013) |
+| **方案** | 词边界系统修复; tier 阈值接配置中心 |
+
+### 环节3: 抓取(cascade) — 核实: 6 默认策略 / 9 fetcher
+
+| 项 | 核实内容 |
+|---|---|
+| **默认策略** | `direct→archive→google_cache→jina→tavily→search_snippet`(域名画像剪枝已知必败) |
+| **fetcher** | 9 个: direct/archive/google_cache/scrapling/browser(Playwright+stealth)/jina/tavily/searxng_alt/search_snippet(+computer_use 占位 cost5) |
+| **视频** | `browser→archive→jina→tavily`(Step3.6, score≥60, workers2, timeout420s) |
+| **表** | `news_content` 21 列 |
+| **问题** | 部分站点级联全失败 → 无正文, Fact 靠标题/摘要 |
+| **方案** | 增补兜底/关键文章重试 |
 
 ### 环节4: Fact 提取(核心瓶颈)
 
@@ -89,6 +92,17 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 | **方案A: 质心比对**(P3) | 新文章与**运行中质心**(成员多数SAO)比对, 阻断传递链 — 精度↑, 改动聚合核心 |
 | **方案B: 新 A/B 两级聚合**(已落地) | A高精度宁拆勿错/B宽松实体脉络; 已生产接入并 Web 验证 |
 | **评估** | **推荐 B(已落地)为主, A 作 P3 整合**: 用 A/B 替代或增强原聚合, 待验证 |
+
+**Step 4.5 增量聚合具体策略(已核实, `auto-pipeline.py:648-688`)**
+```
+候选: news_content.event_id IS NULL/空 的文章, ORDER BY nc.id DESC LIMIT 500
+C级放行: 仅 CJK(英文 C 级全排除防噪音); A/B 全放行
+fused接线: _load_facts_payload()(Step4 facts 反哺) + _load_ner_payload()(C级CJK GLiNER)
+调用: aggregate_events(rows, window_hours=48, facts_by_article, ner_by_article)  fp_mode="fused"
+阈值: EVENT_THRESHOLD=50, MERGE_THRESHOLD=50(配置中心 aggregate.*)
+标记: assign_articles_to_event(event_id, article_ids) → news_content.event_id 非空 → 下轮不重聚
+```
+> 语义: 只聚"未标记"新文章 → 防重复事件, 但已标记文章不重聚(事件不刷新, ISS-20260811-018)。
 
 **问题5.2: 增量聚合当轮不出事件**
 | 项 | 内容 |
@@ -158,11 +172,11 @@ RSS(98源) ──评分──→ 抓取(cascade) ──Fact提取──→ 事�
 ```mermaid
 flowchart TD
     subgraph STAGE1["① 采集 RSS"]
-        A1["RSS 98源<br/>scanner 5m"] --> A2["rss_raw 表<br/>id / url / title / description /<br/>published_at / source_name"]
+        A1["RSS 196源(配置中心)<br/>scanner 5m"] --> A2["rss_raw 表<br/>id / url / title / description /<br/>published_at / source_name"]
     end
 
     subgraph STAGE2["② 评分 scorer"]
-        B1["news_intelligence<br/>score_total = source20+impact30+entity20+market20+velocity10<br/>tier: A≥90 / B≥60 / C<60<br/>category / tags / entities"]
+        B1["news_intelligence<br/>score_total = source20+impact30+entity20+market20+velocity10+价值奖励30<br/>tier: A≥90 / B≥60 / C<60(硬编码)<br/>category / tags / entities"]
         A2 --> B1
         B1 --> B2["分流: A/B→AI Fact; C→规则/GLiNER"]
     end
@@ -260,3 +274,37 @@ Web API:   /api/v1/facts? / ab-events / events → Next.js
 | ⚠️ facts/batch 推送全量 | 含 REJECT 垃圾事实(未过验证门) | VPS fact 表污染, 与聚合/A/B 用的事实不一致 |
 | fact 表 16 列 | 含新列 subject_name/object_name/action_status/action_polarity/evidence | 已 ALTER, 正常 |
 | A/B 只用 PASS/REPAIR | 干净, 与 fact 表全量不一致 | 建议推送前过验证门(方案A) |
+
+---
+
+## 五、数据库与后端(核实)
+
+### 5.1 本地 SQLite 11 表
+`rss_raw(19列)` / `news_intelligence(17列)` / `news_content(21列)` / `event_registry(31列)` / `ab_event` / `ab_bundle` / `entity_registry` / `source_registry` / `sync_state` (+bak/seq)
+
+### 5.2 VPS PG 31 表
+`articles(30列)` / `events(32列含tone/goldstein)` / `fact(16列含P0新列)` / `fact_entity` / `ab_event` / `ab_bundle` / `sources(9列)` / `entities(10列)` / `entity_alias` / `entity_relationship` / `event_relations` / `event_article`(+override/exclusion) / `event_entity` / `story` / `story_event` / `insights` / `settings` / `users` / `categories` / `tags` / `assets` / `subscriptions` / `ads` / `logs` / `fetch_stats` / `article_category` / `article_tag` / `article_entity` / `alembic_version`
+
+### 5.3 后端 API(19 路由文件 ~66 端点)
+`/api/v1`(dashboard/events+detail/relations/ab-events/sources/search/map/stories/entities) · `/admin`(config/rss/curation/entities/relations/fetch_stats/pipeline) · `/internal`(news/facts/events/ab-events/delete/sources-health/fetch_stats/monitor/deploy) · `/news`(6) · `/auth` · `/ads`/`/categories`
+
+### 5.4 推送字段
+- `/internal/news/batch`: 18 字段(pusher.push_batch)。
+- `/internal/events/batch`: 31 字段(pusher.push_events, _event_to_push_format)。
+- Token: `config.env.INTERNAL_TOKEN` = `v8-pipeline-token-2026-xK9mP2sR7wQ`(auto-pipeline 用); ⚠️ pusher.py 默认 `hermes-pipeline-secret-2026`(若被直接调用需 env 覆盖)。
+
+---
+
+## 六、核实发现(2026-08-11 新增问题, 已登记)
+
+| ISS | 问题 | 严重 |
+|---|---|---|
+| ISS-20260811-013 | tier 阈值配置漂移(`ai.tier_a_threshold=95` 未消费, scorer 硬编码 90/60) | P2 |
+| ISS-20260811-014 | facts/batch 推送全量绕过验证门(REJECT 垃圾进 VPS fact 表) | P1 |
+| ISS-20260811-015 | Fact AI 提取失败静默降级(无重试/无指标/永久丢失) | P2 |
+| ISS-20260811-016 | 中文人名类型标签错误(高市早苗→CTRY) | P3 |
+| ISS-20260811-017 | LLM 垃圾短语主体(Negotiation with Iran) | P3 |
+| ISS-20260811-018 | 增量聚合已标记文章不重聚(事件不刷新) | P3 |
+| ISS-20260811-019 | CLAUDE.md 文档漂移(98源→196, 缺价值奖励) | P3 |
+
+> 详情见 `05-troubleshooting/issue-tracking.md`。

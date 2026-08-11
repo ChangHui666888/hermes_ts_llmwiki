@@ -30,6 +30,13 @@
 | [ISS-20260808-009](#iss-20260808-009) | 08-08 | P1 | 采集 | sync 游标卡死 — 391篇同刻时间戳占满LIMIT致文章不再入库/推送 | `sync.py` `_fetch_batch` | ✅ 已关闭 | scanner批量写入同秒时间戳, `created_at>=水印`游标被同刻重复占满 | 复合游标(created_at,id) + 旧水印严格大于 | catchup 1254篇, 水印推进到23:22 | 08-08 |
 | [ISS-20260809-010](#iss-20260809-010) | 08-09 | P1 | 聚合 | 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠 | `auto-pipeline.py`/`aggregator.py` | ✅ 已关闭 | 增量 SELECT 缺 `rr.article_url`, 聚合器 `a.get("url","")` 恒空 → View 按钮/完整链路缺失 + evidence/timeline 去重折叠 | SELECT 补 `rr.article_url as url` (与 reaggregate_all 对齐) | 生产 fused 只读 100事件: evidence url 99/100 + chain url 100/100 | 08-09 |
 | [ISS-20260810-012](#iss-20260810-012) | 08-10 | P1 | Fact | Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控 | `fact_pipeline.py`/`canonicalizer.py` | 🔧 修复中 | 生产后处理破坏 Qwen 输出(动作落OTHER/客体切碎ENT_垃圾); 单fact丢多事实; 值($0.22)被实体化 | facts[]+结构化SAO+action状态/极性+实体门控 | — | — |
+| [ISS-20260811-013](#iss-20260811-013) | 08-11 | P2 | 配置 | tier 阈值配置漂移 — `ai.tier_a_threshold=95` 未被 scorer 消费(硬编码 A≥90/B≥60/C<60) | `scorer.py:348` | 🆕 待处理 | 配置中心有 `ai.tier_a_threshold=95`, scorer 未读, 用硬编码 90/60 | scorer 读配置中心阈值 | — | — |
+| [ISS-20260811-014](#iss-20260811-014) | 08-11 | P1 | Fact | VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表 | `fact_pipeline.py` main 推送 | 🆕 待处理 | 验证门仅用于 A/B+聚合, 推送 /internal/facts/batch 送全量 payloads | 推送前过 validate_facts, 只送 PASS/REPAIR | — | — |
+| [ISS-20260811-015](#iss-20260811-015) | 08-11 | P2 | Fact | Fact AI 提取失败静默降级 — 无重试/无失败指标/永久丢失 | `fact_pipeline.py` qwen_fact | 🆕 待处理 | qwen_fact 异常→返回[], 文章无 fact 且被标记不重抽 | AI 失败重试 + 失败指标 + 重抽队列 | — | — |
+| [ISS-20260811-016](#iss-20260811-016) | 08-11 | P3 | 实体 | 中文人名类型标签错误(高市早苗→CTRY, 应 Person) | `canonicalizer.py` | 🆕 待处理 | KB miss 后类型猜测未覆盖中文人名 | CJK 人名启发式(姓氏库/称谓) | — | — |
+| [ISS-20260811-017](#iss-20260811-017) | 08-11 | P3 | Fact | LLM 垃圾短语主体(Negotiation with Iran 当 subject) | `fact_pipeline.py` | 🆕 待处理 | LLM 提取把整句/短语当 subject, 未过质量门 | 主体短语质量门(复用 _is_value_phrase) | — | — |
+| [ISS-20260811-018](#iss-20260811-018) | 08-11 | P3 | 聚合 | 增量聚合已标记文章不重聚(事件不刷新) | `auto-pipeline.py` Step 4.5 | 📋 观察 | 只聚 event_id 为空文章, 标记后不再重聚 | 需重聚合机制(按需 re-aggregate) | — | — |
+| [ISS-20260811-019](#iss-20260811-019) | 08-11 | P3 | 文档 | CLAUDE.md 文档漂移(RSS 98源→实际196; 评分缺价值奖励描述) | `CLAUDE.md` | 🆕 待处理 | 文档快照未随 扩源/评分奖励 更新 | 更新 CLAUDE.md 到实际(196源/价值奖励) | — | — |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1 | Pipeline | db.close() 后查询崩溃 | `news_intel/pipeline.py:141-150` | ✅ 已关闭 | close 后仍执行查询 | 统计移到 close 前 | 运行通过 | 07-11 |
 
 ---
@@ -210,6 +217,55 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **下一阶段**: Entity Grounding(最小可用)→ A/B Event Aggregator(高精度 A / 宽松 B)。
 - **P1 规划**: Time/Location 规范化(LLM+规则) · Confidence 拆分 · C-tier Rule Engine 完整实现 · Qwen Context 优化(扩上下文, A/B 已验证+2~11pp) · Entity Grounding(KB miss→Candidate) · Action 语义归一(verb+negation+modal+status) · 达标 90/85/85/90/90。
 - **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L4.5 · [data-flow-fields.md](../01-architecture/data-flow-fields.md) L4 · `references/fact-schema-v2.md`
+
+### ISS-20260811-013 tier 阈值配置漂移 — `ai.tier_a_threshold=95` 未被 scorer 消费
+- **发现**: 2026-08-11 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
+- **现象**: 配置中心 `ai.tier_a_threshold=95`, 但代码 grep 无消费; scorer 分级用硬编码 `total≥90→A / ≥60→B / else→C`(`scorer.py:348-353`)。
+- **根因**: scorer tier 阈值写死, 未接配置中心 `score.*/ai.tier_a_threshold`。
+- **解决**: 让 scorer 读配置中心阈值(A/B/C 分界), 或删无用配置键。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节2
+
+### ISS-20260811-014 VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表
+- **发现**: 2026-08-11 · **严重**: P1 · **分类**: Fact · **状态**: 🆕 待处理
+- **现象**: `fact_pipeline.py` main() 推 `/internal/facts/batch` 送**全量 payloads**(含验证门 REJECT 的垃圾), 而 A/B+聚合只用 PASS/REPAIR。实证: 20篇→facts/batch ok=23, A/B 仅 _passed=16(7 条 REJECT/未达标仍入库)。
+- **根因**: 验证门(fact_validator)未在推送层应用; REPAIR 修复后版本也未用于推送。
+- **解决**: 推送前 `validate_facts(payloads)`, 只送 PASS/REPAIR(修复后版本)。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4/6
+
+### ISS-20260811-015 Fact AI 提取失败静默降级 — 无重试/无失败指标/永久丢失
+- **发现**: 2026-08-11 · **严重**: P2 · **分类**: Fact · **状态**: 🆕 待处理
+- **现象**: `qwen_fact` 任何异常→返回 `[]`(无重试); 该文章无 fact 且被 `assign_articles_to_event` 标记 → 下轮不重抽 → **永久无 AI Fact**。无失败指标, pipeline.log 不区分"AI失败"与"本来无fact"。
+- **根因**: 单次调用无重试; 失败不标记/不统计; 增量标记机制导致不重抽。
+- **解决**: AI 失败重试(1-2次) + 失败计数指标 + 失败文章重抽队列。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
+
+### ISS-20260811-016 中文人名类型标签错误(高市早苗→CTRY, 应 Person)
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 实体 · **状态**: 🆕 待处理
+- **现象**: `resolve_entity("高市早苗")` → `CTRY_TAKAICHI_SANAE`(type=Country, 应 Person)。id 一致可匹配, 但类型标签错 → 画像/图谱分类错误。
+- **根因**: KB miss 后类型猜测未覆盖中文人名。
+- **解决**: CJK 人名启发式(姓氏库/称谓 判断 Person)。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
+
+### ISS-20260811-017 LLM 垃圾短语主体(Negotiation with Iran 当 subject)
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: Fact · **状态**: 🆕 待处理
+- **现象**: A 事件出现 "Negotiation with Iran"/"Observation of Iran" 短语主体。
+- **根因**: LLM 提取把整句/短语当 subject, 未过主体质量门。
+- **解决**: 主体短语质量门(复用 `_is_value_phrase`), 并入 validator。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
+
+### ISS-20260811-018 增量聚合已标记文章不重聚(事件不刷新)
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 聚合 · **状态**: 📋 观察
+- **现象**: Step 4.5 只聚 `event_id` 为空文章, 聚合后标记; 已标记文章不再重聚 → 若新 fact 到, 事件不刷新。
+- **根因**: 增量语义(防重复事件)牺牲了事件刷新。
+- **解决**: 按需 re-aggregate 机制(对关键实体/事件), 或事件刷新策略。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节5
+
+### ISS-20260811-019 CLAUDE.md 文档漂移(RSS 98源→实际196; 评分缺价值奖励描述)
+- **发现**: 2026-08-11 · **严重**: P3 · **分类**: 文档 · **状态**: 🆕 待处理
+- **现象**: CLAUDE.md 写 "RSS(98源)"、"五维评分", 实际 196 源、评分含 v2.2 价值奖励(0-30)。
+- **根因**: 文档快照未随 扩源/评分奖励 更新; 报告曾据此出错(98源)。
+- **解决**: 更新 CLAUDE.md 到实际(196源/价值奖励/Step0-6)。
+- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md`
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
