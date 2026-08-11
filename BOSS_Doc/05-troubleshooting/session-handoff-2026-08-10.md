@@ -34,9 +34,10 @@ P0→P1 Fact 提取层: **契约冻结 + 结构正确性(错误Fact=0)+ 收尾**
 | 优先级 | 任务 | 说明 |
 |---|---|---|
 | ✅ | **Entity Grounding 最小版**(#38) | 已做(`34b4b31`): KB→id / miss→Candidate |
-| ✅ | **A/B Event Aggregator + 生产接入 + Web验证**(#39) | 已做(`c848656`/`e1938b5`/`1667c6d`): pipeline落库+推VPS → /api/v1/ab-events → /ab-events页; **Web 测试数据已验证, 真实数据待下轮 pipeline** |
-| 🟠 | **fact 表新列 ALTER**: VPS `ALTER TABLE fact ADD COLUMN subject_name/object_name/action_status/action_polarity/evidence` | A/B 已部署, 但 fact 表新列未 ALTER(旧 fact 无新列) |
-| 🟠 | **下轮 pipeline 验证真实 A/B**: 跑一轮生产 fact_pipeline → curl /api/v1/ab-events 看真实 B/A | 确认生产自动推 A/B |
+| ✅ | **A/B Event Aggregator + 生产接入 + Web验证**(#39) | 已做(`c848656`/`e1938b5`/`1667c6d`/`48b42b7`): pipeline落库+推VPS → /api/v1/ab-events → /ab-events页; **真实数据已验证**(20篇→23 facts→16 A/16 B 推 VPS, facts/batch ok=23 fail=0) |
+| ✅ | **fact 表新列 ALTER** | 已执行(16列含 subject_name/object_name/action_status/action_polarity/evidence; 58条有值) |
+| 🟡 | **下轮 auto-pipeline** 自然继续推 A/B + fact 新列持续填充 | 生产已闭环, 后续自动 |
+| 🟠 | **facts/batch location 修复**: 后端用 `location_str`(勿回退 dict) | 已修 `48b42b7`(19 fail→0) |
 | 🟡 | 精度长期指标(90/85/85/90/90) | 降为长期优化, 非阻塞 |
 | 🟡 | P1-2~P1-7(grounding/action语义/Time-Loc归一/confidence/C-tier) | 并入下一阶段按需做 |
 
