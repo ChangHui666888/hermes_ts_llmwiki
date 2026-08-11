@@ -1,6 +1,6 @@
 # 业务工作流 — 实体使用环节表
 
-> 版本: v1.2 · 2026-08-07
+> 版本: v1.3 · 2026-08-11
 > 定位: **按表格速查** —— 当前业务工作流（采集→展示）哪些环节用到实体/关系库、用什么库、如何实现、产出落点在哪。
 > 依据: 代码逐行核实（`search-engine-v2/scripts/`）+ [business-process.md](business-process.md)。
 > 相关: [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)（详细分析+升级方案）· [entity-kb.md](entity-kb.md) · [knowledge-base.md](knowledge-base.md)
@@ -14,7 +14,7 @@
 ```
 ① 评分 (scorer.py) — 用评分配置 JSON (不用 KB)
    sync.py → score_article(title, description)
-   ├── score_source    → source_scores.json    (197 源)
+   ├── score_source    → source_scores.json    (196 源)
    ├── score_impact    → event_keywords.json   (511 词)
    ├── score_entities  → entity_weights.json   (559 实体)
    ├── score_market    → asset_graph.json      (39 资产键)
@@ -50,7 +50,7 @@
 
 | 文件 | dev 路径 | 生产 profile 路径 | 规模 |
 |------|---------|-----------------|:--:|
-| source_scores.json | `<repo>/scripts/news_intel/config/source_scores.json` | `~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/news_intel/config/` | 197 源 |
+| source_scores.json | `<repo>/scripts/news_intel/config/source_scores.json` | `~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/news_intel/config/` | 196 源(注册197) |
 | event_keywords.json | 同目录 | 同 profile 目录 | 511 词 |
 | entity_weights.json | 同目录 | 同 profile 目录 | 559 实体 |
 | asset_graph.json | 同目录 | 同 profile 目录 | 39 键 |
@@ -156,7 +156,7 @@
 
 | 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
 |------|------|-------------|-------------|
-| 源字段 | RSS feed | `title, description, link(article_url), published, source_name, source_domain` | 197 RSS 源 |
+| 源字段 | RSS feed | `title, description, link(article_url), published, source_name, source_domain` | 196 RSS 源(配置中心 rss.feeds) |
 | 输出字段 | rss_raw 表 | `id, guid, source_name, source_domain, feed_url, article_url, title, description, published_at, category_raw, created_at` | `~/.hermes/rss-archive.db` |
 | 实体字段 | — | **无**（实体在第 1 环才生成） | — |
 | 配置参数 | `rss.max_workers`(14), `rss.timeout`(10), `rss.hot_timeout`(6), `rss.cold_timeout`(15), `rss.quarantine_failures`(3), `rss.quarantine_seconds`(1800), `rss.proxy`(socks5://…) | 扫描并发/超时/隔离/代理（实体无关） | 配置中心「RSS 参数」Tab |
@@ -175,13 +175,14 @@
 
 | 方向 | 字段 | 结构 / 说明 | 来源 / 落点 |
 |------|------|-------------|-------------|
-| 源字段 | `title`, `description`, `content_md` | 统一文本 `_get_text()` | 文章 |
+| 源字段 | `title`, `description`, `content_md` | 统一文本 `_get_text()`；**Context B** = 标题+摘要+正文前4段, max_tokens1500 | 文章 |
 | 源字段 | GLiNER `c_entities` | `[{label(person/organization/company/country/city), text}]` | GLiNER 模型 |
-| 源字段 | Qwen Raw Fact | `{subject, object, action, time, location}` | Qwen noThink（中文/B 兜底） |
+| 源字段 | AI 路由输出 facts[] | **Schema V2**: `facts[]` 每条 `{subject{name,entity_id,type,object_type}, action{type,status,polarity,verb}, object{...}, time, location, confidence, evidence, evidence_type}` | 语言路由: CJK→Qwen(qwen3-1.7b 中文prompt) / 英文→Gemma(gemma-4-e2b-it 英文prompt) / 英文+GLiNER锚定→快路径A；每模型信号量≤3, 线程池6 |
 | 源字段 | `knowledge_base/*.yaml` | 中英别名索引（`loader._build_index`） | KB V1 |
-| 输出字段 | `entities[]` | `[{entity_id, entity_name, entity_type, role}]`，role ∈ SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER；entity_id=KB V1（`PERS_TRUMP`） | Fact payload → 云端 `fact_entity` 表 |
-| 输出字段 | `action_type`, `action_event_type`, `action_detail`, `event_time`, `location` | 规范动作/时间/地点（实体无关但同 payload） | 云端 `fact` 表 |
-| 配置参数 | `ai.tier_a_threshold`(90), `ai.tier_b_threshold`(60) ←Tier 分流；`ai.qwen_base`(`http://127.0.0.1:1234/v1`), `ai.qwen_model`(`qwen3-1.7b-instruct`), `ai.qwen_timeout`(60), `ai.qwen_max_tokens`(1024)；`ai.deepseek_model`(`deepseek-v4-flash`)/`timeout`(45)/`max_tokens`(800)/`temperature`(0.1)；**硬编码(非配置中心)** GLiNER `threshold=0.35`(`fact_pipeline.py:252/309`)、Qwen noThink `max_tokens=300`(`fact_pipeline.py:132`)、`FACT_PROMPT`(`fact_pipeline.py:42`) | Qwen 事实抽取 + Tier 分流 + GLiNER 实体阈值 | 配置中心「AI 增强」Tab（硬编码项需改代码） |
+| 源字段 | `fact_validator` | **验证门** PASS/REPAIR/REJECT(REJECT 排除: Inc/无动作/值主体) | fact_validator.py |
+| 输出字段 | `entities[]` | `[{entity_id, entity_name, entity_type, role}]`，role ∈ SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER；entity_id=KB V1（`PERS_TRUMP`）/Candidate(未命中专有名词) | Fact payload → 云端 `fact_entity` 表 |
+| 输出字段 | `action_type`, `action_status`, `action_polarity`, `action_event_type`, `action_detail`, `event_time`, `location`, `evidence` | Schema V2(实体无关但同 payload) | 云端 `fact` 表(16列) |
+| 配置参数 | **tier 分流: 硬编码 A≥90/B≥60(⚠️ 配置中心 ai.tier_a_threshold=95 未消费, ISS-013)**；`ai.qwen_base`/`ai.qwen_model`(qwen3-1.7b)/`gemma-4-e2b-it`(英文, P1路由)；GLiNER threshold 硬编码 | AI 事实抽取 + 语言路由 + Tier 分流 | 配置中心「AI 增强」Tab(部分硬编码) |
 
 ### 环节 3 事件聚合（aggregator）— 产出事件 SAO/actors/related_entities
 
@@ -197,8 +198,9 @@
 | 输出字段 | `actors` | `[{entity, type, role(Initiator/Target/Participant)}]` | → `events.actors`(JSONB) |
 | 输出字段 | `related_entities` | `[{entity_id, name, type}]`（前 20） | → `events.related_entities`(JSONB) |
 | 输出字段 | `action` | `{type, detail}` | → `events.action_type/detail` |
-| 输出字段 | entity_registry（本地） | `{entity_id, canonical_name, aliases, type, country, importance}` | SQLite `entity_registry`（57 条） |
-| 配置参数 | `aggregate.event_threshold`(60), `aggregate.merge_threshold`(75), `aggregate.window_hours`(24), `aggregate.cross_lingual_threshold`(50) | 聚合/合并阈值 + 跨语言阈值；`cross_lingual` 由 loader 读取、配置中心 UI 可能未暴露 | 配置中心「聚合」Tab |
+| 输出字段 | entity_registry（本地） | `{entity_id, canonical_name, aliases, type, country, importance}` | SQLite `entity_registry` |
+| 输出字段 | **A/B 事件**(2026-08-10) | A: 同(subject_id+action+object_id) 宁拆勿错; B: 同 subject_id → 实体脉络 | → 本地 `ab_event/ab_bundle` → VPS 推 `/internal/ab-events` |
+| 配置参数 | `aggregate.event_threshold`(**50**), `aggregate.merge_threshold`(**50**), `aggregate.window_hours`(48), `aggregate.cross_lingual_threshold`(50) | 聚合/合并阈值(配置中心读); Step4.5 增量: 只聚 event_id空文章 LIMIT500, C级仅CJK, 聚合后标记 | 配置中心「聚合」Tab |
 
 ### 环节 4 推送/云端入库（pusher + internal）— 实体落库
 
@@ -207,9 +209,12 @@
 | 源字段 | 事件 payload | `subject/object/actors/related_entities`（环节 3 产出） | pusher |
 | 源字段 | Fact payload | `entities[]`（环节 2 产出） | fact_pipeline |
 | 输出字段 | events 表 | `subject_name, subject_type, object_name, object_type, actors(JSONB), related_entities(JSONB)` | PG `events` |
+| 输出字段 | fact 表 | **16列含 Schema V2**: action_status/action_polarity/subject_name/object_name/evidence | PG `fact` |
 | 输出字段 | fact_entity 表 | `fact_id, entity_id(KB V1), entity_name, entity_type, role` | PG `fact_entity` |
+| 输出字段 | **A/B 事件**(2026-08-10) | ab_event/ab_bundle → `/internal/ab-events` → `/api/v1/ab-events` → 前端 /ab-events | PG `ab_event/ab_bundle` |
 | 输出字段 | articles 表 | `entities` JSON（环节 1 产出随文章推送） | PG `articles` |
 | 配置参数 | `pipeline.cloud_chunk`(50 事件/批), `pipeline.content_chunk`(200 文章/批) | 云端推送批大小（实体无关） | 配置中心「Pipeline」Tab |
+| ⚠️ 缺口 | facts/batch 推送**全量**(含验证门 REJECT 垃圾) | 验证门仅用于 A/B+聚合, 推送绕过(ISS-20260811-014) | fact_pipeline main |
 
 ### 环节 5 知识加工/关系回填（backfill / sync / fill）— 产出 DB 实体/关系表
 
@@ -233,6 +238,7 @@
 | 输出字段 | `GET /api/v1/entities` | `items[{name, event_count, category, country, type}]`, `total` | 前端 `/entities` |
 | 输出字段 | `GET /api/v1/entities/{name}` | `entity{name,country,category,role/type}, aliases[], relationships[{entity,relation_type,direction,description}], associations[], related_events[], related_entities[], event_count, article_count` | 前端 `/entities/[name]` |
 | 输出字段 | `GET /api/v1/stories` | `items[{story_id, title, dimension, event_count,...}], derived_at, by_dimension` | 前端 `/stories` |
+| 输出字段 | `GET /api/v1/ab-events`(2026-08-10) | `b_events[{subject_id, subject_name, a_events[{action_type, object_name,...}]}]` | 前端 `/ab-events`(B实体脉络+A高精度事件) |
 | 配置参数 | 无配置中心键（API 响应字段固定） | — | — |
 
 ### 环节 7 配置中心（实体管理 / 实体关系）— 管理字段
@@ -279,3 +285,4 @@
 ## 5. 一句话总结
 
 > 实体**知识库**（KB V1 + entity_weights + GLiNER）在 **评分→Fact→聚合** 三个生产环节持续参与决策；实体**关系库**（relations/associations/entity_relationship）只在 **本体验证白名单** 与 **展示层画像** 使用，未进入事件/fact 生成逻辑。
+> **2026-08-11 刷新**: 196 源(配置中心) · Fact Schema V2(facts[]/action{type,status,polarity}/evidence_type) + 语言路由(CJK→Qwen/EN→Gemma) + Context B · 聚合阈值 50 · **A/B 两级事件**(ab_event/ab_bundle, 前端 /ab-events)。
