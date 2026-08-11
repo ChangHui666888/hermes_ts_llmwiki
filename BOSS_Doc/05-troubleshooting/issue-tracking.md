@@ -18,10 +18,10 @@
 | [ISS-20260807-003](#iss-20260807-003) | 08-07 | P2  | 实体库      | backfill CANON_NAME 硬编码 canonical 漂移                                      | `backfill_entity_model.py:29-54`        | 🟡 待决策 | 三处 canonical 手工维护                                                                                | 方案C 收敛 entity_alias                                     |                             —                              |   —   |
 | [ISS-20260807-004](#iss-20260807-004) | 08-07 | P3  | 实体库      | 关系库在生产中几乎不使用                                                              | `relations.yaml`/`entity_relationship`  | 📋 观察  | 关系仅展示层 + REL_ 白名单                                                                                | 评估关系图谱接入生产                                              |                             —                              |   —   |
 | [ISS-20260807-006](#iss-20260807-006) | 08-07 | P3  | Fact     | Fact 抽取硬编码参数需配置化                                                          | `fact_pipeline.py:39-42/132/252`        | 📋 观察  | GLiNER 阈值/Qwen max_tokens/FACT_PROMPT 写死                                                         | 挂到配置中心「AI增强」Tab                                         |                             —                              |   —   |
-| [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3  | 聚合       | 新分散源聚合覆盖偏低 (0 marked)                                                     | `aggregator.py`                         | 📋 观察  | 新增源每源文章少, 未达 event_threshold(60)                                                                 | 观察/调低阈值或查 fused 指纹                                      |                             —                              |   —   |
+| [ISS-20260808-001](#iss-20260808-001) | 08-08 | P3  | 聚合       | 新分散源聚合覆盖偏低 (0 marked)                                                     | `aggregator.py`                         | 📋 观察  | 新增源每源文章少, 未达 event_threshold(60)                                                                 | 阈值已由配置中心降至50并生效(aggregator消费) → 观察                   |             08-11 AGGREGATE 正常(7 ok/14 marked)              |   —   |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2  | Pipeline | 存活源但文章=0 — sync 批次积压致 70+ 大源文章未推送                                         | `news_intel/sync.py`                    | 📋 观察  | 游标批次 LIMIT 积压 + 旧文在水印前                                                                           | 提高 LIMIT/按源均衡/查 AP 采集                                   |                             —                              |   —   |
 | [ISS-20260808-002](#iss-20260808-002) | 08-08 | P2  | 采集       | rss-scanner 优化后时效下降 (4缺陷)                                                 | `hermes-cron/rss-scanner.py`            | ✅ 已关闭  | tier门控+304不更新last_scan+非2xx记OK+bk共用state                                                         | 修复①-④+--full开关+follow_redirects                         |                    限流233篇 / --full 140篇                    | 08-08 |
-| [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2  | 配置       | 配置中心 ~61 源死链(404/403) 静默0抓                                                | `rss.feeds` 配置中心                        | 🆕 待处理 | URL失效/Nitter封禁/防爬403                                                                             | 配置中心批量禁用/换URL                                           |                             —                              |   —   |
+| [ISS-20260808-003](#iss-20260808-003) | 08-08 | P2  | 配置       | 配置中心 ~61 源死链(404/403) 静默0抓                                                | `rss.feeds` 配置中心                        | 📋 观察  | URL失效/Nitter封禁/防爬403; 死链现由scanner自动隔离                                                          | 自动隔离已生效(78源) + 剩配置中心人工清理(enabled=false/换URL)          |         08-11 scanner: 196源/115活跃/78隔离/3死链             |   —   |
 | [ISS-20260808-004](#iss-20260808-004) | 08-08 | P1  | 聚合       | 同主体跨主题错并 — Trump(伊朗战争)+Trump(古巴) 并成1事件                                    | `aggregator.py` `fingerprint_score`     | 🆕 待处理 | 同主体绕过主题硬约束, 实体对重叠≥60即并                                                                           | 内容相似度门 + coherence 下限拒绝                                 |                             —                              |   —   |
 | [ISS-20260808-005](#iss-20260808-005) | 08-08 | P2  | 评分       | 英文关键词子串误标系统性存在（election⊂Selection/nuclear⊂模型名/market⊂marketing 等）         | `scorer.py` `_kw_match_mode`            | 🆕 待处理 | 点状修补 word_boundary, 无系统性碰撞扫描                                                                     | 系统性子串碰撞检测 → 批量转 word_boundary                           |                       500篇/5000篇测试暴露                       |   —   |
 | [ISS-20260808-006](#iss-20260808-006) | 08-08 | P2  | 评分       | 评分整体偏保守 — A=0/B=4.6%/平均27.9, LLM增强覆盖低                                     | `scorer.py` `score_article`             | 🟡 待决策 | impact不累加 + 词边界去虚高 + 来源分主导                                                                       | 降B级门槛/impact适度累加/权威源加权                                  |                             —                              |   —   |
@@ -29,14 +29,14 @@
 | [ISS-20260808-008](#iss-20260808-008) | 08-08 | P3  | 性能       | velocity O(n²) — 5000篇需123s                                               | `scorer.py` `compute_velocity`          | 📋 观察  | 全量两两比较                                                                                           | 指纹倒排索引 + 时间桶                                            |                             —                              |   —   |
 | [ISS-20260808-009](#iss-20260808-009) | 08-08 | P1  | 采集       | sync 游标卡死 — 391篇同刻时间戳占满LIMIT致文章不再入库/推送                                    | `sync.py` `_fetch_batch`                | ✅ 已关闭  | scanner批量写入同秒时间戳, `created_at>=水印`游标被同刻重复占满                                                      | 复合游标(created_at,id) + 旧水印严格大于                           |                 catchup 1254篇, 水印推进到23:22                  | 08-08 |
 | [ISS-20260809-010](#iss-20260809-010) | 08-09 | P1  | 聚合       | 增量聚合漏选 article_url — 新事件 evidence/source_chain 空 URL + 去重折叠               | `auto-pipeline.py`/`aggregator.py`      | ✅ 已关闭  | 增量 SELECT 缺 `rr.article_url`, 聚合器 `a.get("url","")` 恒空 → View 按钮/完整链路缺失 + evidence/timeline 去重折叠 | SELECT 补 `rr.article_url as url` (与 reaggregate_all 对齐) | 生产 fused 只读 100事件: evidence url 99/100 + chain url 100/100 | 08-09 |
-| [ISS-20260810-012](#iss-20260810-012) | 08-10 | P1  | Fact     | Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控 | `fact_pipeline.py`/`canonicalizer.py`   | 🔧 修复中 | 生产后处理破坏 Qwen 输出(动作落OTHER/客体切碎ENT_垃圾); 单fact丢多事实; 值($0.22)被实体化                                    | facts[]+结构化SAO+action状态/极性+实体门控                         |                             —                              |   —   |
+| [ISS-20260810-012](#iss-20260810-012) | 08-10 | P1  | Fact     | Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控 | `fact_pipeline.py`/`canonicalizer.py`   | ✅ 已关闭  | 生产后处理破坏 Qwen 输出(动作落OTHER/客体切碎ENT_垃圾); 单fact丢多事实; 值($0.22)被实体化                                    | facts[]+结构化SAO+action状态/极性+实体门控+A/B事件聚合               |    08-11 生产运行: A事件=38/B=32, facts/batch 200; 质量目标另立    | 08-11 |
 | [ISS-20260811-013](#iss-20260811-013) | 08-11 | P2  | 配置       | tier 阈值配置漂移 — `ai.tier_a_threshold=95` 未被 scorer 消费(硬编码 A≥90/B≥60/C<60)   | `scorer.py:348`                         | 🆕 待处理 | 配置中心有 `ai.tier_a_threshold=95`, scorer 未读, 用硬编码 90/60                                            | scorer 读配置中心阈值                                          |                             —                              |   —   |
-| [ISS-20260811-014](#iss-20260811-014) | 08-11 | P1  | Fact     | VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表                             | `fact_pipeline.py` main 推送              | 🆕 待处理 | 验证门仅用于 A/B+聚合, 推送 /internal/facts/batch 送全量 payloads                                             | 推送前过 validate_facts, 只送 PASS/REPAIR                     |                             —                              |   —   |
+| [ISS-20260811-014](#iss-20260811-014) | 08-11 | P1  | Fact     | VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表                             | `fact_pipeline.py` main 推送              | 🆕 待处理 | 验证门仅用于 A/B+聚合, 推送 /internal/facts/batch 送全量 payloads                                             | 推送前过 validate_facts, 只送 PASS/REPAIR                     |       08-11 生产实锤: push 48 vs A/B 仅38(10条REJECT已入库)      |   —   |
 | [ISS-20260811-015](#iss-20260811-015) | 08-11 | P2  | Fact     | Fact AI 提取失败静默降级 — 无重试/无失败指标/永久丢失                                         | `fact_pipeline.py` qwen_fact            | 🆕 待处理 | qwen_fact 异常→返回[], 文章无 fact 且被标记不重抽                                                              | AI 失败重试 + 失败指标 + 重抽队列                                   |                             —                              |   —   |
-| [ISS-20260811-016](#iss-20260811-016) | 08-11 | P3  | 实体       | 中文人名类型标签错误(高市早苗→CTRY, 应 Person)                                           | `canonicalizer.py`                      | 🆕 待处理 | KB miss 后类型猜测未覆盖中文人名                                                                             | CJK 人名启发式(姓氏库/称谓)                                       |                             —                              |   —   |
-| [ISS-20260811-017](#iss-20260811-017) | 08-11 | P3  | Fact     | LLM 垃圾短语主体(Negotiation with Iran 当 subject)                               | `fact_pipeline.py`                      | 🆕 待处理 | LLM 提取把整句/短语当 subject, 未过质量门                                                                     | 主体短语质量门(复用 _is_value_phrase)                            |                             —                              |   —   |
+| [ISS-20260811-016](#iss-20260811-016) | 08-11 | P3  | 实体       | 中文人名类型标签错误(高市早苗→CTRY, 应 Person)                                           | `entity_alias.yaml`/`canonicalizer.py`   | 🆕 待处理 | entity_alias.yaml 3处人物误标CTRY(SAM_ALTMAN/TAKAICHI_SANAE/TIM_COOK), curated层先建先赢覆盖PERS                                               | 修数据: CTRY_*改PERS_ + 清重复别名键; 可选CJK启发式兜底               |                             —                              |   —   |
+| [ISS-20260811-017](#iss-20260811-017) | 08-11 | P3  | Fact     | LLM 垃圾短语主体(Negotiation with Iran 当 subject)                               | `fact_pipeline.py`/`fact_validator.py`   | 🆕 待处理 | LLM 提取把整句/短语当 subject; _is_value_phrase 只查开头介词/动词, 名词开头3词短语漏过                                                | 主体短语质量门扩展(句中介词/动名词/复合短语检测)                      |                             —                              |   —   |
 | [ISS-20260811-018](#iss-20260811-018) | 08-11 | P3  | 聚合       | 增量聚合已标记文章不重聚(事件不刷新)                                                       | `auto-pipeline.py` Step 4.5             | 📋 观察  | 只聚 event_id 为空文章, 标记后不再重聚                                                                        | 需重聚合机制(按需 re-aggregate)                                 |                             —                              |   —   |
-| [ISS-20260811-019](#iss-20260811-019) | 08-11 | P3  | 文档       | CLAUDE.md 文档漂移(RSS 98源→实际196; 评分缺价值奖励描述)                                  | `CLAUDE.md`                             | ✅ 已关闭 | 文档快照未随 扩源/评分奖励 更新                                                                                | 更新 CLAUDE.md 到实际(196源/价值奖励)                             | CLAUDE.md 7b8fca5 已修(196源/价值奖励)                          | 08-11 |
+| [ISS-20260811-019](#iss-20260811-019) | 08-11 | P3  | 文档       | CLAUDE.md 文档漂移(RSS 98源→实际196; 评分缺价值奖励描述)                                  | `CLAUDE.md`                             | ✅ 已关闭  | 文档快照未随 扩源/评分奖励 更新                                                                                | 更新 CLAUDE.md 到实际(196源/价值奖励)                             |              CLAUDE.md 7b8fca5 已修(196源/价值奖励)               | 08-11 |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1  | Pipeline | db.close() 后查询崩溃                                                          | `news_intel/pipeline.py:141-150`        | ✅ 已关闭  | close 后仍执行查询                                                                                     | 统计移到 close 前                                            |                            运行通过                            | 07-11 |
 
 ---
@@ -143,9 +143,9 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 ### ISS-20260808-001 新分散源聚合覆盖偏低
 - **发现**: 2026-08-08 · **严重**: P3 · **分类**: 聚合 · **状态**: 📋 观察
 - **现象**: RSS 升级(196 源)后，某轮 `AGGREGATE: 0 marked`（300 unassigned/50 facts 0 标记）；24h 仍新建 17 事件，整体正常。
-- **根因**: 新增大量分散 feed 每源文章少，可能未达 `aggregate.event_threshold`(60)。
-- **解决**: 观察后续覆盖；若持续偏低可调低阈值或检查 fused 指纹（待评估）。
-- **验证**: — · **关联**: [feed-registry-v4.md](../04-config/feed-registry-v4.md) §9
+- **根因**: 新增大量分散 feed 每源文章少，未达 `aggregate.event_threshold`。
+- **解决**: 观察后续覆盖；阈值已由配置中心调低（08-11 运行时 `aggregate.event_threshold=50` / `merge_threshold=50`），`aggregator.py:633-636` 经 config.loader 真实消费。
+- **验证**: 08-11 生产 `pipeline.log` AGGREGATE 7 ok/14 marked（500 unassigned/28 facts），聚合持续产出。 · **关联**: [feed-registry-v4.md](../04-config/feed-registry-v4.md) §9
 
 ### ISS-20260808-002 rss-scanner 优化后时效下降 (4缺陷)
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 采集 · **状态**: ✅ 已关闭
@@ -160,7 +160,7 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **复现**: 任何两篇**主体相同但故事不同**的文章（如特朗普谈伊朗 + 特朗普谈古巴）在 24h 窗口内聚合。
 - **根因**: `aggregator.py` `fingerprint_score()` 基于**实体对重叠**（subject/object/action/topic/event_type）。两篇 subject 同为 Trump → **主题硬约束被绕过**（`if primary_topic 不同 and subject 不同 → 0`，subject 相同时不阻断）；再叠加 object(United States)/action/event_type 相同 → 分数 65 ≥ `EVENT_THRESHOLD(60)` → Phase 1 并入同一事件。anchor（`subject|action|object|primary`）若完全一致更直接 +100 强制合并。**无 coherence 下限拒绝机制**——coherence < MERGE_THRESHOLD 只降 impact（line 893），不拆事件。
 - **解决**: 待方案——① 加**内容相似度门**：同主体但主主题不同的成员需标题词集 Jaccard ≥ 阈值才允许并入（防 Trump+伊朗 与 Trump+古巴 错并）；② coherence 下限拒绝：coherence < 55 的事件拆分/标记；③ anchor 100 分强制合并加内容校验；④ 事件内标题多样性检查。
-- **验证**: — · **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L5 事件聚合 / [event-dedup-fix](../event-dedup-fix.md)
+- **验证**: 08-11 代码核对 — `aggregator.py:571-573` 主题硬约束在 subject 相同时仍绕过; `coherence < MERGE_THRESHOLD` 仅降 impact(`:1005`), 无内容相似度门/无 coherence 下限拒绝 → **仍未修复**。 · **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L5 事件聚合 / [event-dedup-fix](../event-dedup-fix.md)
 
 ### ISS-20260808-005 英文关键词子串误标系统性存在
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 评分 · **状态**: 🆕 待处理
@@ -209,28 +209,28 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **关联**: [data-flow-fields.md](../01-architecture/data-flow-fields.md) L5
 
 ### ISS-20260810-012 Fact Schema 升级 — 单fact→facts[] + Action(type/status/polarity) + 值/短语实体化门控
-- **发现**: 2026-08-10 · **严重**: P1 · **分类**: Fact · **状态**: 🔧 修复中
+- **发现**: 2026-08-10 · **严重**: P1 · **分类**: Fact · **状态**: ✅ 已关闭(核心交付, 质量目标另立) · **关闭**: 08-11
 - **现象**: 生产提取全对仅 6%(50 篇抽样), Qwen 原始 38%。`rejects/tests/tops/calls` 动作被落 OTHER; 客体 `Trump's 15-point Gaza Plan` 被切碎成 `ENT_15_POINT_GAZA_PLAN`; `$0.22`/`81st anniversary`/`AI chip fears ease` 被错误实体化。单篇只出 1 条 fact, 多事实文章(如 OpenAI acquire + integrate)丢事实。
 - **根因**: `canonicalize_action` 词表外动词全落 OTHER; `split_entities`+`resolve_entity` 为任何短语生成临时 `ENT_` id; 单 fact 结构限制。
-- **解决**: ① Fact Schema 升级为 `facts[]`(每条 subject/action/object/time/location 结构化 + confidence/evidence); ② Action 增加 `type/status/polarity`(含 UNKNOWN); ③ Object 实体化门控(值/数字/日期/短语不再生成 ENT_ 实体); ④ fact_validator Quality Gate(PASS/REPAIR/REJECT, 不重新推理); ⑤ Event Relevance Filter(非事件→facts=[]); ⑥ aggregator 只消费 PASS/REPAIR。
+- **解决**: ① Fact Schema 升级为 `facts[]`(每条 subject/action/object/time/location 结构化 + confidence/evidence); ② Action 增加 `type/status/polarity`(含 UNKNOWN); ③ Object 实体化门控(值/数字/日期/短语不再生成 ENT_ 实体); ④ fact_validator Quality Gate(PASS/REPAIR/REJECT, 不重新推理); ⑤ Event Relevance Filter(非事件→facts=[]); ⑥ aggregator 只消费 PASS/REPAIR; ⑦ Entity Grounding 最小版(KB miss→Candidate); ⑧ A/B Event Aggregator 生产接入。
 - **验证**: **P0 Gate1(结构)+Gate2(Eligibility) PASS**; **P1 FACT CLOSE(2026-08-10)**: 70篇(50英+20中)验证 **错误Fact进聚合=0**(中文 eligibility 修复后)、结构正确;精度 baseline 总体 S60/A50/O52/T48/L47(90/85 降为长期指标)。生产提取方案冻结: 逐篇并行+路由(CJK→Qwen/Gemma)+Context B+max_tokens1500。契约 `references/fact-schema-v2.md` §11。**生产部署待定**。
-- **下一阶段**: Entity Grounding(最小可用)→ A/B Event Aggregator(高精度 A / 宽松 B)。
-- **P1 规划**: Time/Location 规范化(LLM+规则) · Confidence 拆分 · C-tier Rule Engine 完整实现 · Qwen Context 优化(扩上下文, A/B 已验证+2~11pp) · Entity Grounding(KB miss→Candidate) · Action 语义归一(verb+negation+modal+status) · 达标 90/85/85/90/90。
+- **生产实况(08-11 16:33 pipeline.log)**: Fact Schema V2 + A/B 事件**已上线运行** — `[ab] A事件=38 B事件=32 落库+推送VPS(200)`;`/internal/facts/batch → 200 {"ok":48}`;Qwen 30次 avg=23729ms;OTHER=16/48(33%)。
+- **后续(质量目标, 另立追踪)**: OTHER 动作占比 33% 偏高 · Time/Location 规范化(LLM+规则) · Confidence 拆分 · C-tier Rule Engine 完整实现 · Qwen Context 优化(扩上下文, A/B 已验证+2~11pp) · Action 语义归一(verb+negation+modal+status) · 达标 90/85/85/90/90。
 - **关联**: [pipeline-l0-l7-rules.md](../01-architecture/pipeline-l0-l7-rules.md) L4.5 · [data-flow-fields.md](../01-architecture/data-flow-fields.md) L4 · `references/fact-schema-v2.md`
 
 ### ISS-20260811-013 tier 阈值配置漂移 — `ai.tier_a_threshold=95` 未被 scorer 消费
 - **发现**: 2026-08-11 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
-- **现象**: 配置中心 `ai.tier_a_threshold=95`, 但代码 grep 无消费; scorer 分级用硬编码 `total≥90→A / ≥60→B / else→C`(`scorer.py:348-353`)。
-- **根因**: scorer tier 阈值写死, 未接配置中心 `score.*/ai.tier_a_threshold`。
-- **解决**: 让 scorer 读配置中心阈值(A/B/C 分界), 或删无用配置键。
-- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节2
+- **现象**: 配置中心 `ai.tier_a_threshold=95`(运行时 `~/.hermes/pipeline-config.json` 为字符串 `"95"`), 但代码 grep 无消费; scorer 分级用硬编码 `total≥90→A / ≥60→B / else→C`(`scorer.py:348-353`)。
+- **根因**: scorer tier 阈值写死, 未接配置中心 `score.*/ai.tier_a_threshold`(scorer 仅 `_value_reward_cfg` 消费 `value.reward_*`); 另一处 `auto-pipeline.py:224/560` 也硬编码 90。
+- **解决**: 让 scorer 读配置中心阈值(A/B/C 分界), 或删无用配置键。注: config.loader `_coerce_type` 会把 `"95"` 强转 int, 接入后无类型问题。
+- **验证**: 08-11 代码核对实锤 — 配置 95 vs 实际分流 90/60 漂移。 · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节2
 
 ### ISS-20260811-014 VPS facts/batch 推送全量绕过验证门 — REJECT 垃圾进 fact 表
 - **发现**: 2026-08-11 · **严重**: P1 · **分类**: Fact · **状态**: 🆕 待处理
-- **现象**: `fact_pipeline.py` main() 推 `/internal/facts/batch` 送**全量 payloads**(含验证门 REJECT 的垃圾), 而 A/B+聚合只用 PASS/REPAIR。实证: 20篇→facts/batch ok=23, A/B 仅 _passed=16(7 条 REJECT/未达标仍入库)。
+- **现象**: `fact_pipeline.py:555` main() 推 `/internal/facts/batch` 送**全量 payloads**(含验证门 REJECT 的垃圾), 而 A/B+聚合只用 PASS/REPAIR(`:510-516`)。
 - **根因**: 验证门(fact_validator)未在推送层应用; REPAIR 修复后版本也未用于推送。
 - **解决**: 推送前 `validate_facts(payloads)`, 只送 PASS/REPAIR(修复后版本)。
-- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4/6
+- **验证**: 08-11 生产实锤 — 16:33 轮 push 48 条 vs A/B 仅 38(validator 过滤), **10 条 REJECT/未达标已进 fact 表**。 · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4/6
 
 ### ISS-20260811-015 Fact AI 提取失败静默降级 — 无重试/无失败指标/永久丢失
 - **发现**: 2026-08-11 · **严重**: P2 · **分类**: Fact · **状态**: 🆕 待处理
@@ -242,16 +242,16 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 ### ISS-20260811-016 中文人名类型标签错误(高市早苗→CTRY, 应 Person)
 - **发现**: 2026-08-11 · **严重**: P3 · **分类**: 实体 · **状态**: 🆕 待处理
 - **现象**: `resolve_entity("高市早苗")` → `CTRY_TAKAICHI_SANAE`(type=Country, 应 Person)。id 一致可匹配, 但类型标签错 → 画像/图谱分类错误。
-- **根因**: KB miss 后类型猜测未覆盖中文人名。
-- **解决**: CJK 人名启发式(姓氏库/称谓 判断 Person)。
-- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
+- **根因**: `knowledge_base/entity_alias.yaml` **数据错标** — 3 处人物被标成 CTRY:`CTRY_SAM_ALTMAN`(奥特曼, 53 行)/`CTRY_TAKAICHI_SANAE`(高市早苗, 67 行)/`CTRY_TIM_COOK`(库克, 71 行);curated 层在 loader `_build_index` 先建先赢(`loader.py:103-115`), 覆盖 people.yaml 中正确的 `PERS_TAKAICHI_SANAE`/`PERS_ALTMAN`。**非"KB miss 启发式缺失"**。
+- **解决**: **修数据** — 3 个 `CTRY_*` 改 `PERS_` 前缀 + 清理 CTRY_SAM_ALTMAN 与 PERS_ALTMAN 的「奥特曼」重复键(先建先赢会抢); 如需可加 CJK 人名启发式兜底(次要)。
+- **验证**: 08-11 代码核对 — entity_alias.yaml:53/67/71 实锤 + loader 优先级逻辑。 · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
 
 ### ISS-20260811-017 LLM 垃圾短语主体(Negotiation with Iran 当 subject)
 - **发现**: 2026-08-11 · **严重**: P3 · **分类**: Fact · **状态**: 🆕 待处理
 - **现象**: A 事件出现 "Negotiation with Iran"/"Observation of Iran" 短语主体。
-- **根因**: LLM 提取把整句/短语当 subject, 未过主体质量门。
-- **解决**: 主体短语质量门(复用 `_is_value_phrase`), 并入 validator。
-- **验证**: — · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
+- **根因**: LLM 提取把整句/短语当 subject; 已并入 validator 的 `_is_value_phrase`(`fact_validator.py:57`)只查**开头**介词/动词(`canonicalizer.py:189`), 名词开头 3 词短语("Negotiation with Iran")漏过 → 仍可实体化成 `ORG_NEGOTIATION_WITH_IRAN`。
+- **解决**: 主体短语质量门扩展 — 句中介词/动名词/复合短语检测(如含 with/of/that 的短语主体), 或要求 subject 必须命中 KB/GLiNER 实体。
+- **验证**: 08-11 代码核对 — `_is_value_phrase` 规则未覆盖名词开头短语。 · **关联**: `pipeline-e2e-review-2026-08-10.md` 环节4
 
 ### ISS-20260811-018 增量聚合已标记文章不重聚(事件不刷新)
 - **发现**: 2026-08-11 · **严重**: P3 · **分类**: 聚合 · **状态**: 📋 观察
@@ -268,11 +268,11 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **验证**: CLAUDE.md `7b8fca5`(196源/价值奖励/tier硬编码说明); 记忆已核对。 · **关联**: `pipeline-e2e-review-2026-08-10.md`
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
-- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 🆕 待处理
+- **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 📋 观察
 - **现象**: 修复②上线首轮暴露 61 个 HTTP 4xx（此前全部被静默记为 OK、0 抓、永不隔离）。含 18 Nitter 全 403 + 27 个 404（White House/AFP/新华网/央视/Anthropic/Google AI…）+ 11 个 403（SEC/Politico/OpenAI/Economist/NASA…）。
 - **根因**: 配置中心 `rss.feeds` 中 URL 失效 / Nitter 实例封禁 / 目标站防爬 403。
-- **解决**: 待配置中心「源列表」批量禁用/换 URL（`enabled=false` 或更新 url），config-agent 60s 同步后生效（预计活跃 192→~130）。
-- **验证**: — · **关联**: [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md) §6
+- **解决**: 核心问题已由 scanner **死链自动隔离**解决（ISS-20260808-002 修复③生效），不再静默 0 抓；剩配置中心「源列表」人工清理（`enabled=false` 或换 url）。
+- **验证**: 08-11 `rss-scanner-report.json`: feeds_total=196 / active=115 / **quarantined=78** / dead=3。 · **关联**: [rss-scanner-rate-limit.md](../04-config/rss-scanner-rate-limit.md) §6
 
 ### ISS-20260711-001 db.close() 后查询崩溃
 - **发现**: 2026-07-11 · **严重**: P1 · **分类**: Pipeline · **状态**: ✅ 已关闭
