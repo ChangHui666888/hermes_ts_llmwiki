@@ -270,7 +270,7 @@ docker compose restart nginx                                                 # n
 | **编辑/新增** | 跳转详情页 `/entity-center/edit/{kind}/{code}` / `/entity-center/new/{kind}` |
 | **特殊字段** | code/directionality **灰底只读**（不可编辑，只能废弃重建） |
 | **状态生命周期** | active↔deprecated 一键切换 |
-| **版本管理** | 每次 create/update/status/rollback 记录快照 + **参数变化明细 changes[{field,old,new}]**，保留最近≥2版本，可回滚 |
+| **版本管理** | 每次 create/update/status/rollback 记录快照 + **参数变化明细 changes[{field,old,new}]**，保留最近≥2版本，可回滚；**v0 = 种子基线**（seed_baseline 回填，永不被裁剪，回滚到 v0 始终恢复原始种子态） |
 
 ### 新增 API
 | 端点 | 说明 |
