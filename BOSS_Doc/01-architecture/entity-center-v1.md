@@ -271,6 +271,7 @@ docker compose restart nginx                                                 # n
 | **特殊字段** | code/directionality **灰底只读**（不可编辑，只能废弃重建） |
 | **状态生命周期** | active↔deprecated 一键切换 |
 | **版本管理** | 每次 create/update/status/rollback 记录快照 + **参数变化明细 changes[{field,old,new}]**，保留最近≥2版本，可回滚；**v0 = 种子基线**（seed_baseline 回填，永不被裁剪，回滚到 v0 始终恢复原始种子态） |
+| **实体管理** | 实体 Tab：列表(搜索名称/别名+类型/状态过滤) + **添加实体**(类型/子类型/重要度/国家/别名, 冲突409) + **废弃/启用**(状态生命周期 active/inactive/deprecated/merged) |
 
 ### 新增 API
 | 端点 | 说明 |
