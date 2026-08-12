@@ -112,7 +112,7 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | article_url | 被剔除的文章 URL |
 | created_at / created_by | 剔除时间 / 操作者 |
 
-## Fact 层表 (2026-08-03 新增, Schema V1.0)
+## Fact 层表 (Schema V1.0 + V2, 2026-08-12 实查 16 列)
 
 **fact** — 单条事实（混合抽取器产出: LLM(Qwen noThink) + GLiNER + Canonicalizer）。
 
@@ -121,14 +121,21 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | id | `SERIAL PK` | 自增 |
 | article_id | `INTEGER` | 本地 pipeline 文章 id（无 FK, 与 VPS articles.id 不匹配; 用 article_url 关联） |
 | article_url | `VARCHAR(2048)` | 文章 URL（未来按 URL 关联 VPS 文章） |
-| action_type | `VARCHAR(50) NOT NULL` | 规范动作本体 (SANCTIONS/ATTACKS/EXPORT_CONTROL... ~23类) |
+| action_type | `VARCHAR(50) NOT NULL` | 规范动作本体 (SANCTIONS/ATTACKS/EXPORT_CONTROL...) |
 | action_event_type | `VARCHAR(20)` | 事件类别 (Military/Finance/...) |
 | action_detail | `TEXT` | 原始动作文本 (LLM 原话) |
 | event_time | `TIMESTAMP` | 事件时间 (端点 _clean_time 清洗) |
 | location | `VARCHAR(200)` | 地点 |
 | confidence | `FLOAT` | 预留, 不公式化 |
 | evidence_type | `VARCHAR(20)` | Told/Induced/Deduced/Witnessed, 默认 Told |
+| **subject_name** | `VARCHAR(200)` | Schema V2 冗余主体名（去 normal form 查询） |
+| **object_name** | `VARCHAR(200)` | Schema V2 冗余客体名 |
+| **action_status** | `VARCHAR(20)` | Schema V2: completed/ongoing/planned/denied/proposed/rumored |
+| **action_polarity** | `VARCHAR(20)` | Schema V2: positive/negative/neutral |
+| **evidence** | `TEXT` | Schema V2 证据原文 |
 | created_at | `TIMESTAMP` | 入库时间 |
+
+> **Schema V2（2026-08-10, ISS-20260810-012）**: 一篇文章产 `facts[]`(≤3 条)；object 为值/数字/日期/短语时 `entity_id=null` 且**不进 fact_entity**。契约唯一真相源: `references/fact-schema-v2.md`。
 
 **fact_entity** — 事实参与者（Role 模型, 支持多主体/多客体）。
 
@@ -152,30 +159,32 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | 密码 | `news_pass` |
 | 容器 | `news-platform-v8-postgres-1` (healthcheck: pg_isready) |
 | 数据卷 | `news-intel-platform_pgdata` (Docker volume, external) |
-| 表数量 | **29** (2026-08-07: 27 ORM 表 + fetch_stats + alembic_version; 迁移 0001 fact/0002 entity/0003 story 全应用) |
+| 表数量 | **31** (2026-08-12: 27 ORM 表 + fetch_stats + alembic_version + **ab_event/ab_bundle**; 迁移 0001-0004 全应用) |
 | Pool | 连接池 10, 最大溢出 20 |
 
-## 数据量统计 (2026-08-06/07 VPS 实查)
+## 数据量统计 (2026-08-12 VPS 实查)
 
 | 表 | 行数 | 说明 |
 |----|:----:|------|
-| events | **~200** | 事件 Dossier (`/api/v1/dashboard` total_events=200; 事件数随重聚合波动: 曾 1008 错乱 → 重聚合 112 → 现 ~200; 08-05 为 158) |
-| articles | **增长中** | 文章 (08-03 为 1719; 08-05 为 1,349; 本地 rss_raw 已达 21916, VPS 仅收有正文/描述的文章) |
-| fact | 随每轮增量 | Fact 层 (Step 4.5 混合抽取) |
-| fact_entity | 随每轮增量 | Fact 参与者 (Role 模型) |
-| sources | 24-36 | RSS 来源注册 (VPS 24; 本地 source_registry 36) |
-| entities | **27,176** | 实体注册 (KB V1 sync_kb_to_db 导入 + 事件派生) |
-| entity_alias | **41,110** | 结构化别名 (中英/简称, sync_kb_to_db) |
-| entity_relationship | **223** | 实体-实体关系 (KB associations + backfill) |
-| event_relations | **28** | 事件-事件关系 (同 subject 时间序 precedes) |
-| story | **12** | Story 打包 (derive 同 subject 事件) |
-| story_event | **~90** | 故事-事件关联 (position 排序) |
+| events | **500** | 事件 Dossier (subject_type: Other 303/Company 105/Person 91; 随重聚合波动) |
+| articles | **3,235** | 文章 (VPS 仅收有正文/描述的文章; 本地 rss_raw 22,722) |
+| fact | **13,032** | Fact 层 (Step 4.5 混合抽取, Schema V2 16 列) |
+| fact_entity | **25,512** | Fact 参与者 (Role 模型, KB 稳定 ID) |
+| sources | 24-36 | RSS 来源注册 (VPS 24; 本地 source_registry 66) |
+| entities | **27,366** | 实体主数据 (KB V1 sync_kb_to_db 导入 + 事件派生) |
+| entity_alias | **41,089** | 结构化别名 (全部 lang='en', sync_kb_to_db) |
+| entity_relationship | **223** | 实体-实体关系 (**in_segment 218**/subsidiary_of 3/parent_of 1/in_industry 1, backfill 从 KB V1) |
+| event_relations | **83** | 事件-事件关系 (同 subject 时间序 precedes) |
+| ab_event | **50** | A 事件 (同 subject+action+object 合并, 高精度) |
+| ab_bundle | **38** | B 事件 (同 subject 脉络, 宽松) |
+| story | **101** | Story 打包 (dimension: action 38/subject 23/object 23/location 17) |
+| story_event | **1,336** | 故事-事件关联 (position 排序) |
 | settings | 21 | 配置中心 KV |
 | event_article_override | 16 | 手动聚合归属 (事件校对) |
 | users | 3 | 管理员/免费用户 |
 | fetch_stats | ~ 数百 | 抓取策略统计 |
 
-> Dashboard (`/api/v1/dashboard`) 实时指标: active_events=185, critical_events=15, today_updates=38, sources=24。
+> Dashboard (`/api/v1/dashboard`) 实时指标以 VPS 为准（active_events 随 pipeline 波动）。
 
 ## 完整表结构 (29 表)
 
@@ -302,9 +311,11 @@ Pipeline 本地聚合 → POST /internal/events/batch → events 表 (33字段)
 | **event_relations** | id, parent_event_id, child_event_id, relation_type, confidence, start_time, end_time, evidence_count, created_at | 事件-事件关系 (v0.2 扩展 start/end_time+evidence_count; 同 subject 时间序派生 precedes) |
 | **event_article_override** | event_id, article_url, created_at/by | 手动聚合归属 (见上 §手动聚合表) |
 | **event_article_exclusion** | event_id, article_url, created_at/by | 手动剔除 (见上 §手动聚合表) |
-| **fact** | 见上 §Fact 层表 | Fact 层 (DDL: references/fact-schema-v1.md) |
+| **fact** | 见上 §Fact 层表 | Fact 层 (DDL: references/fact-schema-v1.md + v2) |
 | **fact_entity** | 见上 §Fact 层表 | Fact 参与者 (Role 模型) |
-| **alembic_version** | version_num | Alembic migration 版本 (Fact 表迁移 0001) |
+| **ab_event** | a_event_id(PK), b_event_id(idx), subject_id(idx), subject_name, action_type, object_id, object_name, n_facts, created_at | A 事件（同 subject_id+action_type+object_id 合并, 宁拆勿错） |
+| **ab_bundle** | b_event_id(PK), subject_id(idx), subject_name, a_event_ids(TEXT JSON), created_at | B 事件（同 subject_id 的 A 事件 → 实体行为脉络） |
+| **alembic_version** | version_num | Alembic migration 版本 |
 
 ## 事件类型分布 (2026-08-03 实查, 总计 385)
 
@@ -413,19 +424,21 @@ sources ──→ articles ──→ events ──→ story
 
 > ✅ fused 指纹已接线 (2026-08-03): auto-pipeline Step 4 抽 fact → Step 4.5 聚合用 facts_by_article (payload 桥接), 无 facts 文章回退 legacy。VPS fact/fact_entity 表随每轮增量。
 
-## 本地 news_intel.db (SQLite, 8 表, 2026-08-06 实查)
+## 本地 news_intel.db (SQLite, 10 表, 2026-08-12 实查)
 
-路径: `search-engine-v2/scripts/news_intel/news_intel.db`（`db.py` DB_PATH）。数据量: rss_raw=21916, news_intelligence=21916, news_content=1528, event_registry=176, entity_registry=57, source_registry=36。
+路径: `search-engine-v2/scripts/news_intel/news_intel.db`（`db.py` DB_PATH）。数据量: rss_raw=22,722, news_intelligence=22,722, news_content=3,148, event_registry=**478**, entity_registry=**94**, source_registry=66, ab_event=66, ab_bundle=54。
 
 | 表 | 行数 | 关键字段 |
 |----|:----:|----------|
-| **rss_raw** | 21916 | id PK, guid UNIQUE, source_name, source_domain, feed_url, article_url UNIQUE, title, description, published_at, category_raw, created_at (水印游标基准) |
-| **news_intelligence** | 21916 | id PK, raw_id FK→rss_raw, score_total/source/impact/entity/market/velocity (五维评分), tier (A≥90/B60-89/C<60), category, tags, entities(JSON), scored_at |
-| **news_content** | 1528 | id PK, intel_id FK, article_url UNIQUE, content_md/html, content_len, fetch_strategy, retry_count, fetch_at, summary_cn/en, key_points, extraction_method |
-| **event_registry** | 176 | event_id PK, title, subject_name/action_type/object_name, location_country, article_ids(JSON), source_count/article_count, confidence, coherence, stage, first_seen/last_updated |
-| **entity_registry** | 57 | entity_id PK, canonical_name, aliases, type, country, importance, first_seen/last_seen |
-| **source_registry** | 36 | source_id PK, name, authority, country, language |
-| **sync_state** | 1 | key PK (rss_last_synced_at), value (水印时间戳) |
-| **event_registry_bak** | 32 | 重聚合前备份 |
+| **rss_raw** | 22,722 | id PK, guid UNIQUE, source_name, source_domain, feed_url, article_url UNIQUE, title, description, published_at, category_raw, created_at (复合水印游标 `created_at|id`) |
+| **news_intelligence** | 22,722 | id PK, raw_id FK→rss_raw, score_total/source/impact/entity/market/velocity (五维评分), tier (A≥90/B60-89/C<60), category, tags, entities(JSON), scored_at, facts_json |
+| **news_content** | 3,148 | id PK, intel_id FK, article_url UNIQUE, content_md/html, content_len, fetch_strategy, retry_count, fetch_at, summary_cn/en, key_points, extraction_method, llm_model, event_id |
+| **event_registry** | 478 | event_id PK, title, subject_name/action_type/object_name, location_country, article_ids(JSON), source_count/article_count, confidence, coherence, stage, first_seen/last_updated |
+| **entity_registry** | 94 | entity_id PK, canonical_name, aliases, type, country, importance, first_seen/last_seen（Company 46/Person 25/Country 23） |
+| **source_registry** | 66 | source_id PK, name, display_name, type, authority, country, language, url |
+| **ab_event** | 66 | a_event_id PK, b_event_id, subject_id/name, action_type, object_id/name, n_facts |
+| **ab_bundle** | 54 | b_event_id PK, subject_id/name, a_event_ids(JSON) |
+| **sync_state** | 1 | key PK (rss_last_synced_at), value (复合水印) |
+| **event_registry_bak** | — | 重聚合前备份 |
 
-> 说明: Fact 层在本地**无表**（fact/fact_entity 只在 VPS）。本地事实经 `fact_pipeline_payload.json` → `/internal/facts/batch` 推送 VPS。`sync_state` 水印为 `created_at >=` 游标（v4.4.3 修复边界漏同步）。
+> 说明: Fact 层在本地**无表**（fact/fact_entity 只在 VPS）。本地事实经 `fact_pipeline_payload.json` → `/internal/facts/batch` 推送 VPS。A/B 事件本地落 SQLite（event_ab.py），再推 VPS `/internal/ab-events`。`sync_state` 水印为复合游标 `created_at|id`（v4.4.3 修复同刻并列漏同步）。

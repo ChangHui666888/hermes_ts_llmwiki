@@ -18,10 +18,11 @@
 │                                                                         │
 │  数据库表:                                                               │
 │  rss_articles → news_intelligence → news_content → fact/fact_entity     │
-│                    (SQLite)        (SQLite)  → event_registry           │
+│                    (SQLite)        (SQLite)  → event_registry → ab_event/ab_bundle │
 │                            ↓ POST /internal/*                          │
 │   PostgreSQL: sources → articles → fact → events → story/story_event    │
 │                                          → entities/entity_alias        │
+│                                          → ab_event/ab_bundle (A/B 两级事件) │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -162,7 +163,7 @@ events (事件)
 | entity_type | GLiNER/推断 | Country/Person/Company/Organization/Location/Other |
 | role | Canonicalizer | SUBJECT/OBJECT/TARGET/VICTIM/SOURCE/RESPONDER |
 
-> **Schema V2（2026-08-10, ISS-20260810-012）**: fact 表新增 `subject_name`/`subject_entity_id`/`object_name`/`object_entity_id`/`action_status`/`action_polarity`/`evidence`; 一篇文章产 `facts[]`(≤3 条)。`object` 为值/数字/日期/短语时 `entity_id=null` 且**不进 fact_entity**(不再生成 ENT_ 临时 id)。`action.status` ∈ completed/ongoing/planned/denied/proposed/rumored; `action.polarity` ∈ positive/negative/neutral。
+> **Schema V2（2026-08-10, ISS-20260810-012）**: fact 表实际 16 列 = 原 11 列 + `subject_name`/`object_name`/`action_status`/`action_polarity`/`evidence`（**实体 ID 走 fact_entity 表，fact 表无 subject_entity_id 列**）; 一篇文章产 `facts[]`(≤3 条)。`object` 为值/数字/日期/短语时 `entity_id=null` 且**不进 fact_entity**(不再生成 ENT_ 临时 id)。`action.status` ∈ completed/ongoing/planned/denied/proposed/rumored; `action.polarity` ∈ positive/negative/neutral。
 
 **产出**: 单条事实 + 参与者角色（支持多主体/多客体: "Trump, DOJ"→2 SUBJECT）
 **实测**: 纯新闻 B 占比 74%、快路径(A/C) 26%、B noThink 2.2s/篇 (8.5×提速)
@@ -205,11 +206,23 @@ events (事件)
 
 > **⚠️ URL 必带规则 (2026-08-09, ISS-20260809-010)**: 所有聚合入口（增量 `auto-pipeline.py` Step 4.5 / 全量 `reaggregate_all.py` / 备选 `cron-sync.py`）喂给 `aggregate_events` 的 SELECT **必须含 `rr.article_url as url`**。漏选会致 evidence/source_chain/doc_refs 的 `url` 恒空（前端 EvidenceCard/SourceChain 的 View 按钮消失）；且 `url` 同时是 evidence/timeline 的**去重键**，空串折叠后证据/时间线各只剩 1 条（链路看起来断）。
 
+### L5.5 — A/B 两级事件 (event_ab.py, 2026-08-10) → `ab_event`/`ab_bundle`
+
+聚合产事件后，按 Fact 实体 ID 派生两级事件：
+
+| 表 | 语义 | 键字段 | 说明 |
+|----|------|--------|------|
+| ab_event | **A 事件（高精度）** | a_event_id, subject_id, action_type, object_id | 同 (subject_id+action_type+object_id) 合并，宁拆勿错 |
+| ab_bundle | **B 事件（宽松）** | b_event_id, subject_id | 同 subject_id 的 A 事件打包 → 实体行为脉络 |
+
+**数据流**: event_ab.py → 本地 SQLite `ab_event`(66)/`ab_bundle`(54) → `/internal/ab-events` → 云端 PG `ab_event`(50)/`ab_bundle`(38) → `/api/v1/ab-events` → 前端 `/ab-events` 页。
+
 ### L6 — 云端同步 → PostgreSQL
 
 ```
 SQLite event_registry → POST /internal/events/batch → events 表
 SQLite news_content  → POST /internal/news/batch  → articles 表
+SQLite ab_event/ab_bundle → POST /internal/ab-events → ab_event/ab_bundle 表
 ```
 
 ### L7 — Web 展示
@@ -242,14 +255,16 @@ articles → GET /news → Article JSON → 前端组件
 
 **流程**: admin `POST /api/v1/stories/derive`（幂等重建）→ 按 `subject_name` 分组 ≥2 事件 → 前端 `/stories` 时间线。
 
-### L9 — 实体画像 (KB sync, 2026-08-05)
+### L9 — 实体画像 (KB sync, 2026-08-12 刷新)
 
 ```
 knowledge_base/*.yaml (10本体+别名) → loader → Canonicalizer 归一 Entity ID
-  → fact_entity / entity_registry → sync_kb_to_db.py
-  → PostgreSQL entities (27K) / entity_alias (41K)
+  → sync_kb_to_db.py (KB V1 全量 → 云端) + backfill_entity_model.py (关联/事件派生)
+  → PostgreSQL entities (27,366) / entity_alias (41,089) / entity_relationship (223, in_segment 为主) / event_relations (83)
   → GET /api/v1/entities/{name} → 画像 (国家+关联网络+相关事件)
 ```
+
+本地聚合中间态: `entity_registry`(94) 由 aggregator 登记（KB 风格 ID），非云端 entities 来源。
 
 ### 事件校对 (event_curation, 2026-08-02)
 

@@ -1,6 +1,6 @@
 # 实体知识库 (Entity KB) 维护手册
 
-> 最后更新: 2026-08-02
+> 最后更新: 2026-08-12
 > 适用: `/entities` 实体中心 / `/api/v1/entities*` 接口
 > 维护方式: **wiki + git 双轨管理** — 本文档为运维前端，权威数据与变更记录在 git 仓库：
 >   - 数据源: `references/entity-network.json`
@@ -38,28 +38,31 @@
 
 > ⚠️ `entities.py:_load_kb()` 先 `from apps.api.data_entity_kb import ENTITY_KB`，成功即用内嵌 py；只有 import 失败才回退 JSON 文件。**只改 JSON、不同步 py，部署后不生效。**
 
-### 2.2 相关数据集（"全世界国家"覆盖的 3 处粒度，2026-08-02 核实）
+### 2.2 相关数据集（"全世界国家"覆盖的 3 处粒度，2026-08-12 核实）
 
 | 数据集 | 覆盖 | 用途 |
 |:-----|:-----|:-----|
 | `frontend/src/lib/country-coords.ts` | **195 国 + 别名 (209 条目)** | 地图坐标（全部联合国成员） |
-| `scripts/news_intel/config/entity_weights.json` | **340 公司 + 84 人物 + 34 国 + 101 机构**（含中英别名） | 实体识别权重 |
-| `references/entity-network.json` + `data_entity_kb.py` | **13 国深度关系** + 8 全球组织 + 16 关联 | 实体画像（领导人/企业/关联） |
+| `scripts/news_intel/config/entity_weights.json` | **340 公司 + 84 人物 + 34 国 + 101 机构**（= 559 条，含中英别名） | 实体识别权重 |
+| `references/entity-network.json` + `data_entity_kb.py` | **15 国深度关系** + 8 全球组织 + **127 公司/22 领导人/13 商界人物** + **27 关联**（11 类） | 实体画像（领导人/企业/关联） |
 
-> ⚠️ **"全世界所有国家"（195 国）覆盖的是地图坐标库；实体关系画像目前只深度覆盖 13 个关键国家。** 其余 ~182 国只有坐标/权重、无深度实体关系。若需实体关系覆盖全部国家，需扩展 entity-network.json（大工程，列入待办）。
+> ⚠️ **"全世界所有国家"（195 国）覆盖的是地图坐标库；实体关系画像目前只深度覆盖 15 个关键国家。** 其余 ~180 国只有坐标/权重、无深度实体关系。若需实体关系覆盖全部国家，需扩展 entity-network.json（大工程，列入待办）。
+
+**⚠️ backfill 已改读 KB V1（2026-08-09）**：`backfill_entity_model.py` 的实体/关系来源已从 `entity-network.json`（旧体系）切换为 **`knowledge_base/*.yaml`（KB V1）**（`load_kb_v1()`，`KB_V1_CANDIDATES` 优先），entity-network 仅失败时回退。`entity_relationship` 表现以 `in_segment`（公司→细分赛道，218/223）为主。配置中心「实体管理」Tab 仍管理 entity-network.json——**两套仍是断裂的展示库**，详见 [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)。
 
 ### 2.3 结构
 
 ```json
 {
-  "version": "1.0",
-  "generated": "2026-08-02",
+  "version": "1.2",
+  "generated": "2026-08-03",
+  "changelog": ["...14 条变更记录..."],
   "entities": {
     "United States": {
       "country_code": "US",
       "leaders":    [{"name": "Donald Trump", "role": "President", "importance": 100}],
       "business":   [{"name": "Elon Musk", "company": "Tesla/SpaceX/xAI", "importance": 95}],
-      "companies":  [{"name": "Apple", "type": "tech", "importance": 95}]
+      "companies":  [{"name": "Apple", "type": "tech", "importance": 95, "market": "美股"}]
     }
   },
   "global_orgs": {"NATO": {"type": "military_alliance", "importance": 90}},
@@ -67,9 +70,19 @@
 }
 ```
 
-当前规模: 13 国家 / 8 全球组织 / 16 关联。实体按国家分组，leader/business 是人物、companies 是企业。
+顶层键: `version` / `generated` / `purpose` / `changelog`(14 条) / `entities`(15 国) / `global_orgs`(8) / `associations`(27)。实体条目含 `country_code` + `leaders[]`/`business[]`/`companies[]`；公司条目 v1.2 起带 `market` 字段（A股/港股/美股/日股/韩股/印股/未上市），type 共 44 类（tech/finance/auto/chip/equipment/energy/packaging/pharma/memory/battery/solar…）。associations 类型 11 种（appoints/works_with/partners/invests/supplies/leads/competes/conflicts/member_of/export_control/controls）。
+
+当前规模: **15 国家 / 8 全球组织 / 127 公司 / 22 领导人 / 13 商界人物 / 27 关联**（2026-08-12 实测）。实体按国家分组，leader/business 是人物、companies 是企业。
 
 ## 3. 维护步骤（wiki + git 双轨）
+
+> 两种方式：**A 网页端**（推荐，热生效，无需重建镜像）· **B 手动文件**（需 docker 重建 backend）。
+
+### 方式 A — 网页端（配置中心「实体管理」Tab）
+
+`/config` → 🧩 实体管理 → 编辑实体/关联 → **校验**（悬空引用/跨国家重名）→ **保存**（写 JSON + 重新生成 py，**热生效**）→ **同步 Git**（容器内 `git add` 实体 2 文件 + push）。后端 `POST /admin/entities/save` / `POST /admin/entities/git-sync`。
+
+### 方式 B — 手动文件
 
 ```
 ① 先更新本文档（记录本次变更：新增/修改了哪些实体）
@@ -81,6 +94,8 @@
    （子目录: /home/administrator/news-platform-v8/scripts/news-platform-v8）
 ⑦ 验证: curl http://100.107.117.23/api/v1/entities/[name]
 ```
+
+**加载优先级**（`routes/entities.py:_load_kb()`）: 文件优先（6 个候选路径，含 `/host/references/entity-network.json` 容器挂载热更新）→ import 失败才回退内嵌 `data_entity_kb.py` → 兜底空字典。
 
 **别名**: `_find_entity` 已支持 `e.get("aliases", [])`，在实体条目加 `"aliases": ["川普"]` 即可启用中英文别名匹配（当前 KB 无别名数据）。
 

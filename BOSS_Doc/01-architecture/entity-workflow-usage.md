@@ -142,7 +142,7 @@
 | 2   | **Fact 抽取**          |   ✅   | **KB V1** `knowledge_base/*.yaml`（249国/~8300公司/~18800人物 + 别名） | 三层归一: GLiNER 实体锚定 → `resolve_entity`（① `loader.resolve()` KB 中英别名→稳定ID ② 回退 entity_weights 别名 + `CITY_TO_COUNTRY` 33城 + `_infer_type` ③ `_ID_PREFIX` 生成ID）→ `ontology_validator`（ID前缀↔类型 + REL_ 白名单）                                                                         | `fact_entity{entity_id(KB V1稳定ID), entity_name, type, role}` → `/internal/facts/batch`         | `fact_pipeline.py:156` / `canonicalizer.py:283` / `knowledge_base/loader.py:87` / `ontology_validator.py:61` |
 | 3   | **事件聚合**             |  🔄   | 文章 `entities` 清单 + GLiNER + Fact 实体（经归一函数间接用 KB）            | `_canonicalize`(调 resolve_entity 归一) → `_compute_entity_idf`(全局/主题IDF) → `_entity_weight`(类型×idf) → `build_fused_fingerprint`(subject/object←fact优先+CJK信任门、hub降权、标题×2) → `fingerprint_score`(同主体+25跨语言/主题硬约束) → `_entity_name_to_id`(**本地生成ID,不查KB**) → `_infer_actor_roles` | 事件 `subject/object/actors/related_entities`（entity_id=本地ID）+ 本地 SQLite `entity_registry`       | `aggregator.py:85/289/387/682/484/1195/583/1165`                                                             |
 | 4   | **推送/云端入库**          |  🔄   | 事件: 实体名；Fact: KB V1 ID                                      | `_event_to_push_format` 发原始结构 → `internal.py` UPSERT；events 存名、fact_entity 存 KB ID                                                                                                                                                                                           | `events.subject_name/object_name/actors(JSONB)` · `fact_entity.entity_id`                      | `pusher.py:144` / `internal.py`                                                                              |
-| 5   | **知识加工/关系回填**        |   ✅   | entity-network associations + events + KB V1                | `backfill_entity_model.py`: 事件派生实体35 + KB 149 → `entities`；KB associations → `entity_relationship`(223)；同subject时间序 → `event_relations`(28)。`sync_kb_to_db.py`: KB V1 全量 → `entities/entity_alias`。`fill_entity_kb.py`: 事件派生 → `entity-network.json`                          | DB 4表: `entities`(27176)/`entity_alias`(41110)/`entity_relationship`(223)/`event_relations`(28) | `scripts/news-platform-v8/backfill_entity_model.py` `sync_kb_to_db.py` `fill_entity_kb.py`                   |
+| 5   | **知识加工/关系回填**        |   ✅   | **KB V1** + events（entity-network 仅回退）                | `backfill_entity_model.py` **改读 KB V1**（`load_kb_v1()`，sub_segments→in_segment 等）→ `entity_relationship`(223, in_segment 218)；同subject时间序 → `event_relations`(83)。`sync_kb_to_db.py`: KB V1 全量 → `entities/entity_alias`。`fill_entity_kb.py`: 事件派生 → `entity-network.json`                          | DB 4表: `entities`(27366)/`entity_alias`(41089)/`entity_relationship`(223)/`event_relations`(83) | `scripts/news-platform-v8/backfill_entity_model.py` `sync_kb_to_db.py` `fill_entity_kb.py`                   |
 | 6   | **展示**               |   ✅   | entity-network.json + DB 关系表 + events                       | 列表: events subject/object/actors 去重计数+`_find_entity`(KB) 补类型/国家；画像: KB + DB(entities/alias/relationship in-out) + 相关事件；Story: `STORY_DIMENSIONS` 按 subject_name 等 4 维打包                                                                                                      | 前端 `/entities` `/entities/[name]` `/stories`                                                   | `routes/entities.py:223/272` / `stories.py:69`                                                               |
 | 7   | **配置中心**             | ✅(管理) | entity-network.json + DB 4表                                 | 实体管理 Tab: 编辑→校验(悬空/重名)→保存热生效→git-sync；实体关系 Tab: 增删实体/事件关系 + regenerate(backfill)                                                                                                                                                                                             | 管理入口（只影响画像/回填，**不影响 Pipeline 抽取**）                                                             | `routes/entities.py` / `routes/entity_relations.py`                                                          |
 
@@ -223,10 +223,10 @@
 | 源字段 | `events.subject_name / object_name / actors / location_country` | 事件派生实体提取 | PG `events` |
 | 源字段 | `entity-network.json` | `entities.{leaders,business,companies}`, `associations[{from,type,to,desc}]`, `global_orgs` | `/host/references/` |
 | 源字段 | `knowledge_base/*.yaml` | KB V1 全量（sync 用） | 仓库 |
-| 输出字段 | `entities` 表 | `id, name, type, country, importance, aliases(JSONB), confidence, first_seen, last_seen` | PG（27176 行） |
-| 输出字段 | `entity_alias` 表 | `entity_id, alias, lang` | PG（41110 行） |
-| 输出字段 | `entity_relationship` 表 | `from_entity_id, to_entity_id, relation_type, confidence, description, evidence_count` | PG（223 行） |
-| 输出字段 | `event_relations` 表 | `parent_event_id, child_event_id, relation_type(precedes), start_time, end_time, evidence_count` | PG（28 行） |
+| 输出字段 | `entities` 表 | `id, name, type, country, importance, aliases(JSONB), confidence, first_seen, last_seen` | PG（27,366 行; Person 18792/Company 8206/Country 247） |
+| 输出字段 | `entity_alias` 表 | `entity_id, alias, lang` | PG（41,089 行, 全 lang='en'） |
+| 输出字段 | `entity_relationship` 表 | `from_entity_id, to_entity_id, relation_type, confidence, description, evidence_count` | PG（223 行; **in_segment 218**/subsidiary_of 3/parent_of 1/in_industry 1） |
+| 输出字段 | `event_relations` 表 | `parent_event_id, child_event_id, relation_type(precedes), start_time, end_time, evidence_count` | PG（83 行） |
 | 配置参数 | 无配置中心键（backfill/sync/fill 脚本手动跑，参数固定） | — | — |
 
 ### 环节 6 展示（entities / stories）— 实体消费输出
@@ -259,10 +259,10 @@
 
 | 关系数据 | 环节 | 用法 | 代码 |
 |----------|:----:|------|------|
-| `knowledge_base/relations.yaml`（106 种） | 2 Fact 归一 | `ontology_validator.validate_relationship` 仅校验 REL_ 前缀白名单（不读关系语义） | `ontology_validator.py:48` |
-| `entity-network.json` associations | 5 回填 | → DB `entity_relationship` 表 | `backfill_entity_model.py` §3 |
+| `knowledge_base/relations.yaml`（108 种） | 2 Fact 归一 | `ontology_validator.validate_relationship` 仅校验 REL_ 前缀白名单（不读关系语义）；`/admin/entity-relations/types` 下拉 108+12 种 | `ontology_validator.py:48` |
+| `knowledge_base/*.yaml`（sub_segments/parent/industry） | 5 回填 | **2026-08-09 起 backfill 改读 KB V1** → DB `entity_relationship`（in_segment 为主） | `backfill_entity_model.py` §3 `load_kb_v1()` |
 | DB `entity_relationship`（223 条） | 6 展示 | 画像页"关系网络"（in/out 方向） | `routes/entities.py:346` |
-| `event_relations`（28 条 precedes） | 5 回填 + 6 展示 | 同 subject 事件时间序派生 → `/events/{id}/relations` | `backfill_entity_model.py` §4 / `events_v1.py` |
+| `event_relations`（83 条 precedes） | 5 回填 + 6 展示 | 同 subject 事件时间序派生 → `/events/{id}/relations` | `backfill_entity_model.py` §4 / `events_v1.py` |
 
 > 待评估: 关系语义（competitor/investor/part_of）目前无任何事件/fact 生成逻辑消费 → 见 [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md) ISS-004。
 

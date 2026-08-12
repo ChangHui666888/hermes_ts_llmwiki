@@ -12,13 +12,13 @@
 
 **配置中心"实体管理/实体关系"管理的是"展示层画像库 + DB 关系表"；而 Pipeline 抽取决策真正依赖的是另一套 `knowledge_base/*.yaml`（KB V1）。两者之间存在单向数据流（KB→DB→画像），但没有"配置中心改实体→影响线上抽取"的回流通道。**
 
-- **实体管理 Tab** 管理 `entity-network.json`（静态画像 KB，13 国深度关系）——下游是实体画像页与 DB 回填，**不影响 Pipeline 归一**。
+- **实体管理 Tab** 管理 `entity-network.json`（静态画像 KB，15 国深度关系）——下游是实体画像页与 DB 回填，**不影响 Pipeline 归一**。
 - **实体关系 Tab** 管理 PG 四张表（`entities/entity_alias/entity_relationship/event_relations`）——其中**实体名确实来自业务流程**（事件 subject/object/actors 派生），是流程实体真实回流的一环。
 - **Pipeline 实体归一**（Fact 抽取、本体验证）用 `knowledge_base/*.yaml`（KB V1，249 国/~8300 公司/~18800 人物）——由 AI 工作流(wiki+git)维护，**配置中心 UI 够不到**。
 
 三套实体数据源互相独立，靠 `backfill_entity_model.py` / `sync_kb_to_db.py` / `fill_entity_kb.py` 三个脚本单向桥接。
 
-**关系库使用现状（新增核查）**：整个项目中"关系"数据（`knowledge_base/relations.yaml` 106 种、`entity-network.json` associations、DB `entity_relationship` 表）**在生产 Pipeline 里几乎不被使用**——仅 `ontology_validator.py` 用 REL_ 前缀做关系类型白名单校验（不读关系内容）；真正的实体-实体关系只服务展示层（画像页关系网络 + 配置中心实体关系 Tab）。`relations.yaml` 的关系语义（competitor/investor/part_of 等）尚无任何事件/fact 生成逻辑消费。
+**关系库使用现状（新增核查）**：整个项目中"关系"数据（`knowledge_base/relations.yaml` 108 种、`entity-network.json` associations、DB `entity_relationship` 表）**在生产 Pipeline 里几乎不被使用**——仅 `ontology_validator.py` 用 REL_ 前缀做关系类型白名单校验（不读关系内容）；真正的实体-实体关系只服务展示层（画像页关系网络 + 配置中心实体关系 Tab）。`relations.yaml` 的关系语义（competitor/investor/part_of 等）尚无任何事件/fact 生成逻辑消费。`entity_relationship` 表的 223 条（in_segment 218）是 **backfill 从 KB V1 `company.sub_segments` 派生的展示层数据**，仍无生成逻辑消费。
 
 ---
 
@@ -108,7 +108,7 @@
 - **合并打分 `fingerprint_score`**（:484）：location/主题硬约束 → anchor 完全一致=100 → action+25 / **subject 完全同实体+25（KB 中英归一后支持跨语言）** / object 稀有度加权 10~30 / topic+10 / event_type+10 / participants 重叠加分。
 - **事件实体 ID `_entity_name_to_id`**（:1195）：**本地生成方案**（`前缀_{大写清理名}`，前缀取 `_known_entity_types`）——**不查 KB**，与 Fact 层的 KB V1 ID 是两套体系。写入 `event.subject.entity_id / object.entity_id / related_entities[].entity_id`。
 - **actors** `_infer_actor_roles`（:583）：entity_refs 前 5 个 → 第 1 个 Initiator、等于 obj 的 Target、其余 Participant → `{entity, type, role}`。
-- **本地注册** `upsert_entity`（:1168）：把相关实体写进 SQLite `entity_registry`（57 条），供本地 Dossier/画像。
+- **本地注册** `upsert_entity`（:1168）：把相关实体写进 SQLite `entity_registry`（**94** 条，Company 46/Person 25/Country 23），供本地 Dossier/画像。
 - **产出**：事件 Dossier（subject/object/action/actors/related_entities）→ 推送。
 
 ### 环节 4 — 推送/云端入库（pusher.py → internal.py）｜ 实体名 + ID 落库
@@ -122,7 +122,7 @@
 
 | 脚本 | 逻辑 | 产出 |
 |---|---|---|
-| `backfill_entity_model.py`（容器内跑，幂等） | ① `collect_kb_entities`（KB entity-network 149 实体）+ `collect_event_entities`（events 表 subject/object/actors 派生 **35** 实体）→ 用 `CANON_NAME` 硬编码 canonical（Donald Trump→Trump）合并去重 → upsert `entities`；② `entity_alias` 重建（KB aliases + `CANON_ALIASES` 中英别名表）；③ `entity_relationship` 重建（**KB associations + in_segment**，223 条）；④ `event_relations` 重建（**同 subject 事件按 first_seen 时间序 → precedes 边**，28 条） | 云端 4 张实体/关系表 |
+| `backfill_entity_model.py`（容器内跑，幂等） | ① `collect_kb_entities`（**2026-08-09 起改读 KB V1** `load_kb_v1()`，KB_V1_CANDIDATES 优先，entity-network 仅回退）+ `collect_event_entities`（events 表 subject/object/actors 派生实体）→ 用 `CANON_NAME` 硬编码 canonical（Donald Trump→Trump）合并去重 → upsert `entities`；② `entity_alias` 重建（KB aliases + `CANON_ALIASES` 中英别名表）；③ `entity_relationship` 重建（**company.sub_segments→in_segment / parent→parent_of / industry→in_industry / subsidiaries→subsidiary_of**，223 条，in_segment 218）；④ `event_relations` 重建（**同 subject 事件按 first_seen 时间序 → precedes 边**，83 条） | 云端 4 张实体/关系表 |
 | `sync_kb_to_db.py`（容器内跑） | 把 `knowledge_base/*.yaml` 的 **KB V1 全量**（~18800 人物/~8300 公司/249 国）upsert 进 `entities` + 别名进 `entity_alias`（27176 实体/41110 别名） | entities/entity_alias 补齐 |
 | `fill_entity_kb.py`（本地跑） | 把事件派生但 KB 缺失的实体补进 `entity-network.json`（如 Anthropic/SpaceX→US companies）+ 类型修正（Buffett→Person）+ 重新生成 `data_entity_kb.py` | entity-network.json 反向吸收流程实体 |
 
@@ -156,9 +156,9 @@
 
 ### ✅ 已打通的关联（配置中心 ←→ 业务流程实体）
 
-1. **事件派生实体 → DB entities**: Pipeline 事件的 subject/object/actors 名 → `events` 表 → `backfill_entity_model.py` 的 `collect_event_entities()` 提取 35 个事件派生实体，与 KB 149 实体合并 upsert 进 `entities` 表（云端 **27,176 实体 / 41,110 别名**）。"实体关系"Tab 里能看到真实流程实体。
-2. **KB associations → entity_relationship**: 实体管理 Tab 编辑的 associations → 回填 `entity_relationship`（223 条）→ 画像页"关系网络"。配置中心→展示闭环。
-3. **同 subject 事件 → event_relations**: backfill 按 `subject_name` 分组、按 first_seen 时间序派生 `precedes` 边（28 条）→ 实体关系 Tab + `/events/{id}/relations`。
+1. **事件派生实体 → DB entities**: Pipeline 事件的 subject/object/actors 名 → `events` 表 → `backfill_entity_model.py` 的 `collect_event_entities()` 提取事件派生实体，与 KB V1 全量合并 upsert 进 `entities` 表（云端 **27,366 实体 / 41,089 别名**，2026-08-12 实查）。"实体关系"Tab 里能看到真实流程实体。
+2. **KB V1 关联 → entity_relationship**: backfill 从 `company.sub_segments` 派生 `in_segment` 等关系 → 回填 `entity_relationship`（223 条，in_segment 218）→ 画像页"关系网络"。⚠️ 配置中心 associations（entity-network.json）**不再**由 backfill 写入本表。
+3. **同 subject 事件 → event_relations**: backfill 按 `subject_name` 分组、按 first_seen 时间序派生 `precedes` 边（83 条）→ 实体关系 Tab + `/events/{id}/relations`。
 4. **fill_entity_kb.py 反向补齐**: 事件派生的新实体可一键并入 entity-network.json（`fill_entity_kb.py:17 KB_ADD`，如 Anthropic/SpaceX→US companies），再经 UI 校验/保存/同步 Git。**这是事件→KB 的唯一回流口，但仍是手动触发、只补展示库。**
 
 ### ❌ 断裂点（结构性风险）
@@ -173,13 +173,13 @@
 
 ## 五、实体数据源全景与管理方式
 
-| 实体库 | 规模（实测） | 用途 | 管理入口 | 配置中心 UI 能改？ | 影响 Pipeline 抽取？ |
+| 实体库 | 规模（2026-08-12 实测） | 用途 | 管理入口 | 配置中心 UI 能改？ | 影响 Pipeline 抽取？ |
 |---|---|---|---|---|---|
-| `knowledge_base/*.yaml` (KB V1) | 249国/~8300公司/~18800人物/81动作/106关系/29事件类型 + 85别名 | Fact 归一 / 本体验证 / 中英统一 | AI 工作流(wiki+git+generate/import 脚本) | ❌ | ✅ **是（唯一源头）** |
-| `config/entity_weights.json` | 340公司+84人物+34国+101机构 | 评分实体维度 | 手改文件 | ❌ | ✅ 是（评分） |
-| `references/entity-network.json` + `data_entity_kb.py` | 13国深度关系 + 8组织 + 26关联 | 画像元数据/关系网络 | **配置中心"实体管理"Tab** | ✅ | ❌ 否（仅画像/回填） |
-| PG `entities/entity_alias/entity_relationship/event_relations` | 27176/41110/223/83 | 画像关系/事件关系 | **配置中心"实体关系"Tab** + backfill | ✅ | ❌ 否（读侧） |
-| 本地 SQLite `entity_registry` | 57 | 事件聚合过程登记 | 自动 | ❌ | 中间态 |
+| `knowledge_base/*.yaml` (KB V1) | 249国/8145公司/18800人物/137动作/108关系/29事件类型 + 89别名 | Fact 归一 / 本体验证 / 中英统一 | AI 工作流(wiki+git+generate/import 脚本) | ❌ | ✅ **是（唯一源头）** |
+| `config/entity_weights.json` | 340公司+84人物+34国+101机构 (=559) | 评分实体维度 | 手改文件 | ❌ | ✅ 是（评分） |
+| `references/entity-network.json` + `data_entity_kb.py` | **15国**深度关系 + 8组织 + **127公司/22领导人/13商界人物 + 27关联** | 画像元数据/关系网络 | **配置中心"实体管理"Tab** | ✅ | ❌ 否（仅画像/回填） |
+| PG `entities/entity_alias/entity_relationship/event_relations` | **27366/41089/223(218 in_segment)/83** | 画像关系/事件关系 | **配置中心"实体关系"Tab** + backfill | ✅ | ❌ 否（读侧） |
+| 本地 SQLite `entity_registry` | **94** | 事件聚合过程登记 | 自动 | ❌ | 中间态 |
 
 ```
 [KB V1 YAML] ──canonicalizer──→ Fact/事件 实体名+ID ──internal──→ PG events/fact_entity

@@ -63,7 +63,7 @@
 
 ## 3. 关系映射
 
-评分规则中的"关系"需映射到 KB `relations.yaml`（REL_ 106 种）:
+评分规则中的"关系"需映射到 KB `relations.yaml`（REL_ 108 种）:
 
 | 评分关系 | 类型 | KB 关系 |
 |---------|------|---------|
@@ -72,7 +72,7 @@
 | event_keywords 关键词→分类 | 主题归属 | 实体→`REL_BELONGS_TO` 行业/主题 |
 | 国产替代/韬定律/光通信 分组 | 供应链层级 | `REL_SUPPLIES`/`REL_CUSTOMER_OF`/`REL_EQUIPMENT_FOR` |
 
-> ⚠️ 当前 KB `relations.yaml` 106 种已含 PART_OF/COMPETITOR/INVESTOR 等；评分分组关系未入 KB。
+> ⚠️ 当前 KB `relations.yaml` **108 种**已含 PART_OF/COMPETITOR/INVESTOR 等；评分分组关系未入 KB。
 
 ## 4. 建议的映射行动
 
@@ -181,7 +181,7 @@
 
 ## 7. 多维实体关系模型（关系基数 + 实际关系）
 
-> 评分/知识库中的实体关系按基数建模，全部可入 KB `relations.yaml`（REL_ 106 种）+ 云端 `entity_relationship` 表。
+> 评分/知识库中的实体关系按基数建模，全部可入 KB `relations.yaml`（REL_ 108 种）+ 云端 `entity_relationship` 表。
 
 ### 7.1 关系类型与基数
 
@@ -222,9 +222,9 @@
 ### 8.1 功能现状
 - **页面**: 配置中心「实体关系」Tab（`/config` → 🕸️ 实体关系）
 - **管理**: 实体 + 别名 + 实体关系 + 事件关系（4 张表）
-- **API**: `GET/POST /admin/entity-relations` · `DELETE /admin/entity-relations/{id}` · `POST /admin/entity-relations/regenerate`
-- **关系类型**: **仅 12 个硬编码** `[appoints, works_with, partners, competes, supplies, invests, conflicts, leads, controls, member_of, export_control, precedes]`
-- **重新生成**: `backfill_entity_model.py` 从 **entity-network.json**（旧体系）重建 entity_relationship
+- **API**: `GET/POST /admin/entity-relations` · `DELETE /admin/entity-relations/{id}` · `POST /admin/entity-relations/regenerate` · `GET /admin/entity-relations/types`
+- **关系类型**: **116 种**（KB `relations.yaml` 108 + 旧 12 硬编码 `[appoints, works_with, partners, competes, supplies, invests, conflicts, leads, controls, member_of, export_control, precedes]`，2026-08-09 后由 `/types` API 下发）
+- **重新生成**: `backfill_entity_model.py` **改读 KB V1**（`load_kb_v1()`，sub_segments→in_segment 等）重建 entity_relationship（entity-network.json 仅回退）
 
 ### 8.2 发现的问题（两套实体系统脱节）
 

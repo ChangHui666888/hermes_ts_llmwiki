@@ -136,18 +136,19 @@ def create_token(user_id: int, level: str) -> str:
     )
 ```
 
-## 数据模型 (27 个 ORM 模型, 2026-08-07)
+## 数据模型 (29 个 ORM 模型, 2026-08-12)
 
-后端 ORM 模型 (27 表):
+后端 ORM 模型 (29 表):
 - **核心域 (4)**: Source / Article / Event / **Story**
 - **实体/关系 (4)**: Entity / **EntityAlias** / **EntityRelationship** / **EventRelation**
 - **Fact 层 (2)**: Fact / FactEntity
+- **A/B 事件 (2)**: **ABEvent** / **ABBundle**（2026-08-10 上线，前端 /ab-events）
 - **校对 (2)**: EventArticleOverride / EventArticleExclusion
 - **用户/配置 (5)**: User / Ad / Category / Tag / Setting
 - **其他 (3)**: Asset / Insight / Log
 - **关联表 (7)**: ArticleCategory / ArticleTag / ArticleEntity / EventArticle / EventEntity / **StoryEvent** / Subscription
 
-(VPS 额外 `fetch_stats` + `alembic_version` 不在 ORM; 迁移 0001 fact / 0002 entity / 0003 story 全已应用。)
+(VPS 额外 `fetch_stats` + `alembic_version` 不在 ORM; 迁移 0001 fact / 0002 entity / 0003 story / 0004 dimension 全已应用。) 参见 [database.md](database.md)。
 
 参见 [database.md](database.md) 完整数据库文档。
 
