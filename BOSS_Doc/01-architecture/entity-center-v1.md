@@ -253,12 +253,48 @@ docker compose restart nginx                                                 # n
 
 ---
 
-## 12. 已知缺口 / 下一步
+## 12. 已完成的增强（2026-08-12 第二轮）
 
-1. **别名富化**：KB V1 `entity_alias.yaml` 中英别名未导入 → 中文实体（华为/阿里巴巴）无法解析；写富化脚本提分
-2. **GitHub 远程**：entity_center 仅本地 git，未建远程仓库
-3. **/host 挂载**：entity-center-backend 无 `/host` 挂载（导入需 docker cp），建议补 compose 挂载
-4. **Golden Set 人工校验**：核对 45 条 llm-draft（含 `China Ping An→China` 假阳性）
-5. **多跳推理**：`relation_multihop_rules` 仅建表，V2 实现
-6. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验
-7. **Semantic Extraction 接入**：实体观测的新闻级事实提取（统一入口）待接
+### 别名富化
+- `scripts/enrich_aliases.py`: 导入 KB V1 中英别名 + 人工补充中文国名（生产 109 条别名 + 70 kb_v1_id 标识符）
+- resolution 短名长度加权（`中国移动` > `中国`，修复误配）→ Golden Set 89.7%
+- 中文解析全通：华为/苹果/英伟达/台积电/美国/中国/欧盟
+
+### Ontology 管理增强
+| 功能 | 说明 |
+|------|------|
+| **选择** | 关系/动作表全选/多选/单选勾选 + 仅显示已选过滤 |
+| **排序** | 列头点击升/降序 |
+| **导出** | 全量 + **导出选中子集**（勾选项+映射+基础类型） |
+| **导入** | 文件上传 → 冲突检查报告 → 应用(新建)/强制覆盖；新增 POST code 冲突→409 |
+| **编辑/新增** | 跳转详情页 `/entity-center/edit/{kind}/{code}` / `/entity-center/new/{kind}` |
+| **特殊字段** | code/directionality **灰底只读**（不可编辑，只能废弃重建） |
+| **状态生命周期** | active↔deprecated 一键切换 |
+| **版本管理** | 每次 create/update/status/rollback 记录快照 + **参数变化明细 changes[{field,old,new}]**，保留最近≥2版本，可回滚 |
+
+### 新增 API
+| 端点 | 说明 |
+|------|------|
+| `POST /admin/ontology/{kind}` | 新增（code 冲突→409） |
+| `PATCH /admin/ontology/{kind}/{code}` | 更新可编辑字段（特殊字段忽略） |
+| `GET /admin/ontology/meta` | 每 kind 可编辑/不可编辑字段 |
+| `GET /admin/ontology/{kind}/{code}/versions` | 版本历史（含参数变化） |
+| `POST /admin/ontology/{kind}/{code}/rollback` | 回滚到指定版本 |
+| `GET /admin/ontology/export` | 全量导出 |
+| `POST /admin/ontology/import` | 导入冲突检查/应用 |
+
+### 部署
+- 迁移 0002（ontology_versions）+ 生产已应用
+- nginx 路由重构：`/entity-center/api|admin/` 走 backend，`/entity-center/edit|new/` 走 frontend
+- 静态 admin-ui 同步（排序 + 编辑/新增链接）
+
+---
+
+## 13. 已知缺口 / 下一步
+
+1. **Golden Set 人工校验**：核对 45 条 llm-draft（含 `China Ping An→China` 假阳性）
+2. **别名缺口**：Lanqi/CSC/Ping An 等具体公司别名未导入（运营补录）
+3. **多跳推理**：`relation_multihop_rules` 仅建表，V2 实现
+4. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验
+5. **Semantic Extraction 接入**：实体观测的新闻级事实提取（统一入口）待接
+6. **entity_types/subtypes 管理 UI**：当前仅 relation_types/actions 可编辑，实体类型待接
