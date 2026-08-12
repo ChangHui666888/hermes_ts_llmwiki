@@ -66,55 +66,104 @@ Entity Center 是新闻情报系统中的**统一实体与关系基础设施**�
 
 ---
 
-## 4. 数据库 Schema（entity_center，18 表 + 视图）
+## 4. 数据库 Schema（entity_center，19 表 + 视图，2026-08-13 实测）
 
 ### 4.1 核心实体表
 
 | 表 | 关键字段 | 说明 |
 |----|---------|------|
-| `entity_types` | code UNIQUE, name, status | 16 种一级类型 |
-| `entity_subtypes` | entity_type_id FK, code, UNIQUE(entity_type_id, code) | 二级类型（27 条） |
-| `entities` | canonical_name, entity_type_id, subtype_id(复合FK), importance(0-100), importance_source, status(active/inactive/merged/deprecated), merged_into_entity_id, metadata JSONB | 实体主表（空库启动, 人工导入） |
-| `entity_aliases` | entity_id FK, alias, normalized(索引), language, alias_type, is_preferred, confidence | 别名（精确匹配走 idx_aliases_normalized） |
-| `entity_identifiers` | entity_id FK, scheme(kb_v1_id/legacy_pg_id/ticker/isin/wikidata/iso_alpha3/cik), identifier, UNIQUE(scheme, identifier) | 外部标识符 |
+| `entity_types` | id(PK), code UNIQUE, name, description, status | 16 种一级类型 |
+| `entity_subtypes` | id(PK), entity_type_id FK, code, name, UNIQUE(entity_type_id, code), UNIQUE(id, entity_type_id 复合外键用) | 二级类型（27 条） |
+| `entities` | id(PK), canonical_name, entity_type_id FK, subtype_id(复合FK), importance(0-100), importance_source, status(active/inactive/merged/deprecated), merged_into_entity_id(自引用FK), description, metadata JSONB | 实体主表（100 人工导入） |
+| `entity_aliases` | id(PK), entity_id FK, alias, normalized(索引), language, alias_type, is_preferred, confidence, valid_from/to | 别名（精确匹配走 idx_aliases_normalized） |
+| `entity_identifiers` | id(PK), entity_id FK, scheme(kb_v1_id/legacy_pg_id/ticker/isin/wikidata/iso_alpha3/cik), identifier, source, confidence, UNIQUE(scheme, identifier) | 外部标识符 |
 
 ### 4.2 Ontology 配置表
 
 | 表 | 关键字段 | 说明 |
 |----|---------|------|
-| `relation_types` | code UNIQUE, weight(敏感度 0-1), directionality(directed/symmetric), inverse_code, from/to_entity_type_ids JSONB(GIN), event_enabled | 17 种关系类型 |
-| `actions` | code UNIQUE, event_type, weight, polarity(-1/0/1), metadata JSONB(含 en/zh/past/noun/patterns) | 139 个动作 |
-| `relation_action_mappings` | relation_type_id FK, action_id FK, context(受控词表), weight, priority, UNIQUE(rel, act, context) | N:N 映射（137 条） |
-| `config_versions` | version(SEQUENCE), config_hash, config_snapshot JSONB, status, 唯一 active | 配置版本（ambiguous_threshold=0.60, ewma_alpha=0.3） |
-| `data_revisions` | revision(SEQUENCE), description, affected_tables | 数据版本（每 Candidate 独立） |
+| `relation_types` | id(PK), code UNIQUE, name, weight(敏感度 0-1), directionality(directed/symmetric), inverse_code, from/to_entity_type_ids JSONB(GIN), event_enabled, status | 17 种关系类型 |
+| `actions` | id(PK), code UNIQUE, name, event_type, weight, polarity(-1/0/1), description, metadata JSONB(含 en/zh/past/noun/patterns), status | 139 个动作 |
+| `relation_action_mappings` | id(PK), relation_type_id FK, action_id FK, context(受控词表), weight, priority, UNIQUE(rel, act, context) | N:N 映射（137 条） |
+| `config_versions` | version(SEQUENCE), config_hash, config_snapshot JSONB, description, created_by, status, 唯一 active | 配置版本（ambiguous_threshold=0.60, ewma_alpha=0.3） |
+| `data_revisions` | revision(SEQUENCE), description, affected_tables, created_by | 数据版本（每 Candidate 独立） |
+| `ontology_versions` | id(PK), kind, code, version, action(create/update/status/rollback/seed), item_snapshot JSONB, **changes JSONB[{field,old,new}]**, created_by, UNIQUE(kind, code, version) | **Ontology 修改版本**（每次修改快照+参数变化; v0=种子基线永不被裁剪） |
 
 ### 4.3 关系与观测
 
 | 表 | 关键字段 | 说明 |
 |----|---------|------|
-| `entity_relationships` | from_entity_id FK, to_entity_id FK, relation_type_id FK, confidence, status(active/inactive), valid_from/to, superseded_by, **部分唯一索引 uq_active_relation**(同 from+to+type 仅一 active) | 稳定关系事实 |
-| `relation_observations` | relationship_id FK, action_id FK, effect(6分类), polarity, event_at/published_at/extracted_at, article_id(opaque), evidence_id FK, confidence, metadata JSONB | 时点观测 |
-| `relation_evidence` | source_type(rss/article/llm_inference/manual/api), source_url, evidence_text | 证据源 |
-| `relation_candidates` | from/to/relation_type/action FK, effect(默认 confirm), polarity_override, confidence, **event_at**(D9 偏离), status(pending/approved/rejected), reviewed_by/at | 审批队列 |
-| `relation_observation_stats` | relationship_id PK, observation_count_7d/30d, trend_score | 预聚合统计(后台 5min) |
-| `sync_outbox` | table_name, record_id, operation(INSERT/UPDATE/DEACTIVATE/DELETE), payload, synced_at, sync_attempts | 同步变更日志(触发器) |
-| `audit_log` | target_type/id, operation, field, old/new_value, actor_type/id, config_version, data_revision | 统一审计(JSONB 变更存 JSON Patch) |
-| `relation_multihop_rules` | from/to_relation_type FK, allowed_entity_type_ids JSONB, max_hops, weight_multiplier | 多跳规则(V2 预留, 仅建表) |
+| `entity_relationships` | id(PK), from_entity_id FK, to_entity_id FK, relation_type_id FK, confidence, status(active/inactive), valid_from/to, superseded_by(自引用FK), first_seen_at, last_seen_at, **部分唯一索引 uq_active_relation**(同 from+to+type 仅一 active) | 稳定关系事实 |
+| `relation_observations` | id(PK), relationship_id FK, action_id FK, effect(6分类), polarity, event_at/published_at/extracted_at, article_id(opaque), evidence_id FK, confidence, extracted_by, metadata JSONB | 时点观测 |
+| `relation_evidence` | id(PK), source_type(rss/article/llm_inference/manual/api), source_url, article_id, evidence_text, evidence_language, extracted_by | 证据源 |
+| `relation_candidates` | id(PK), from_entity_id FK, to_entity_id FK, relation_type_id FK, action_id FK, effect(默认 confirm), polarity_override, confidence, article_id, **event_at**(D9 偏离), evidence_text, model_name, status(pending/approved/rejected), reviewed_by/at, rejection_reason | 审批队列 |
+| `relation_observation_stats` | relationship_id PK FK, observation_count_7d/30d, last_observation_at, trend_score | 预聚合统计(后台 5min) |
+| `sync_outbox` | id(PK), table_name, record_id, operation(INSERT/UPDATE/DEACTIVATE/DELETE), payload, synced_at, sync_attempts, last_error | 同步变更日志(触发器) |
+| `audit_log` | id(PK), target_type/id, operation, field, old/new_value, actor_type/id, reason, config_version FK, data_revision FK | 统一审计(JSONB 变更存 JSON Patch) |
+| `relation_multihop_rules` | id(PK), from_relation_type_id FK, to_relation_type_id FK, signal_relation_type_id FK, allowed_entity_type_ids JSONB, max_hops, weight_multiplier, enabled | 多跳规则(V2 预留, 仅建表) |
 
-**视图/函数/触发器**: `v_symmetric_relations`（symmetric 双向还原视图）· `uuidv7()`（PL/pgSQL 触发器用）· `sync_outbox_notify()` + 10 表触发器。
+**视图/函数/触发器**: `v_symmetric_relations`（symmetric 双向还原视图）· `uuidv7()`（PL/pgSQL 触发器用）· `sync_outbox_notify()` + 10 表触发器（entities/entity_aliases/entity_identifiers/relation_types/actions/relation_action_mappings/entity_relationships/relation_observations/relation_evidence/relation_observation_stats）。
 
-### 4.4 数据量（2026-08-12 实测）
+### 4.4 外键依赖关系（28 个 FK，2026-08-13 生产实查）
 
-| 项 | dev | 生产 |
-|----|:---:|:---:|
-| entity_types | 16 | 16 |
-| relation_types | 17 | 17 |
-| actions | 139 | 139 |
-| mappings | 137 | 137 |
-| entities | 100 | **100**（人工导入） |
-| entity_aliases | 100 | 100 |
-| config_versions | 1 | 1 |
-| sync_outbox | 累积中 | 累积中 |
+| 表 | FK 字段 | 引用表 |
+|----|---------|--------|
+| `entity_subtypes` | entity_type_id | entity_types |
+| `entities` | entity_type_id | entity_types |
+| `entities` | (subtype_id, entity_type_id) 复合 | entity_subtypes(id, entity_type_id) |
+| `entities` | merged_into_entity_id | entities（自引用） |
+| `entity_aliases` | entity_id | entities |
+| `entity_identifiers` | entity_id | entities |
+| `entity_relationships` | from_entity_id / to_entity_id | entities |
+| `entity_relationships` | relation_type_id | relation_types |
+| `entity_relationships` | superseded_by | entity_relationships（自引用） |
+| `relation_action_mappings` | relation_type_id / action_id | relation_types / actions |
+| `relation_candidates` | from_entity_id / to_entity_id | entities |
+| `relation_candidates` | relation_type_id / action_id | relation_types / actions |
+| `relation_observations` | relationship_id | entity_relationships |
+| `relation_observations` | action_id | actions |
+| `relation_observations` | evidence_id | relation_evidence |
+| `relation_observation_stats` | relationship_id | entity_relationships |
+| `relation_multihop_rules` | from/to/signal_relation_type_id | relation_types |
+| `audit_log` | config_version / data_revision | config_versions / data_revisions |
+
+### 4.5 依赖关系图
+
+```
+entity_types ──< entity_subtypes ──< entities ──< entity_aliases
+    │                            ▲  │              entity_identifiers
+    │                            │  │
+    │                     (复合FK)│  ├──< entity_relationships ──< relation_observations
+    │                            │  │        │ (self superseded_by)│
+    │                            │  │        ├──< relation_observation_stats
+    │                            │  │        │
+    │                            │  │        └──< relation_candidates
+relation_types ──< entity_relationships ──< relation_observations
+    │    ▲            relation_action_mappings ──> actions
+    │    └──< relation_multihop_rules
+    │
+actions ──< relation_action_mappings / relation_candidates / relation_observations
+relation_evidence ──< relation_observations
+config_versions ──< audit_log ──< data_revisions
+ontology_versions (独立, 记录各 ontology 表修改)
+sync_outbox (触发器写入, 供 SQLite mirror)
+v_symmetric_relations (视图: entity_relationships × relation_types)
+```
+
+### 4.6 数据量（2026-08-13 生产实测）
+
+| 项 | 生产 |
+|----|:---:|
+| entity_types | 16 |
+| entity_subtypes | 27 |
+| relation_types | 17 |
+| actions | 139 |
+| relation_action_mappings | 137 |
+| entities | **100**（人工导入） |
+| entity_aliases | 209（100 原始 + 109 KB 富化） |
+| entity_identifiers | 70（kb_v1_id） |
+| ontology_versions | 199+（含 v0 种子基线） |
+| config_versions | 1 |
 
 ---
 
