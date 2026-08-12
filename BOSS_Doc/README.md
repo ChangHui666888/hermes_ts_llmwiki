@@ -22,6 +22,7 @@ News Intelligence Platform 操作手册。
 | [实体关系](01-architecture/entity-relationships.md) | **最新** 入库实体/关系全量 (KB V1 导入 + 事件派生; 2026-08-12 实查) |
 | [🧩 实体链路分析+方案](01-architecture/entity-management-pipeline-analysis.md) | **待决策** 配置中心实体管理 ↔ 业务流程实体使用关联 + 升级方案 (A双向同步/B统一ID/C收敛canonical) |
 | [📋 实体使用环节表](01-architecture/entity-workflow-usage.md) | **速查** 工作流各环节×实体/关系库 ×实现机制×落点 (总览表) |
+| [🧬 Entity Center V1](01-architecture/entity-center-v1.md) | **最新** Clean Slate 实体/关系基础设施 (18表+视图+触发器/139动作/部署/导入/Golden Set) |
 | [升级交接](01-architecture/upgrade-handoff-2026-08-05.md) | 全量升级交接 (会话状态 + 遗留问题) |
 
 ### 02-deployment — 部署运维
