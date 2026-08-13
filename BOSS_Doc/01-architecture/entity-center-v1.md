@@ -159,11 +159,33 @@ v_symmetric_relations (视图: entity_relationships × relation_types)
 | relation_types | 17 |
 | actions | 139 |
 | relation_action_mappings | 137 |
-| entities | **100**（人工导入） |
-| entity_aliases | 209（100 原始 + 109 KB 富化） |
-| entity_identifiers | 70（kb_v1_id） |
+| **实体总数** | **759** |
+| entity_aliases | ~4000（全实体中英别名） |
+| entity_identifiers | 含 kb_v1_id + ticker（105 公司股票代码） |
 | ontology_versions | 199+（含 v0 种子基线） |
 | config_versions | 1 |
+
+### 4.7 实体库构成（2026-08-13，759 实体）
+
+| 类型 | 数量 | 内容 |
+|------|:--:|------|
+| COMPANY | 199 | 世界500强105 + 产业链龙头59 + 原始公司 |
+| COUNTRY | 192 | 全球国家（六维评分：军事/金融/科技/矿产/能源/地理） |
+| MILITARY_ORGANIZATION | 116 | 全球武装力量（中英/本地语别名） |
+| LOCATION | 63 | 重要城市（首都≥70/核心<100） |
+| GOVERNMENT | 48 | 核心国家金融监管/国防/科技/工业机构 |
+| INTERNATIONAL_ORGANIZATION | 40 | 国际机构（联合国/NATO/IMF等） |
+| FINANCIAL_INSTITUTION | 31 | 央行/商业银行/投行 |
+| COMMODITY | 30 | 大宗商品（能源/金属/农产品） |
+| PERSON | 26 | 评分>60国家领导人 |
+| CURRENCY | 17 | 全球主要货币 |
+
+### 4.8 实体检索验证（2026-08-13）
+
+- **去重**: 769→759（合并 11 组跨类型重复：ICBC/HSBC/摩根大通等；保留 3 组不同国家真同名 MOD）
+- **解析准确率**: 48 组代表用例 **100% 命中正确实体**（含中英文）
+- **别名冲突处理**: 移除黄金 "AU"（撞澳大利亚/非盟）；SAF 等武装力量简写冲突为真实歧义保留
+- **验证工具**: `scripts/verify_entity_library.py`（类型分布/重复检查/解析准确率）· `scripts/dedup_entities.py` · `scripts/dedup_entities_by_alias.py`
 
 ---
 
@@ -341,7 +363,48 @@ docker compose restart nginx                                                 # n
 
 ---
 
-## 13. 已知缺口 / 下一步
+## 13. 实体检索与维护指南
+
+### 13.1 检索方式
+
+| 方式 | 说明 |
+|------|------|
+| **API 解析** | `POST /entity-center/api/v1/resolve` → mention 中英别名 → candidates + status |
+| **Admin UI** | `/entity-center` → 实体 Tab：类型/状态过滤 + 搜索名称/别名 + 编辑/废弃/启用 |
+| **关系查询** | `GET /entity-center/api/v1/entities/{id}/relationships` |
+
+### 13.2 实体扩展模式（新增一类实体）
+
+```
+① scripts/{type}_data.py       ← 数据 (country, name_en, name_zh, ticker, 别名, 打分, 备注)
+② scripts/sync_{type}_to_db.py ← 幂等 upsert (复用 company sync 模式)
+③ python scripts/sync_{type}_to_db.py   (dev 验证)
+④ tar → VPS → docker cp → 容器内跑      (生产)
+⑤ verify_entity_library.py     ← 验证解析
+```
+
+**已建数据模块**: country_data / country_data_full / location_data / military_orgs_data / leaders_data / international_orgs_data / currency_data / financial_institutions_data / gov_agencies_data / commodity_data / companies_data / industry_chains_data。
+
+### 13.3 检索验证
+
+```bash
+python scripts/verify_entity_library.py   # 类型分布 + 重复检查 + 48组解析准确率
+python scripts/dedup_entities.py          # canonical+同国家 去重
+python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类型去重
+```
+
+### 13.4 维护要点
+
+- **股票代码** → `entity_identifiers`（scheme=ticker），唯一约束 (scheme, identifier)
+- **国家归属** → `meta.country`（公司/机构/武装力量）
+- **国产替代权重** → `meta.domestic_sub=true` + 评分加成
+- **产业链** → `meta.chains=["CHAIN:stage"]`（原材料/设备/技术/加工/生产）
+- **别名冲突** → 短简写跨实体冲突为真实歧义，靠上下文/词长消歧
+- **部署坑** → 改 data 后必须重新 tar 到 VPS（docker cp 只拷宿主机旧文件）
+
+---
+
+## 14. 已知缺口 / 下一步
 
 1. **Golden Set 人工校验**：核对 45 条 llm-draft（含 `China Ping An→China` 假阳性）
 2. **别名缺口**：Lanqi/CSC/Ping An 等具体公司别名未导入（运营补录）
