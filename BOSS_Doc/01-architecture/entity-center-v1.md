@@ -416,16 +416,17 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 ## 14. 已知缺口 / 下一步
 
 ### 14.1 已完成（2026-08-13 Golden Set 全修）
-- **Golden Set 人工校验 ✅**：80/80 = 100%（剔除坏标注后）；`China Ping An` 假阳性已通过补别名 `Ping An Insurance`/`China Ping An` 修复
+- **Golden Set 人工校验 ✅**：先 80/80 = 100%（剔除坏标注后）；治理后复生成+再剔除低质 llm-draft → **71/71 = 100%**；`China Ping An` 假阳性已通过补别名 `Ping An Insurance`/`China Ping An` 修复
 - **Resolution Fix A ✅**：前缀匹配要求 alias 长度≥3，修复 1-2 字符短别名（股票码/国家码/化学符号）前缀误报
 - **Resolution Fix B ✅**：精确匹配补 canonical_name，修复 84% 实体自身名字不可解析
 - **别名补齐 ✅**：LGES/LG Energy/VW/国芯基金二期/Ping An Insurance/China Ping An/NZ/MS/BP PLC/NVO（`scripts/patch_alias_gaps.py` 幂等）
-- **短码冲突治理 ✅**（`scripts/patch_shortcode_conflicts.py` 幂等，dev+prod 已跑）：同一别名→多实体的精确歧义，保留高频方别名、删除低频方（信息记入 `meta.alias_conflicts`）
-  - 保留方：au→非盟 / ng→天然气 / boc→中行 / chl→中移动(ADR代码) / bdf→法兰西银行 / idf→以军
-  - 军队缩写全删（本身歧义非标准新闻用法）：caf/far/gdf/maf/saf(5国)/zdf 共 15 条
-  - 废弃无信息 stub 公司 "IDF"（canonical=IDF，Fix B 会命中，删别名无效 → status=deprecated）
-  - 全称仍可解析（Australia/Nigeria/Bank of Canada/加拿大央行/军队全称）；黄金集复评 80/80=100% 不降
-  - ⚠ 结论：US/UK/EU/UN 及 AAPL/AMD 等高频码是 FEATURE 非 bug，不动；meta.country 本就存全称
+- **短码冲突治理 ⛔ 已回退**（`scripts/rollback_shortcode_conflicts.py`）：用户裁定删除范围过宽（含军队缩写/银行缩写/IDF 公司，非国家码），已恢复 21 条别名 + 撤销 IDF 废弃，恢复为治理前状态
+- **国家码 + 股票代码治理 ✅**（`scripts/patch_governance_codes.py` 幂等，dev+prod 已跑）：
+  - **国家实体国家字段禁国家码**：删除 ISO/IOC 国家码别名 40 条（au/br/de/fr/jp/in/usa/chn...），**保留 US/UK/NZ/UAE/USA + 英文短名**（taiwan/turkey/china/brazil）；删除的码记入 `meta.iso_codes`
+  - **公司股票代码放备注**：删除命中 `entity_identifiers`(scheme=ticker) 的别名 153 条（MSFT/NVDA/TSLA/BP/IBM/600879.SS...），**仅保留 AAPL**；ticker 记入 `meta.tickers`，本体仍在 entity_identifiers
+  - 影响（用户已知悉）：DE→德国 等码、MSFT/NVDA 等 ticker 不再解析；全称/中文名/ canonical 均正常
+  - 黄金集治理后复生成+剔除 qwen3 低质 llm-draft → **71/71 = 100%**（auto 67/67 保持）
+  - 已知副作用：CSCO（思科 ticker 移走）前缀撞 CSC→中信证券；Indian Armed Forces 前缀→India（全称仍可解析）
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
