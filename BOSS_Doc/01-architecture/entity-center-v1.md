@@ -420,6 +420,12 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 - **Resolution Fix A ✅**：前缀匹配要求 alias 长度≥3，修复 1-2 字符短别名（股票码/国家码/化学符号）前缀误报
 - **Resolution Fix B ✅**：精确匹配补 canonical_name，修复 84% 实体自身名字不可解析
 - **别名补齐 ✅**：LGES/LG Energy/VW/国芯基金二期/Ping An Insurance/China Ping An/NZ/MS/BP PLC/NVO（`scripts/patch_alias_gaps.py` 幂等）
+- **短码冲突治理 ✅**（`scripts/patch_shortcode_conflicts.py` 幂等，dev+prod 已跑）：同一别名→多实体的精确歧义，保留高频方别名、删除低频方（信息记入 `meta.alias_conflicts`）
+  - 保留方：au→非盟 / ng→天然气 / boc→中行 / chl→中移动(ADR代码) / bdf→法兰西银行 / idf→以军
+  - 军队缩写全删（本身歧义非标准新闻用法）：caf/far/gdf/maf/saf(5国)/zdf 共 15 条
+  - 废弃无信息 stub 公司 "IDF"（canonical=IDF，Fix B 会命中，删别名无效 → status=deprecated）
+  - 全称仍可解析（Australia/Nigeria/Bank of Canada/加拿大央行/军队全称）；黄金集复评 80/80=100% 不降
+  - ⚠ 结论：US/UK/EU/UN 及 AAPL/AMD 等高频码是 FEATURE 非 bug，不动；meta.country 本就存全称
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
