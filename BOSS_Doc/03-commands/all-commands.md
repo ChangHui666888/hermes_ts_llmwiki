@@ -203,6 +203,39 @@ python reaggregate_recent.py --days 3               # 最近 3 天
 python reaggregate_recent.py --hours 12 --no-push   # 只本地聚合落库, 不推送
 python reaggregate_recent.py --hours 24 --window 48 # 指定聚合窗口(默认48h)
 
+# ⭐ 手动事件归一 — 同标题重复事件合并到【最早】事件 (2026-08-14 核实 event_normalizer.py)
+#    逻辑: 同标题(空白折叠+忽略大小写)分组 → 保留 first_seen 最早事件 → 文章去重重标到最早事件号
+#         → last_updated 刷新当前时间 → 删除被并入事件(本地+云端)。
+#    自动: auto-pipeline Step 4.6 每轮自动跑; 手动 = 复制 Step 4.6 逻辑:
+python -c "
+import sqlite3, httpx
+from news_intel.db import init_db, get_db
+from news_intel.event_normalizer import normalize_duplicate_events
+CLOUD_API='http://100.107.117.23'; TOKEN='v8-pipeline-token-2026-xK9mP2sR7wQ'
+init_db(); dn=get_db(); dn.row_factory=sqlite3.Row
+kept, deleted = normalize_duplicate_events(dn)      # 同标题合并, 最早事件保留
+dn.close()
+print(f'本地合并 {len(kept)} 组, 删除 {len(deleted)} 个重复事件')
+for i in range(0, len(kept), 50):                   # 推云端 upsert 保留事件
+    r = httpx.post(f'{CLOUD_API}/internal/events/batch', json=kept[i:i+50],
+                   headers={'X-Internal-Token': TOKEN}, timeout=60)
+    print(f'  batch {r.status_code}')
+if deleted:                                          # 删云端重复
+    r = httpx.post(f'{CLOUD_API}/internal/events/delete', json=deleted,
+                   headers={'X-Internal-Token': TOKEN}, timeout=60)
+    print(f'  delete {len(deleted)} -> {r.status_code}')
+"
+
+# ⭐ 全量重聚合 — 同主题文章 → 一个事件 (2026-08-14 核实 reaggregate_all.py)
+#    机制: 加载【全部】已聚合文章, aggregate_events 按指纹相似度聚类(实体/主体/动作重叠=同主题)
+#         → 同主题文章合成一个事件。⚠️ 与归一的区别: 归一只合并"同标题", 重聚合按"主题相似度"。
+#    ⚠️ 破坏性: 先备份 event_registry→_bak 表 → 清空 → 重建, 事件ID会变; 聚合窗口 48h(超48h同主题不合并)。
+#    ⚠️ 生产副本是旧版(仅A/B, 无 v4.4.3 中文聚合), 跑前先同步 dev 版:
+cp ~/.hermes-web-ui/coding-agent/workspace/default/global/search-engine-v2/scripts/reaggregate_all.py \
+   ~/AppData/Local/hermes/profiles/outside-deepdeek/skills/research/search-engine-v2/scripts/reaggregate_all.py
+python reaggregate_all.py            # 全量重聚 + 推云端 (同主题合成一个事件)
+python reaggregate_all.py --no-push  # 先只本地重聚看结果, 确认后再推
+
 # Python API
 python -c "
 from news_intel.aggregator import aggregate_events
