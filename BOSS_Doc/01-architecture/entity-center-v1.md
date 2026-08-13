@@ -207,11 +207,15 @@ LLM/自动抽取 → relation_candidates(pending)
 ### 5.2 Entity Resolution（§11.4）
 
 ```
-mention + context → ① 精确匹配 alias.normalized==mention (0.95)
-                   → ② 双向前缀/短名匹配 (mention≥4: alias 开头 / mention 以 alias 开头, 0.70)
+mention + context → ① 精确匹配 alias.normalized==mention 或 canonical_name==mention (0.95)
+                   → ② 双向前缀/短名匹配 (mention≥4 且 alias 长度≥3: alias 开头 / mention 以 alias 开头, 0.70)
                    → ③ 上下文消歧 adjacent_entities 交集 (+0.05)
                    → 状态: resolved(≥0.60) / ambiguous / unresolved
 ```
+
+⚠ **2026-08-13 修复**（Golden Set 759 库重新生成暴露）:
+- **Fix B**: 精确匹配补 canonical_name → 修复 **641/759 (84%)** 实体 canonical 名不在别名表导致自身名字不可解析（如 "Kingdom of Norway"）
+- **Fix A**: 前缀匹配要求 alias 长度≥3 → 排除 1-2 字符短别名（股票码 t/f、国家码 no/un/in、化学符号 ag）作为任意 mention 前缀误报（62 种此类别名，实体库扩到 759 后撞库严重）
 
 性能: 精确 P99<50ms 目标（需 DB 与应用同机；当前远程 VPS DB 网络主导）。
 
@@ -291,15 +295,20 @@ docker compose restart nginx                                                 # n
 | 模块 | 覆盖 |
 |------|------|
 | test_uuidv7 (5) | 版本/变体/单调/可注入时钟 |
-| test_resolution (5) | 精确/unresolved/空/上下文/阈值 |
+| test_resolution (8) | 精确/unresolved/空/上下文/阈值 + canonical无别名可解析 + 短别名不误报前缀 + 前缀回归 |
 | test_upsert (5) | 新建关系/EWMA+TERMINATE/追加观测/幂等+拒绝/缺 action |
 | test_api (5) | health/resolve/鉴权/Ontology |
 
 ### 10.2 Golden Set（LLM 辅助标注）
 
-- `scripts/generate_golden_set.py`: 本地 qwen3 生成变体 mention → **97 条**（auto 52 + llm-draft 45，标 `source` 待人工校验）
-- `scripts/score_golden_set.py`: 评分 **88.7%**（53.6% → 88.7%，靠双向前缀匹配改进）
-- 剩余失败 = 中文/拼音/简称**别名缺口**（华为/阿里巴巴/CSC 等）
+- `scripts/generate_golden_set.py`: 本地 qwen3 生成变体 mention，从当前实体库随机采样（canonical 40 + 别名 15 + 负例 12 + LLM 变体）
+- `scripts/score_golden_set.py`: 跑 Entity Resolution 算准确率
+- **2026-08-13 基于 759 实体库重新生成 + 评分**：
+  - 生成 **99 条**（auto 67 + llm-draft 32）→ 人工校验剔除坏标注/ISO 码 **19 条** → **80 条**（auto 67 + llm-draft 13）
+  - 评分 **80/80 = 100.0%**（此前 88.7%→89.7% 为 ~100 实体旧库基线）
+  - auto 全过 = Fix A/B + 别名补齐生效；llm-draft 覆盖真实缩写（MS/NZ/BP PLC/NVO/SMIC 等）
+- **坏标注剔除**（llm-draft 质检）：MSC(实为地中海航运)/CB(钴符号是Co)/FC Barcelona(足球俱乐部)/Sudan Inc.(模板误生成)/MAF(歧义马来西亚军)/SAR/错拼(NOODISK) 等
+- **未入基准的真实缩写缺口**（运营可补，见 §14）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 因 3 字符前缀碰撞风险不自动加别名
 
 ### 10.3 性能
 
@@ -406,8 +415,15 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 
 ## 14. 已知缺口 / 下一步
 
-1. **Golden Set 人工校验**：核对 45 条 llm-draft（含 `China Ping An→China` 假阳性）
-2. **别名缺口**：Lanqi/CSC/Ping An 等具体公司别名未导入（运营补录）
+### 14.1 已完成（2026-08-13 Golden Set 全修）
+- **Golden Set 人工校验 ✅**：80/80 = 100%（剔除坏标注后）；`China Ping An` 假阳性已通过补别名 `Ping An Insurance`/`China Ping An` 修复
+- **Resolution Fix A ✅**：前缀匹配要求 alias 长度≥3，修复 1-2 字符短别名（股票码/国家码/化学符号）前缀误报
+- **Resolution Fix B ✅**：精确匹配补 canonical_name，修复 84% 实体自身名字不可解析
+- **别名补齐 ✅**：LGES/LG Energy/VW/国芯基金二期/Ping An Insurance/China Ping An/NZ/MS/BP PLC/NVO（`scripts/patch_alias_gaps.py` 幂等）
+
+### 14.2 剩余
+1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
+2. **数据模块与 DB 漂移**：companies_data 等 canonical（Volkswagen Group/Ping An Insurance）与 DB 去重后 canonical（Volkswagen/中国平安）不一致；LG Energy/国家集成电路基金二期不在任何数据模块 — 需运营对齐权威源
 3. **多跳推理**：`relation_multihop_rules` 仅建表，V2 实现
 4. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验
 5. **Semantic Extraction 接入**：实体观测的新闻级事实提取（统一入口）待接
