@@ -320,7 +320,8 @@ docker compose restart nginx                                                 # n
 | **特殊字段** | code/directionality **灰底只读**（不可编辑，只能废弃重建） |
 | **状态生命周期** | active↔deprecated 一键切换 |
 | **版本管理** | 每次 create/update/status/rollback 记录快照 + **参数变化明细 changes[{field,old,new}]**，保留最近≥2版本，可回滚；**v0 = 种子基线**（seed_baseline 回填，永不被裁剪，回滚到 v0 始终恢复原始种子态） |
-| **实体管理** | 实体 Tab：列表(搜索名称/别名+类型/状态过滤) + **添加实体**(类型/子类型/重要度/国家/别名, 冲突409) + **废弃/启用**(状态生命周期 active/inactive/deprecated/merged) |
+| **实体管理** | 实体 Tab：列表(搜索名称/别名+类型/状态过滤) + **添加实体**(类型/子类型/重要度/国家/别名, 冲突409) + **编辑弹窗**(ID/名称灰底只读) + **废弃/启用**(状态生命周期 active/inactive/deprecated/merged) |
+| **CSV 导出导入** | 实体/实体关系/动作 CSV（`GET /admin/export/{kind}` + `POST /admin/import/{kind}`）；**行2=字段备注**（自动生成勿填 / 只允许新增不可修改 / 可编辑）；实体 canonical_name、动作 code、关系 from+to+type 为只允许新增字段 |
 
 ### 新增 API
 | 端点 | 说明 |
