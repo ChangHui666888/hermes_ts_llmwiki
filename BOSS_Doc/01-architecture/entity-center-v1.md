@@ -427,6 +427,7 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - 影响（用户已知悉）：DE→德国 等码、MSFT/NVDA 等 ticker 不再解析；全称/中文名/ canonical 均正常
   - 黄金集治理后复生成+剔除 qwen3 低质 llm-draft → **71/71 = 100%**（auto 67/67 保持）
   - 已知副作用：CSCO（思科 ticker 移走）前缀撞 CSC→中信证券；Indian Armed Forces 前缀→India（全称仍可解析）
+- **国家实体 country 字段统一用名称 ✅**（`scripts/patch_country_field_name.py`）：192 国家中 191 个 `meta.country` 从 ISO 码（US/CN/DE/KR）替换为 `name_en_short`（缺则 canonical），与公司/机构 meta.country 已用的全称一致；唯一残留 UAE（name_en_short 即 "UAE"，是保留的英文短名）；码仍在 meta.iso_codes 可查
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
