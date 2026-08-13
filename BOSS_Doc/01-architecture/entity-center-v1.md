@@ -428,6 +428,7 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - 黄金集治理后复生成+剔除 qwen3 低质 llm-draft → **71/71 = 100%**（auto 67/67 保持）
   - 已知副作用：CSCO（思科 ticker 移走）前缀撞 CSC→中信证券；Indian Armed Forces 前缀→India（全称仍可解析）
 - **国家实体 country 字段统一用名称 ✅**（`scripts/patch_country_field_name.py`）：192 国家中 191 个 `meta.country` 从 ISO 码（US/CN/DE/KR）替换为 `name_en_short`（缺则 canonical），与公司/机构 meta.country 已用的全称一致；唯一残留 UAE（name_en_short 即 "UAE"，是保留的英文短名）；码仍在 meta.iso_codes 可查
+- **公司别名补充 第一批 ✅**（`scripts/enrich_company_aliases.py` 幂等，dev+prod）：37 家主要公司补 104/106 条别名，参考格式=法定全称|英文变体|中文|子品牌|产品；参考5家精确（阿里/华为/腾讯/Google/特斯拉），巨头含 iPhone/GeForce/CUDA/ChatGPT/Azure/台积电/中石油/中石化/瑞银/茅台等；验证子品牌 28/28、黄金集 71/71=100%；**第二批覆盖剩余 ~180 家待做**
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
