@@ -481,7 +481,8 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
       - 画像弹窗: **1跳直接关系**（实体名/出入向/类型/权重/conf）+ **2跳间接关联**（邻居的邻居，向各方向展开）
       - 生产验证: 川普→J.D.Vance/KevinWarsh(任命 w0.40)、TSMC 4 条、美国 2 条; 2跳链路展开正常
       - **浏览器人工检查 ✅**: `check_profile_browser.py`(Playwright+Chrome 无头) — 注入 admin token 打开页面, 确认新版渲染(配置Tab) + 页面内 fetch 校验川普画像 1跳(J.D.Vance/KevinWarsh w0.40)/2跳回环
-      - **坑**: ① nginx 前端页加 Cache-Control no-cache(覆盖 Next.js s-maxage, 需重启容器否则 bind-mount 旧 inode); ② 主前端会话检查会清 localStorage token, 测试注入需 add_init_script 防清除; ③ **asyncpg Numeric 返回字符串**, 前端 `relation_weight?.toFixed(2)` 抛 "is not a function" → 画像弹窗渲染崩溃, 需 `Number(x).toFixed(2)`（已修 679ab6e）
+      - **坑**: ① nginx 前端页加 Cache-Control no-cache(覆盖 Next.js s-maxage, 需重启容器否则 bind-mount 旧 inode); ② 主前端会话检查会清 localStorage token, 测试注入需 add_init_script 防清除; ③ **asyncpg Numeric 返回字符串**, 前端 `relation_weight?.toFixed(2)` 抛 "is not a function" → 画像弹窗渲染崩溃, 需 `Number(x).toFixed(2)`（已修 679ab6e）; ④ **admin 数据(实体/候选/Ontology)全部需 admin 登录**, 未登录搜索显示"无实体"（曾误判为搜索 bug）→ 加全局登录组件解决
+      - **全局登录/注册/注销 ✅（2026-08-14）**: `AuthMenu.tsx` 接入 Header 右上角 — 未登录显示 登录/注册 按钮(弹窗表单, 复用 /auth/login + /auth/register + useAuth), 已登录显示 `email+level` 徽标 + 注销; 解决"未登录 admin 数据全空"的困惑; 浏览器验证: 未登录显按钮 / 登录后显账户+注销 / 实体搜川普→Donald Trump
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
