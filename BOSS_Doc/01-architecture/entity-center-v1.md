@@ -463,6 +463,11 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - 新增 `sync_latency_monitor.py`（积压/最老延迟/卡死, >5min 告警）+ `rebuild_sqlite_mirror.py`（每日全量重建兜底）
   - 端到端验证: 触发器写 outbox → poll → mirror 落库全通（dev）
   - ⚠️ **生产发现**: sync_outbox 积压 5888 条/38h —— **生产 sync daemon 未运行**, 需本地 pipeline 机器 cron 拉起（或容器内跑 run_sync_daemon.py）
+  - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
+    - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
+    - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
+    - `run_sync_prod.bat`（EC_DATABASE_URL=prod + mirror=prod）+ Windows 计划任务 `entity-center-sync` **每分钟** `--once`
+    - 验证: 生产变更 → 触发器 → outbox → daemon → 本地镜像 1 分钟内自动同步（LastTaskResult 0）
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
