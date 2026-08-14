@@ -447,6 +447,12 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - **批量查询** `POST /api/v1/relationships/batch`: 实体列表间所有 active 关系（L2 Router Pre-Fetch, `=ANY(:ids)` + uq_active_relation 索引）
   - EXPLAIN ANALYZE 确认索引生效; 单测 test_relation_query.py 全过; 生产已部署
   - ⚠️ 关系库本身为空（ISS-004, 待运营/候选审批填充）
+- **Semantic Extraction → Relation Candidate 管道 ✅（§7.1/§6.6, 2026-08-14）**：`POST /api/v1/relations/candidates` 接收 LLM 抽取
+  - effect 空→默认 confirm; 写 relation_candidates(status=pending), **不直接写 entity_relationships**（必须经 Admin 审批, 复用 approve_candidate）
+  - symmetric 关系存储前 min(id)→max(id) 方向标准化; from==to → 400
+  - **幂等**: 同 article + from/to/type/action 1 小时内去重（返回已有候选, deduplicated=true）
+  - 模型补 `metadata` JSONB 列（SQLAlchemy 保留名→属性用 `meta` 映射到 metadata 列）; dev/test/生产已 ALTER
+  - 单测 test_candidate_ingest.py 全过; 生产已部署验证
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
