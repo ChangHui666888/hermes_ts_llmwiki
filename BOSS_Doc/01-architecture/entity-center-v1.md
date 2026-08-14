@@ -480,6 +480,8 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
       - relationships API 增强: 返回 `from_name/to_name` + `relation_weight`（画像拓扑显示实体名/权重/方向）
       - 画像弹窗: **1跳直接关系**（实体名/出入向/类型/权重/conf）+ **2跳间接关联**（邻居的邻居，向各方向展开）
       - 生产验证: 川普→J.D.Vance/KevinWarsh(任命 w0.40)、TSMC 4 条、美国 2 条; 2跳链路展开正常
+      - **浏览器人工检查 ✅**: `check_profile_browser.py`(Playwright+Chrome 无头) — 注入 admin token 打开页面, 确认新版渲染(配置Tab) + 页面内 fetch 校验川普画像 1跳(J.D.Vance/KevinWarsh w0.40)/2跳回环
+      - **坑**: ① nginx 前端页加 Cache-Control no-cache(覆盖 Next.js s-maxage, 需重启容器否则 bind-mount 旧 inode); ② 主前端会话检查会清 localStorage token, 测试注入需 add_init_script 防清除
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
