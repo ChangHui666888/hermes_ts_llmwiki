@@ -210,7 +210,11 @@ LLM/自动抽取 → relation_candidates(pending)
 mention + context → ① 精确匹配 alias.normalized==mention 或 canonical_name==mention (0.95)
                    → ② 双向前缀/短名匹配 (mention≥4 且 alias 长度≥3: alias 开头 / mention 以 alias 开头, 0.70)
                    → ③ 上下文消歧 adjacent_entities 交集 (+0.05)
-                   → 状态: resolved(≥0.60) / ambiguous / unresolved
+                   → ③b 消歧信号(规范§3, 2026-08-14): is_preferred 别名 +0.02 (alias 频度先验)
+                       + entity_type 先验 TYPE_PRIOR_DEFAULT (config_versions.type_prior 可覆盖)
+                       — 同分候选间破平局
+                   → 状态: resolved(≥0.60) / ambiguous / unresolved (无候选不硬匹配)
+                   → method: context_resolution(上下文加分命中) / exact_match
 ```
 
 ⚠ **2026-08-13 修复**（Golden Set 759 库重新生成暴露）:
