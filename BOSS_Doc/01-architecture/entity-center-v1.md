@@ -488,3 +488,43 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 4. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验
 5. **Semantic Extraction 接入**：实体观测的新闻级事实提取（统一入口）待接
 6. **entity_types/subtypes 管理 UI**：当前仅 relation_types/actions 可编辑，实体类型待接
+
+---
+
+## 15. Admin 治理界面使用指南（§9, 2026-08-14）
+
+### 15.1 入口与登录
+
+- **URL**: `http://100.107.117.23/entity-center`（Tailscale 内网）
+- **鉴权**: 复用 web JWT（`level=admin`）或 `X-Admin-Token` 静态 token；未登录时功能不可用
+- **角色矩阵**: admin(3) > operator(2) > llm_agent(1) > readonly(0)
+  - JWT `level` 映射: admin/operator/llm → 对应; 其余/free → readonly
+  - admin: 全部（含 config 切换/Merge/Ontology 写）; operator: 实体管理+候选审批; llm_agent: 只读+候选提交; readonly: 只读
+  - 角色不足 → 403（如 operator 访问配置管理）
+
+### 15.2 五个 Tab 的使用方法
+
+| Tab | 场景 | 用法 |
+|-----|------|------|
+| **候选审批** | Semantic Extraction 抽出的关系候选待人工裁决 | 按状态筛选(pending/approved/rejected) → 单条「批准/拒绝」(拒绝填原因) 或 **勾选多条 → 批量审批**（每候选独立 data_revision） |
+| **实体解析** | 验证 mention → 实体映射质量 | 输入 mention → 显示 candidates/status（resolved/ambiguous/unresolved） |
+| **实体** | 实体库管理 | 搜索/类型/状态过滤 → 编辑（灰底只读字段）→ 废弃/启用 → **画像**（基本信息+关系图谱+别名/标识符）→ **合并** |
+| **Ontology** | 关系类型/动作/映射查看+版本管理 | 查看/筛选/导出/导入; 编辑详情页(灰底只读 code) + 版本历史/回滚 |
+| **配置** | 调整解析阈值等全局参数 | 查看当前 config_version → 编辑参数 → 发布新版本（旧版自动归档，立即生效） |
+
+### 15.3 关键操作细节
+
+- **批量审批**: 勾选 pending 候选 → 「批量审批(N)」；每个候选独立 `data_revision`，失败单个不影响其它（返回 per-candidate 结果）
+- **实体画像**: 点行内「画像」→ 弹窗显示 类型/子类型/重要度/国家/别名/标识符 + **关系图谱**（GET /api/v1/entities/{id}/relationships，symmetric 走视图）；关系库为空时显示"无 active 关系"（ISS-004）
+- **Entity Merge**: 选 source 行「合并」→ 粘贴 target entity_id → 执行。校验：source≠target、source 非 merged、**target 禁链式合并**（target.merged_into_entity_id 必须为空）。执行后 source 标记 merged、别名/标识符迁移到 target、写 audit_log
+- **config 切换**: 修改 `ambiguous_threshold`（解析阈值）、`ewma_alpha`（置信度平滑）等 → 发布为 v+1，旧版自动 archived。**发布后立即对解析生效**（60s 配置缓存）
+
+### 15.4 注意事项（⚠️）
+
+1. **破坏性操作确认**: Merge 和 config 发布不可轻易撤销（Merge 有 audit_log 可追溯，但别名/标识符已迁移；config 可再发布回滚）。执行前确认 source/target 正确。
+2. **Merge 后无法反合并**: 禁链式合并意味着 merged 的实体不能再作为 target；误合并需手工用 SQL/Admin 恢复。
+3. **config 发布影响全局**: 改 ambiguous_threshold 会影响所有解析调用；建议先小步调整并观察 golden set（`python scripts/score_golden_set.py`）。
+4. **候选审批的 action 依赖**: 无 action_id 的候选无法审批（approve 返回 invalid）。
+5. **角色最小化**: operator 足够就别用 admin；X-Admin-Token 是静态令牌，应妥善保管（当前默认 `v8-jwt-secret-2026-...`，生产建议换强密钥）。
+6. **关系库为空**: 画像的关系图谱/时间线依赖关系数据（ISS-004 未填充）；数据流入前图谱区为空属正常。
+7. **前端在真实仓库**: 改前端只改 `search-engine-v2/scripts/news-platform-v8/frontend/`（根 `frontend/` 是陈旧副本勿动）；VPS build 在 compose 完成，本地不 build。
