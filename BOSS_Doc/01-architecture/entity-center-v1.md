@@ -463,6 +463,14 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - 新增 `sync_latency_monitor.py`（积压/最老延迟/卡死, >5min 告警）+ `rebuild_sqlite_mirror.py`（每日全量重建兜底）
   - 端到端验证: 触发器写 outbox → poll → mirror 落库全通（dev）
   - ⚠️ **生产发现**: sync_outbox 积压 5888 条/38h —— **生产 sync daemon 未运行**, 需本地 pipeline 机器 cron 拉起（或容器内跑 run_sync_daemon.py）
+  - **Admin 治理后端 ✅（§9, 2026-08-14）**: 补齐 4 缺口
+    - **角色矩阵**: deps.py `require_role(min_role)` — admin>operator>llm_agent>readonly; JWT level 映射(llm→llm_agent); operator 访问 admin-only → 403
+    - **批量审批**: `POST /admin/candidates/batch-approve` — 每候选独立 data_revision
+    - **Entity Merge**: `POST /admin/entities/{source}/merge` — 校验禁链式合并(target.merged_into_entity_id NULL)/source非merged; 迁移 aliases+identifiers; source→merged; audit_log
+    - **config 切换**: `GET /admin/config/current` + `POST /admin/config/switch` — 发布新 snapshot(ambiguous_threshold/ewma_alpha), 旧版归档
+    - **修复2个真bug**: ① create_config_version 先插后归档违反 partial unique(status=active) → 改为先归档再插; ② 测试库 sync 触发器是旧版(NEW.status直接引用) → 应用 fix_sync_trigger.sql
+    - 单测 test_admin_governance.py 4项全过; 生产已部署验证(角色矩阵403/批量/配置读取)
+    - 📋 **前端 4 模块页面待做**(Candidate审核台/EntityProfile/Merge工具/config切换页)
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
