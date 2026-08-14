@@ -486,8 +486,9 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
-    - `run_sync_prod.bat`（EC_DATABASE_URL=prod + mirror=prod）+ Windows 计划任务 `entity-center-sync` **每分钟** `--once`
-    - 验证: 生产变更 → 触发器 → outbox → daemon → 本地镜像 1 分钟内自动同步（LastTaskResult 0）
+    - `run_sync_prod.bat`（EC_DATABASE_URL=prod + mirror=prod）+ Windows 计划任务 `entity-center-sync` **每 60 分钟** `--once`（2026-08-14 由 1 分钟调低：短期无消费者, 降低负载）
+    - 验证: 生产变更 → 触发器 → outbox → daemon → 本地镜像自动同步（LastTaskResult 0）
+    - ⚠️ **mirror 当前无消费者**（只写不读, grep 确认仅 config 定义路径）；短期保留 daemon 备将来实体接地用, 频率已调至 60 分钟
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
