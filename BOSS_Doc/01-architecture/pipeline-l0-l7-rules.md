@@ -579,7 +579,8 @@ Next.js 16 App Router
 
 ### Fact Layer (L4.5)
 - **GLiNER 多语言**: `GLINER_MODEL = urchade/gliner_multi-v2.1`（mdeberta 骨干, 支持中文）。未下载时自动回退 `gliner_small-v1`（`_get_gliner` local_files_only 快速失败）, 中文实体由 Qwen B 路径兜底。
-- **CJK 配额**: `load_articles` 按 `rr.id DESC`（插入序, 替代坏掉的 published_at）+ Python CJK 配额（≥20%）保证中文文章进 50 篇批。
+- **CJK 配额**: `load_articles` 按 `rr.id DESC`（插入序）+ Python CJK 配额（≥20%）保证中文文章进 50 篇批。
+- **✅ published_at 根治 (2026-08-14, commit 757fcc6)**: 原 rss-scanner `item["published"][:10]` 硬截断日期 → "Mon, 10 Au"; 新增 `_parse_date`（feedparser published_parsed → email.utils RFC822 → ISO 兜底）替换截断; auto-pipeline CONTENT_PUSH 加 `rr.published_at` 携带; 生产回填 `published_at=COALESCE(published_at,fetched_at)`（3315→1 NULL）。存量 "Mon, 10 Au" 已不可逆, 新文章走 ISO。
 - **C 级 CJK GLiNER-only**: C 级中文只跑 GLiNER 出实体（禁 Qwen/不推送）, 输出 `ner_by_article.json` 供聚合器。
 - **离线回退**: 下载失败设 `HF_HUB_OFFLINE=1` 重试; multi 模型不可用时中文聚合仍可用（Qwen 兜底）。
 
