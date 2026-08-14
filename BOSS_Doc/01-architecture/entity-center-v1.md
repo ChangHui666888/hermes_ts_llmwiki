@@ -457,6 +457,12 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - **修复规范违背**: effect=terminate 但无 active 关系时, 原代码误走新建分支 → 改为 warning 不失败不新建
   - 单测 test_approve_flow.py 5项全过: **10线程并发审批只建1关系1观测** / terminate无active不新建 / terminate停用(valid_to,不物理删除) / 重复审批幂等 / EWMA(0.3*new+0.7*old=0.65)
   - 生产已部署; 并发控制=候选 SKIP LOCKED + 实体对 FOR UPDATE 序列化
+- **PG→SQLite 同步服务补齐 ✅（§10, 2026-08-14）**：既有 run_sync_daemon(30s) + sync.py(10表镜像/重试) + 触发器函数; 本次补齐
+  - **dev 库应用 10 个 sync 触发器**（apply_sync_triggers.py, 幂等, 读 fix_sync_trigger.sql）
+  - **sync.py 重试修复**: 原 apply_batch 失败行也被标记 synced 不重试 → 改为失败行保持 synced_at NULL + sync_attempts++ + last_error, 超 **5 次告警**
+  - 新增 `sync_latency_monitor.py`（积压/最老延迟/卡死, >5min 告警）+ `rebuild_sqlite_mirror.py`（每日全量重建兜底）
+  - 端到端验证: 触发器写 outbox → poll → mirror 落库全通（dev）
+  - ⚠️ **生产发现**: sync_outbox 积压 5888 条/38h —— **生产 sync daemon 未运行**, 需本地 pipeline 机器 cron 拉起（或容器内跑 run_sync_daemon.py）
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
