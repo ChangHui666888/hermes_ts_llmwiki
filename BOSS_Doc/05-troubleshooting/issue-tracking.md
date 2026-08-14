@@ -41,6 +41,7 @@
 | [ISS-20260811-021](#iss-20260811-021) | 08-11 | P3  | 实体库      | in_segment 混入非赛道概念(AI巨头/出口管制/降息/加息/战争/国防)                                | `companies.yaml`/`industries.yaml`      | 🆕 待处理 | sub_segments 指向政策/主题/状态标签类 Industry 实体, 非细分赛道                                        | 剔除/改类非赛道词(政策/主题/标签)                                     |                 —                              |   —   |
 | [ISS-20260811-022](#iss-20260811-022) | 08-11 | P3  | 实体库      | 实体命名不一致致关系分裂(Kulicke & Soffa 双ID / ASML HOLDING / Tongfu 2ID)                | KB 合并/backfill upsert                 | 🆕 待处理 | 大小写/后缀不一致 + 名称 upsert 无规范化 → 同公司多实体行                                            | 名称规范化(canonical) + 合并重复实体                                  |                 —                              |   —   |
 | [ISS-20260811-023](#iss-20260811-023) | 08-11 | P3  | 实体库      | 关系覆盖大量丢失 — in_industry(260)全丢 + 子公司未解析被静默丢弃                              | `companies.yaml`/`backfill_entity_model.py` | 🆕 待处理 | industry 自由文本非实体名; 子公司(VMware/TikTok等)无独立实体 → to_id 解析失败丢弃                            | 行业文本→实体映射 + 补子公司实体/宽松解析                                |                 —                              |   —   |
+| [ISS-20260814-024](#iss-20260814-024) | 08-14 | P1  | 采集       | 生产 scanner 回退 12 兜底源 — VPS `rss.feeds` 行丢失致 196 源同步中断                           | `rss.feeds`/config-agent/export-internal | 🆕 待处理 | VPS settings 表 `rss.feeds` 行近期丢失 → export 不含 → config-agent 拉不到源 → scanner 回退 CORE_FALLBACK_FEEDS(12) | 恢复 VPS `rss.feeds`(196源清单; 内置仅94; state 199源名无URL)          |                 —                              |   —   |
 | [ISS-20260711-001](#iss-20260711-001) | 07-11 | P1  | Pipeline | db.close() 后查询崩溃                                                          | `news_intel/pipeline.py:141-150`        | ✅ 已关闭  | close 后仍执行查询                                                                                     | 统计移到 close 前                                            |                            运行通过                            | 07-11 |
 
 ---
@@ -306,6 +307,14 @@ CLOSED ──稳定一段时间──→ ARCHIVED(已归档)  → 细节整理�
 - **根因**: ①`industry` 字段为自由文本(非实体名)→ backfill `to_id` 解析失败丢弃; ②子公司在 KB 无独立实体 → 关系静默丢失。
 - **解决**: ①行业自由文本→实体映射(如 Semiconductor→半导体/半导体设备); ②补子公司实体或支持关系指向"未解析名"(宽松解析/创建占位实体)。
 - **验证**: — · **关联**: ISS-20260811-020 · ISS-20260807-004
+
+### ISS-20260814-024 生产 scanner 回退 12 兜底源 — VPS `rss.feeds` 行丢失致 196 源同步中断
+- **发现**: 2026-08-14 · **严重**: P1 · **分类**: 采集 · **状态**: 🆕 待处理
+- **现象**: 生产 `rss-scanner` 只扫 **12 个 CORE_FALLBACK_FEEDS**(报告 `feeds_total: 12`, 活跃 9), 非兜底 196 源全停更。`rss-archive.db` 近 1d 仅 6 个兜底源产出 288 篇; `rss-scanner-state.json` 199 源中仅 9 个 <1h 扫描, 183 个停在 1-7 天前, 7 个从未扫。排查时经 2026-08-14 时区功能全链路验证暴露。
+- **复现**: 查 `~/.hermes/rss-scanner-report.json`(`feeds_total: 12`) + `~/.hermes/rss-scanner-state.json`(last_scan 分布) + `rss-archive.db`(source 分布)。
+- **根因**: VPS settings 表 `rss.feeds` 行**近期丢失**(export-internal 返回 97 键不含 rss.feeds, `_flat_from_db` 只导 DB 行+SEED_CONFIG, SEED_CONFIG 无 rss.feeds) → config-agent 拉不到源 → 不写本地 pipeline-config.json → scanner `_load_feeds()` 读 `cfg.get("rss.feeds")` 为空 → 回退 CORE_FALLBACK_FEEDS(12)。内置 `RSS_FEEDS` 仅 94 源, 无 DB 行时 config center 显示兜底, 不落库 → 导出仍无。
+- **解决**: 恢复 VPS `rss.feeds` 196 源清单入 settings 表(来源待定: state 有 199 源名无 URL; 内置/迁移 JSON 仅 94; 或 VPS 备份/配置中心导出)。可考虑将 feeds 并入 `SEED_CONFIG` 或 export-internal 强制携带, 防再次静默丢失。
+- **验证**: — · **关联**: ISS-20260808-003 · [feed-registry-v4.md](../04-config/feed-registry-v4.md)
 
 ### ISS-20260808-003 配置中心 ~61 源死链(404/403) 静默0抓
 - **发现**: 2026-08-08 · **严重**: P2 · **分类**: 配置 · **状态**: 📋 观察
