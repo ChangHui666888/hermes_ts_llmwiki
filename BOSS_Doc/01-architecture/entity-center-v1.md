@@ -470,7 +470,11 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
     - **config 切换**: `GET /admin/config/current` + `POST /admin/config/switch` — 发布新 snapshot(ambiguous_threshold/ewma_alpha), 旧版归档
     - **修复2个真bug**: ① create_config_version 先插后归档违反 partial unique(status=active) → 改为先归档再插; ② 测试库 sync 触发器是旧版(NEW.status直接引用) → 应用 fix_sync_trigger.sql
     - 单测 test_admin_governance.py 4项全过; 生产已部署验证(角色矩阵403/批量/配置读取)
-    - 📋 **前端 4 模块页面待做**(Candidate审核台/EntityProfile/Merge工具/config切换页)
+    - **前端 4 模块 ✅（2026-08-14）**: 在现有单页多Tab加
+      - 候选审批 Tab: 复选框批量选择 + 批量审批按钮(batch-approve)
+      - 实体 Tab: 「画像」弹窗(基本信息/关系图谱via symmetric view/别名/标识符) + 「合并」弹窗(source→target)
+      - 新增「配置」Tab: 当前 config_version 查看 + 参数编辑(ambiguous_threshold/ewma_alpha) + 发布新版本(旧版归档)
+      - 修复 loadConfig TDZ (useEffect依赖前声明); VPS build 验证 + 已部署, 页面200/含新功能
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
