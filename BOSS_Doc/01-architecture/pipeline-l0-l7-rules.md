@@ -582,7 +582,8 @@ Next.js 16 App Router
 - **CJK 配额**: `load_articles` 按 `rr.id DESC`（插入序）+ Python CJK 配额（≥20%）保证中文文章进 50 篇批。
 - **✅ published_at 根治 (2026-08-14, commit 757fcc6 + d7fac21)**: 原 rss-scanner `item["published"][:10]` 硬截断日期 → "Mon, 10 Au"; 新增 `_parse_date`（feedparser published_parsed → email.utils RFC822 → ISO → 长月/斜杠/Unix时间戳兜底）替换截断; auto-pipeline CONTENT_PUSH 加 `rr.published_at` 携带; 生产回填 `published_at=COALESCE(published_at,fetched_at)`（3315→1 NULL）。
 - **✅ 日期格式全覆盖审计 (2026-08-14)**: 穷举 **17 种格式 100% 解析**——RFC822 全变体(标准/时区/横线/仅日期部分)、ISO 全变体(Z/毫秒/负时区/空格/仅日期)、英文月日(长月 August/短月 Aug/AMPM)、斜杠日期(美式 M/D、欧式 D/M、歧义默认 M/D)、紧凑 YYYYMMDD、Unix 时间戳；本地 rss_raw 实测主要两类：ISO 日期 + RFC822 截断（后已根治）。
-- **✅ 时区归一 (2026-08-14, commit d03348d)**: `_parse_date` 对 **aware datetime 统一转 UTC**（`astimezone(UTC)`）——6 种时区表示的同一时刻输出一致（`08:00-04:00`/`12:00+00:00`/`13:00+01:00` 均 → `12:00:00`）；naive 无时区日期保持原样（无法转换）。修复前跨时区文章按字符串排序会错。存量 "Mon, 10 Au" 已不可逆, 新文章走 ISO(UTC)。
+- **✅ 时区归一 (2026-08-14, commit d03348d)**: `_parse_date` 对 **aware datetime 统一转 UTC**（`astimezone(UTC)`）——6 种时区表示的同一时刻输出一致（`08:00-04:00`/`12:00+00:00`/`13:00+01:00` 均 → `12:00:00`）；naive 无时区日期保持原样（无法转换）。修复前跨时区文章按字符串排序会错。
+- **✅ naive 日期按源时区推断 (2026-08-14, commit f9bb8cc)**: `feed_timezones.py` 映射 **199 源 → 国家/地区 → IANA 时区**（US东67/US西31/伦敦17/上海14/巴黎6/莫斯科3/东京3…）；`_parse_date(e, tz_name)` 对 naive 日期附着源时区→转 UTC（上海13:42→05:42UTC、纽约→17:42UTC、东京09:00→00:00UTC）；**已带时区的源直接用其偏移**（优先于推断）；无源时区保持 naive。199/199 覆盖。存量 "Mon, 10 Au" 已不可逆, 新文章走 ISO(UTC)。
 - **C 级 CJK GLiNER-only**: C 级中文只跑 GLiNER 出实体（禁 Qwen/不推送）, 输出 `ner_by_article.json` 供聚合器。
 - **离线回退**: 下载失败设 `HF_HUB_OFFLINE=1` 重试; multi 模型不可用时中文聚合仍可用（Qwen 兜底）。
 
