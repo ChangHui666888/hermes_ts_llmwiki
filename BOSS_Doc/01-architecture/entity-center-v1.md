@@ -453,6 +453,10 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - **幂等**: 同 article + from/to/type/action 1 小时内去重（返回已有候选, deduplicated=true）
   - 模型补 `metadata` JSONB 列（SQLAlchemy 保留名→属性用 `meta` 映射到 metadata 列）; dev/test/生产已 ALTER
   - 单测 test_candidate_ingest.py 全过; 生产已部署验证
+- **Candidate→Active 审批流程校验 ✅（§7.2, 2026-08-14）**：现有 approve_candidate 已覆盖 Evidence/FOR UPDATE SKIP LOCKED/terminate分支/EWMA(α=0.3)/新建+stats/data_revision/reviewed
+  - **修复规范违背**: effect=terminate 但无 active 关系时, 原代码误走新建分支 → 改为 warning 不失败不新建
+  - 单测 test_approve_flow.py 5项全过: **10线程并发审批只建1关系1观测** / terminate无active不新建 / terminate停用(valid_to,不物理删除) / 重复审批幂等 / EWMA(0.3*new+0.7*old=0.65)
+  - 生产已部署; 并发控制=候选 SKIP LOCKED + 实体对 FOR UPDATE 序列化
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
