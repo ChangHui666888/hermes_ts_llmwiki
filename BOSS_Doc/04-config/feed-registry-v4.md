@@ -24,7 +24,7 @@
 
 ## 2. V4 Feed Registry 设计
 
-### 2.1 统一元数据 Schema（10 字段）
+### 2.1 统一元数据 Schema（12 字段）
 
 ```json
 {
@@ -37,7 +37,9 @@
   "type": "rss",
   "importance": "S",
   "region": "intl",
-  "tier": "hot"
+  "tier": "hot",
+  "enabled": true,
+  "timezone": ""
 }
 ```
 
@@ -53,6 +55,8 @@
 | `importance` | 全局重要性 | S / A / B / C | 动态调度/资源分配（S=最高） |
 | `region` | 网络路由 | intl / cn | 境外走代理 / 国内直连（现有） |
 | `tier` | 扫描频率 | hot / warm / cold | 现有 TIER 表（hot 高频） |
+| `enabled` | 启用状态 | true / false | 扫描开关（默认 true） |
+| `timezone` | IANA 时区 | Asia/Shanghai / America/New_York | **空=自动推断**（`feed_timezones.py` 按源名匹配）；naive 日期按此转 UTC（2026-08-14） |
 
 ### 2.2 16 大类分类法（替代现有 10 类）
 
@@ -269,7 +273,7 @@ Dev.to / https://dev.to/feed · Stack Overflow Blog / https://stackoverflow.blog
 
 | 脚本 | 消费字段 | 用途 | V4 状态 |
 |------|----------|------|:-------:|
-| **config-agent.py** (`scripts/hermes-cron/`) | 全部 11 字段 (name/url/region/tier/category/subcategory/country/language/type/importance/enabled) | 从 VPS `/admin/pipeline/config/export-internal` 拉取 → 白名单 `_sanitize_feeds` 校验 → 写本地 `pipeline-config.json` | ✅ V4 |
+| **config-agent.py** (`scripts/hermes-cron/`) | 全部 12 字段 (name/url/region/tier/category/subcategory/country/language/type/importance/enabled/timezone) | 从 VPS `/admin/pipeline/config/export-internal` 拉取 → 白名单 `_sanitize_feeds` 校验 → 写本地 `pipeline-config.json` | ✅ V4 |
 | **rss-scanner.py** (`scripts/hermes-cron/`) | `url`(抓取) · `region`(intl→SOCKS5 代理/cn→直连) · `tier`(hot/warm/cold 扫描顺序) · `name`(源名落库) · `category`(分类落库) · `enabled`(启停) | RSS 扫描引擎 → `rss_articles` 表 | ✅ V4 (P4) |
 | **scorer.py** (`scripts/news_intel/`) | `importance` (S/A/B/C/D → 20/15/11/8/5 兜底分) | `score_source` 来源权威度维度（source_scores.json 197 源综合评分表优先） | ✅ V4 |
 | **sources_v1.py** (`apps/api/routes/`) | `category`（按源名模糊匹配） | 公共 `/sources` 页 16 类徽章 | ✅ V4 |
