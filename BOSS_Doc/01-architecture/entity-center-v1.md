@@ -475,6 +475,11 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
       - 实体 Tab: 「画像」弹窗(基本信息/关系图谱via symmetric view/别名/标识符) + 「合并」弹窗(source→target)
       - 新增「配置」Tab: 当前 config_version 查看 + 参数编辑(ambiguous_threshold/ewma_alpha) + 发布新版本(旧版归档)
       - 修复 loadConfig TDZ (useEffect依赖前声明); VPS build 验证 + 已部署, 页面200/含新功能
+    - **关系数据导入 + 画像拓扑 ✅（2026-08-14）**:
+      - `import_kb_relations.py`: 从 KB `entity-network.json` 导入 27 关联 → 23 条 active 关系（4 条因实体不在759库跳过）；type→relation_type/action 映射（appoints→PERSONNEL_MOVEMENT/APPOINTS、conflicts→MILITARY_CONFLICT/ATTACKS…）；走 create_candidate→approve（独立 revision/observation/stats）；dev+生产已导入
+      - relationships API 增强: 返回 `from_name/to_name` + `relation_weight`（画像拓扑显示实体名/权重/方向）
+      - 画像弹窗: **1跳直接关系**（实体名/出入向/类型/权重/conf）+ **2跳间接关联**（邻居的邻居，向各方向展开）
+      - 生产验证: 川普→J.D.Vance/KevinWarsh(任命 w0.40)、TSMC 4 条、美国 2 条; 2跳链路展开正常
   - **方案B 落地 ✅（2026-08-14）**: 生产 postgres 暴露 5432 → 本地 cron 同步
     - VPS compose entity-center-postgres 加 `ports: 5432:5432`（Tailscale 内网）
     - 本地全量重建 `data/entity_center_mirror_prod.db`（759实体/2803别名）
