@@ -433,6 +433,9 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
   - **第二批** 72 家公司补 63 条：世界500腰部（IBM/巴斯夫/卡特彼勒/耐克/德州仪器/淡水河谷/通用电气/日立/阿斯利康…）+ 中国产业链/国企（宁德时代/长飞光纤/西部超导/兆易创新/中科三环 + 中金CICC/小米Xiaomi/迈瑞Mindray/隆基LONGi/宝钢Baosteel/网易NetEase…）
   - 累计 109 家覆盖；验证 59/59 解析、黄金集 71/71=100%
   - **剩余生僻 ~110 家别名仍薄**（Suzhou Yuanguang/Rocket Pi/Goumax/CIG 等，避免写错跳过，待运营补录或专项）
+- **Ontology 完整性校验 ✅（2026-08-14, 7/7 PASS）**：对照 `ontology/*.yaml` 权威源 + §5.1/5.3/5.4
+  - entity_types **16/16** 一致 · entity_subtypes **27** 复合FK无游离 · relation_types **17/17** 属性(weight/directionality/event_enabled)逐条一致 · actions **139** metadata{en,zh,past,noun,patterns}结构完整 · N:N映射 **137** weight全有 context词表[corporate/default/financial] · entities复合FK 0不匹配
+  - **发现并修复**: `entity_identifiers` 缺 `entity_id` 索引（仅 pk+uq(scheme,identifier)）→ 模型补 `Index("idx_identifiers_entity","entity_id")` + dev/生产 `CREATE INDEX IF NOT EXISTS`（commit c9fbca3）；现 3 索引齐
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
