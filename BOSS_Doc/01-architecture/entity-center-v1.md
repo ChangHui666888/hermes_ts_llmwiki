@@ -440,6 +440,13 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 - **Ontology 完整性校验 ✅（2026-08-14, 7/7 PASS）**：对照 `ontology/*.yaml` 权威源 + §5.1/5.3/5.4
   - entity_types **16/16** 一致 · entity_subtypes **27** 复合FK无游离 · relation_types **17/17** 属性(weight/directionality/event_enabled)逐条一致 · actions **139** metadata{en,zh,past,noun,patterns}结构完整 · N:N映射 **137** weight全有 context词表[corporate/default/financial] · entities复合FK 0不匹配
   - **发现并修复**: `entity_identifiers` 缺 `entity_id` 索引（仅 pk+uq(scheme,identifier)）→ 模型补 `Index("idx_identifiers_entity","entity_id")` + dev/生产 `CREATE INDEX IF NOT EXISTS`（commit c9fbca3）；现 3 索引齐
+- **Relation 查询层补齐 ✅（§6.5, 2026-08-14）**：在既有 `v_symmetric_relations` 视图（canonical_from/to/is_reversed 正确）上补齐
+  - 关系详情: from/to canonical 名称 + relation_type_name + confidence
+  - **7d/30d 观测统计**: relation_observation_stats 优先, 表空回退实时 COUNT（`idx_observations_relation_time` Index Only Scan）
+  - 最新 5 条观测（action/effect/polarity/event_at）
+  - **批量查询** `POST /api/v1/relationships/batch`: 实体列表间所有 active 关系（L2 Router Pre-Fetch, `=ANY(:ids)` + uq_active_relation 索引）
+  - EXPLAIN ANALYZE 确认索引生效; 单测 test_relation_query.py 全过; 生产已部署
+  - ⚠️ 关系库本身为空（ISS-004, 待运营/候选审批填充）
 
 ### 14.2 剩余
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
