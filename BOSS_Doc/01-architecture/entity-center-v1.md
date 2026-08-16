@@ -1,8 +1,8 @@
 # Entity Center V1 — 完整报告
 
-> 版本: v1.0 · 2026-08-12 · Clean Slate 实现完成
+> 版本: v1.1 · 2026-08-16 与环境一致性核对更新（原 v1.0 2026-08-12）
 > 定位: 统一实体与关系基础设施，独立 `entity_center` schema，与 news_intel 系统**零耦合**
-> 相关: [knowledge-base.md](knowledge-base.md) · [entity-relationships.md](entity-relationships.md) · [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md)
+> 相关: [knowledge-base.md](knowledge-base.md) · [entity-relationships.md](entity-relationships.md) · [entity-management-pipeline-analysis.md](entity-management-pipeline-analysis.md) · [entity-center-v1-audit-2026-08-16.md](entity-center-v1-audit-2026-08-16.md)（基线符合度审计）
 
 ---
 
@@ -46,7 +46,7 @@ Entity Center 是新闻情报系统中的**统一实体与关系基础设施**�
 ## 3. 系统架构
 
 ```
-              Semantic Extraction (统一入口, 未来接)
+              Semantic Extraction (统一入口 /api/v1/relations/candidates 已建, search-engine-v2 流水线未接)
                         │
            ┌────────────┼────────────┐
            ▼            ▼            ▼
@@ -74,7 +74,7 @@ Entity Center 是新闻情报系统中的**统一实体与关系基础设施**�
 |----|---------|------|
 | `entity_types` | id(PK), code UNIQUE, name, description, status | 16 种一级类型 |
 | `entity_subtypes` | id(PK), entity_type_id FK, code, name, UNIQUE(entity_type_id, code), UNIQUE(id, entity_type_id 复合外键用) | 二级类型（27 条） |
-| `entities` | id(PK), canonical_name, entity_type_id FK, subtype_id(复合FK), importance(0-100), importance_source, status(active/inactive/merged/deprecated), merged_into_entity_id(自引用FK), description, metadata JSONB | 实体主表（100 人工导入） |
+| `entities` | id(PK), canonical_name, entity_type_id FK, subtype_id(复合FK), importance(0-100), importance_source, status(active/inactive/merged/deprecated), merged_into_entity_id(自引用FK), description, metadata JSONB | 实体主表（759 实体，脚本幂等批量导入） |
 | `entity_aliases` | id(PK), entity_id FK, alias, normalized(索引), language, alias_type, is_preferred, confidence, valid_from/to | 别名（精确匹配走 idx_aliases_normalized） |
 | `entity_identifiers` | id(PK), entity_id FK, scheme(kb_v1_id/legacy_pg_id/ticker/isin/wikidata/iso_alpha3/cik), identifier, source, confidence, UNIQUE(scheme, identifier) | 外部标识符 |
 
@@ -150,7 +150,7 @@ sync_outbox (触发器写入, 供 SQLite mirror)
 v_symmetric_relations (视图: entity_relationships × relation_types)
 ```
 
-### 4.6 数据量（2026-08-13 生产实测）
+### 4.6 数据量（2026-08-16 生产实测）
 
 | 项 | 生产 |
 |----|:---:|
@@ -160,22 +160,26 @@ v_symmetric_relations (视图: entity_relationships × relation_types)
 | actions | 139 |
 | relation_action_mappings | 137 |
 | **实体总数** | **759** |
-| entity_aliases | ~4000（全实体中英别名） |
-| entity_identifiers | 含 kb_v1_id + ticker（105 公司股票代码） |
-| ontology_versions | 199+（含 v0 种子基线） |
-| config_versions | 1 |
+| entity_aliases | **2803**（中英/本地语别名） |
+| entity_identifiers | 220（kb_v1_id + ticker + iso_alpha3 等） |
+| ontology_versions | **229**（含 v0 种子基线） |
+| config_versions | **4**（v1 种子 + 后续发布） |
+| active 关系 | **23**（KB entity-network 导入） |
+| relation_candidates | 23（pending） |
+| relation_observations | 23 |
+| sync_outbox 积压 | 0（已同步） |
 
-### 4.7 实体库构成（2026-08-13，759 实体）
+### 4.7 实体库构成（2026-08-16，759 实体）
 
 | 类型 | 数量 | 内容 |
 |------|:--:|------|
-| COMPANY | 199 | 世界500强105 + 产业链龙头59 + 原始公司 |
+| COMPANY | **196** | 世界500强105 + 产业链龙头59 + 原始公司 |
 | COUNTRY | 192 | 全球国家（六维评分：军事/金融/科技/矿产/能源/地理） |
 | MILITARY_ORGANIZATION | 116 | 全球武装力量（中英/本地语别名） |
 | LOCATION | 63 | 重要城市（首都≥70/核心<100） |
-| GOVERNMENT | 48 | 核心国家金融监管/国防/科技/工业机构 |
+| GOVERNMENT | **49** | 核心国家金融监管/国防/科技/工业机构 |
 | INTERNATIONAL_ORGANIZATION | 40 | 国际机构（联合国/NATO/IMF等） |
-| FINANCIAL_INSTITUTION | 31 | 央行/商业银行/投行 |
+| FINANCIAL_INSTITUTION | **30** | 央行/商业银行/投行 |
 | COMMODITY | 30 | 大宗商品（能源/金属/农产品） |
 | PERSON | 26 | 评分>60国家领导人 |
 | CURRENCY | 17 | 全球主要货币 |
@@ -225,26 +229,49 @@ mention + context → ① 精确匹配 alias.normalized==mention 或 canonical_n
 
 ### 5.3 PG → SQLite Mirror 同步
 
-- 触发器自动写 `sync_outbox`（INSERT/UPDATE/DEACTIVATE）
-- 同步守护 `run_sync_daemon.py` 每 30s 轮询 → SQLite 只读 mirror（10 表，Tombstone）
+- 触发器自动写 `sync_outbox`（INSERT/UPDATE/DEACTIVATE/DELETE，10 表，同事务 ACID）
+- 同步守护 `run_sync_daemon.py`：连续运行每 30s 轮询；**生产用 Windows 计划任务 `entity-center-sync` 每 60 分钟 `--once`**（2026-08-14 由 1 分钟调低，短期无消费者降低负载）→ SQLite 只读 mirror（10 表，Tombstone）
+- mirror 当前**无消费者**（search-engine-v2 零读取，grep 确认仅 config 定义路径），保留备未来实体接地
 
 ---
 
-## 6. API 契约
+## 6. API 契约（2026-08-16 全量核对）
+
+### 公开 API（`/api/v1`）
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|:---:|------|
 | POST | `/api/v1/resolve` | 公开 | mention → candidates + selected + status |
-| GET | `/api/v1/entities/{id}/relationships` | 公开 | 实体所有关系（directed + symmetric 统一） |
-| GET | `/api/v1/relationships/{id}` | 公开 | 关系详情 + 观测时间线 |
-| GET | `/admin/candidates?status=` | Admin | 候选列表 |
-| POST | `/admin/candidates/{id}/approve` | Admin | 审批（含 TERMINATE 分支） |
-| POST | `/admin/candidates/{id}/reject` | Admin | 拒绝 |
-| GET | `/admin/ontology` | Admin | Ontology 只读浏览 |
-| GET | `/admin-ui` | Admin | Admin 管理页（静态） |
-| GET | `/health` | 公开 | 健康检查 |
+| GET | `/api/v1/entities/{id}/relationships` | 公开 | 实体所有关系（directed + symmetric 统一，含 from/to 名称+权重） |
+| GET | `/api/v1/relationships/{id}` | 公开 | 关系详情 + 7d/30d 统计 + 最近观测 + timeline |
+| POST | `/api/v1/relationships/batch` | 公开 | 实体列表间 active 关系（L2 Pre-Fetch 数据源） |
+| POST | `/api/v1/relations/candidates` | 公开* | Semantic Extraction 候选接收（effect 默认 confirm，1h 幂等） |
 
-**鉴权**: 复用现有 web JWT（HS256，payload.level='admin'）+ `X-Admin-Token` 静态兜底。
+### Admin API（`/admin`，需 admin JWT）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET/POST | `/admin/candidates` / `/admin/candidates/{id}/approve` `/reject` / `/batch-approve` | 候选列表/审批(含 TERMINATE)/拒绝/批量(每候选独立 revision) |
+| GET/POST/PATCH | `/admin/entities` `/admin/entities/{id}` `/status` `/merge` | 实体 CRUD + 状态 + 合并(禁链式) |
+| GET | `/admin/entity-types` | 类型+子类型下拉 |
+| GET/POST/PATCH | `/admin/ontology` `/admin/ontology/{kind}` `/admin/ontology/{kind}/{code}` `/status` | Ontology CRUD + 状态 |
+| GET/POST | `/admin/ontology/export` `/admin/ontology/import` | 全量导出/导入(冲突检查) |
+| GET/POST | `/admin/ontology/{kind}/{code}/versions` `/rollback` | 条目版本历史/回滚 |
+| GET | `/admin/ontology/meta` | 可编辑字段规则 |
+| GET/POST | `/admin/export/{kind}` `/admin/import/{kind}` | CSV 导出/导入(实体/关系/动作/类型/子类型) |
+| GET | `/admin/config/current` | 当前 active 配置 |
+| POST | `/admin/config/switch` | 发布新版本(旧版归档) |
+| GET | `/admin/config/versions` | 版本列表(含 snapshot 参数) |
+| POST | `/admin/config/rollback` | 回退到指定版本 |
+| GET | `/admin-ui` | Admin 管理页（静态） |
+
+### 其他
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/health` | 健康检查 |
+
+**鉴权**: 复用现有 web JWT（HS256，payload.level='admin'）+ `X-Admin-Token` 静态兜底（默认 = `EC_ADMIN_JWT_SECRET`）。
+⚠ **`/api/v1/relations/candidates` 当前无鉴权**（任意可提交，§9.1 llm_agent 角色未落实，见 §14.2）。
 
 ---
 
@@ -271,37 +298,42 @@ docker compose restart nginx                                                 # n
 
 | 项 | dev | test | 生产 |
 |----|-----|------|------|
-| DB | VPS `entity-center-postgres` 容器 :5433 | 同容器 `entity_center_test` 库 | compose 内 `entity-center-postgres` |
+| DB | VPS `entity-center-postgres` 容器 **:5432**（2026-08-14 方案B 起暴露） | 同容器 `entity_center_test` 库 | compose 内 `entity-center-postgres` |
 | 连接 | `EC_DATABASE_URL` (.env) | conftest | 容器内 env |
 
 ---
 
 ## 8. 前端集成（并入 Next.js）
 
-- `frontend/src/app/entity-center/page.tsx`: 候选审批/实体解析/Ontology 三 Tab，Bearer JWT 复用现有登录
+- `frontend/src/app/entity-center/page.tsx`: **5 Tab（候选审批/实体解析/实体/Ontology/配置）**，Bearer JWT 复用现有登录
 - `Sidebar.tsx` ADMIN 段 + `🧬 Entity Center` 导航
 - 页面调用 `/entity-center/api/*`（nginx 代理到 entity_center 后端）
+- 实体 Tab 含「画像」弹窗（关系图谱 1跳+2跳展开）与「合并」弹窗；配置 Tab 支持版本发布/列表/回退
 
 ---
 
-## 9. 实体导入（先 100 条）
+## 9. 实体导入
 
-`scripts/import_entities.py`：从 `references/entity-network.json` 精选 100 实体（15 国 + 8 组织 + 高分公司/人物），幂等批量 upsert。
+**首批**（2026-08-12）：`scripts/import_entities.py` 从 `references/entity-network.json` 精选 100 实体（15 国 + 8 组织 + 高分公司/人物），幂等批量 upsert → 生产 100 实体 + 100 别名。
 
-**已导入生产 100 实体 + 100 别名**（canonical 为唯一别名）。
+**后续扩展**（2026-08-13，脚本幂等批量）：759 实体 / 2803 别名 / 220 标识符（世界500强、产业链龙头、全球国家、军队、城市、政府机构、国际组织、货币、金融机构、大宗商品、领导人等，详见 §4.7 / §13.2）。
 
 ---
 
 ## 10. 测试与验收
 
-### 10.1 pytest（20 项全过）
+### 10.1 pytest（37 项全过，2026-08-16）
 
 | 模块 | 覆盖 |
 |------|------|
 | test_uuidv7 (5) | 版本/变体/单调/可注入时钟 |
-| test_resolution (8) | 精确/unresolved/空/上下文/阈值 + canonical无别名可解析 + 短别名不误报前缀 + 前缀回归 |
+| test_resolution (11) | 精确/unresolved/空/上下文/阈值 + canonical无别名可解析 + 短别名不误报前缀 + type-prior + alias 频度 |
 | test_upsert (5) | 新建关系/EWMA+TERMINATE/追加观测/幂等+拒绝/缺 action |
-| test_api (5) | health/resolve/鉴权/Ontology |
+| test_api (5) | health/resolve/鉴权/空 mention |
+| test_approve_flow (5) | 10线程并发只建1关系/terminate无active不新建/terminate停用/重复审批幂等/EWMA |
+| test_candidate_ingest (1) | symmetric 标准化/幂等/缺省 effect/from==to/不直写关系表 |
+| test_relation_query (1) | 查询层 directed+symmetric/详情/7d30d/批量 |
+| test_admin_governance (4) | 角色矩阵/批量审批独立 revision/Entity Merge/config 切换 |
 
 ### 10.2 Golden Set（LLM 辅助标注）
 
@@ -494,9 +526,13 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 1. **真实缩写缺口**（未入基准，运营可补）：COL/DEU/TJK/TJ/BCN 等 ISO/机场码 — 3 字符有前缀碰撞风险，需配合上下文消歧策略再决定
 2. **数据模块与 DB 漂移**：companies_data 等 canonical（Volkswagen Group/Ping An Insurance）与 DB 去重后 canonical（Volkswagen/中国平安）不一致；LG Energy/国家集成电路基金二期不在任何数据模块 — 需运营对齐权威源
 3. **多跳推理**：`relation_multihop_rules` 仅建表，V2 实现
-4. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验
-5. **Semantic Extraction 接入**：实体观测的新闻级事实提取（统一入口）待接
-6. **entity_types/subtypes 管理 UI**：当前仅 relation_types/actions 可编辑，实体类型待接
+4. **Signal Engine**：Pre/Post-Extract Signal 公式不冻结，V1 策略化实验；**当前零实现**（仅 stats 预聚合 + batch 数据源，无 signal service）
+5. **Semantic Extraction 流水线接入**：统一入口 `POST /api/v1/relations/candidates` **已建**（2026-08-14，接收/幂等/不直写关系表）；但 **search-engine-v2 的 fact_pipeline 未接**（仍走本地 canonicalizer + KB V1 YAML 自产自销，不产生 candidate）— 见 [entity-center-v1-audit-2026-08-16.md](entity-center-v1-audit-2026-08-16.md) §4.2
+6. **entity_types/subtypes 管理 UI**：✅ **已完成**（2026-08-13，Ontology Tab 支持实体类型/子类型列表/状态/编辑/新增/CSV）
+7. **stats 后台任务**：`relation_observation_stats` 5min 更新 trend_score 的定时任务**未实现**（trend_score 仅新建时写死 0.50，`trend_score_multiplier`/`min_entity_importance_for_signal` 为死配置）
+8. **每周全量一致性校验**：PG↔SQLite 无 row-count/checksum 比对脚本（只有全量重建）
+9. **性能 SLO**：resolve 精确 P99<50ms / 消歧<200ms 未达标（远程 VPS 网络主导，dev P50≈634ms），无运行时监控
+10. **候选提交端点鉴权**：`/api/v1/relations/candidates` 无鉴权，§9.1 llm_agent 角色未落实
 
 ---
 
@@ -527,6 +563,7 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 - **实体画像**: 点行内「画像」→ 弹窗显示 类型/子类型/重要度/国家/别名/标识符 + **关系图谱**（GET /api/v1/entities/{id}/relationships，symmetric 走视图）；关系库为空时显示"无 active 关系"（ISS-004）
 - **Entity Merge**: 选 source 行「合并」→ 粘贴 target entity_id → 执行。校验：source≠target、source 非 merged、**target 禁链式合并**（target.merged_into_entity_id 必须为空）。执行后 source 标记 merged、别名/标识符迁移到 target、写 audit_log
 - **config 切换**: 修改 `ambiguous_threshold`（解析阈值）、`ewma_alpha`（置信度平滑）等 → 发布为 v+1，旧版自动 archived。**发布后立即对解析生效**（60s 配置缓存）
+- **版本记录 + 回退（2026-08-16 补）**: 配置 Tab 下方"已发布版本记录"列表（v/状态/说明/发布时间/参数 snapshot）；非 active 版本可点「回退」→ 归档当前 active、目标版本置 active（`GET /admin/config/versions` + `POST /admin/config/rollback`）
 
 ### 15.4 注意事项（⚠️）
 
