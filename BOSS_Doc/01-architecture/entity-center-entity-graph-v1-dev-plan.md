@@ -1,9 +1,19 @@
 # Entity Center V1 — Entity Graph 增量开发任务书
 
-> **任务状态**: 🟡 开发中（当前处于 PHASE 0/1 审计）
+> **任务状态**: ✅ **已完成**（2026-08-17，commit entity_center `f5105eb`）
 > **创建日期**: 2026-08-16
 > **目标**: 在不破坏现有 Entity Center V1 的前提下，增加"实体 ↔ 实体关系网络（Entity Graph）"能力
-> **核心原则**: 现有核心表为 Source of Truth，**不改语义 / 不重命名 / 不删除 / 不迁移**
+> **核心原则**: 现有核心表为 Source of Truth，**不改语义 / 不重命名 / 不删除 / 不迁移**（已全部遵守）
+
+---
+
+> ## ✅ 交付摘要（2026-08-17）
+> - **新增 1 表**：`action_entity_role_rules`（migration 0003，FK actions+entity_types，11 规则）
+> - **新增 API**：`GET /entities/{id}/relations/{outgoing,incoming}` + `GET /entities/{id}/graph` + `POST /relations/validate`
+> - **新增校验**：`validate_entity_relation`（复用 `relation_types.from/to_entity_type_ids`）+ `validate_action_role`
+> - **种子**：46 条基础关系（生产 active 23→69），经完整审批流
+> - **测试**：test_graph.py 12 项 + 基线 37 = 49 全过
+> - **冻结表 0 修改**（ADD ONLY）；详见 [实现报告](entity-center-entity-graph-v1-report.md)
 
 ---
 

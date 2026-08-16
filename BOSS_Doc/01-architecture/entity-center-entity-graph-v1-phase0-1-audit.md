@@ -1,8 +1,15 @@
 # Entity Graph V1 — PHASE 0 / PHASE 1 AUDIT REPORT
 
 > **审计日期**: 2026-08-16 · **阶段**: PHASE 0（环境检查）+ PHASE 1（现有 Schema 读取）
-> **状态**: ✅ 审计完成 · ⛔ 尚未开始开发
+> **状态**: ✅ 审计完成 · ✅ **后续开发已完成**（2026-08-17, commit `f5105eb`，见 [实现报告](entity-center-entity-graph-v1-report.md)）
 > **依据**: 实际代码 + 生产数据库实测（VPS compose `news-platform-v8-entity-center-postgres-1` :5432）
+
+> ## ⚡ 审计后开发裁决（已确认并执行）
+> - **CONFLICT-1**（entity_relations）→ 复用 `entity_relationships`，未新建 ✓
+> - **CONFLICT-2**（relation_entity_type_rules）→ 复用 `from/to_entity_type_ids` JSONB + 应用层校验（`validate_entity_relation`），未建表 ✓
+> - **CONFLICT-3**（entity_relation_evidence）→ 复用 `relation_evidence`，未新建 ✓
+> - **动作缺口**（INVESTS/PARTNERS_WITH）→ 不新增，前端标签映射 ✓
+> - 仅新增 `action_entity_role_rules`（migration 0003）+ Graph 查询 API + 46 种子关系
 
 ---
 

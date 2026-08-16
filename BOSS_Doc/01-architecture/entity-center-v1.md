@@ -574,3 +574,38 @@ python scripts/dedup_entities_by_alias.py # 共享中文别名+同国家 跨类�
 5. **角色最小化**: operator 足够就别用 admin；X-Admin-Token 是静态令牌，应妥善保管（当前默认 `v8-jwt-secret-2026-...`，生产建议换强密钥）。
 6. **关系库为空**: 画像的关系图谱/时间线依赖关系数据（ISS-004 未填充）；数据流入前图谱区为空属正常。
 7. **前端在真实仓库**: 改前端只改 `search-engine-v2/scripts/news-platform-v8/frontend/`（根 `frontend/` 是陈旧副本勿动）；VPS build 在 compose 完成，本地不 build。
+
+---
+
+## 16. Entity Graph V1（2026-08-17，ADD ONLY 增量）
+
+> 从"实体名单"升级为"实体关系网络基础设施"。**未改任何冻结表**（21 表 + 视图 0 修改）。详见 [entity-center-entity-graph-v1-report.md](entity-center-entity-graph-v1-report.md)。
+
+### 新增表（migration 0003）
+**`action_entity_role_rules`** — 动作主体/对象实体类型 + 语义角色约束（FK actions + entity_types，UNIQUE(action,subject_type,object_type)，11 条种子规则）。
+
+### 新增 API（`app/api/graph.py`）
+| 端点 | 说明 |
+|------|------|
+| `GET /api/v1/entities/{id}/relations/outgoing` | 出向关系 |
+| `GET /api/v1/entities/{id}/relations/incoming` | 入向关系 |
+| `GET /api/v1/entities/{id}/graph` | 1-hop 邻居图（outgoing/incoming/symmetric） |
+| `POST /api/v1/relations/validate` | 校验候选关系（类型约束/自环/重复/时间 + 可选动作角色） |
+
+### 校验器（`services/graph.py`）
+- `validate_entity_relation`: **复用 `relation_types.from/to_entity_type_ids`** 类型白名单（空=不限）+ 存在性/自环/重复/时间
+- `validate_action_role`: 查 `action_entity_role_rules` 匹配主体/对象类型
+- 正确拒绝类型非法：`NVIDIA→MILITARY_CONFLICT→TSMC` → INVALID_SOURCE_ENTITY_TYPE ✓
+
+### 种子（经 create_candidate → approve 完整审批流）
+- 11 条动作角色规则 + **46 条基础关系**（SUPPLY_CHAIN 16 / STRATEGIC_PARTNERSHIP 11 / MARKET_COMPETITION 8 / TRADE_RESTRICTION 4 / ECONOMIC_SANCTION 3 / CORPORATE_CONTROL 2 / MAJOR_INVESTMENT 3 / POLITICAL_HOSTILITY 2 / MILITARY_CONFLICT 1）
+- 生产 active 关系 **23 → 69**；类型非法 5 条被拒绝
+
+### 数据量（2026-08-17 更新）
+```
+entity_relationships active 69 · relation_observations 69+ · relation_candidates 若干
+action_entity_role_rules 11 · 新增后总表数 22 表 + 1 视图
+```
+
+### 未完成（记录在报告 §13）
+relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端画像接入 graph 端点 · INVESTS/PARTNERS_WITH 动作缺口（前端标签映射）

@@ -80,16 +80,17 @@
 
 ## 5. 建议的落地路径（分析结论，非开发）
 
-### 不改表（或最小改）
-1. **Gap 1 落地**：在 `create_candidate` + `approve_candidate` 两个入口加 from/to 实体类型白名单校验（读 `relation_types.from/to_entity_type_ids`，null=不限）。**纯逻辑，无需建表**。这是方案最核心的价值点。
-2. **Gap 4 落地**：观测 metadata 存分解权重（action_weight/relation_type_weight/extraction_confidence），关系主置信保持 EWMA。
+### ✅ 已落地（2026-08-17, Entity Graph V1）
+1. **Gap 1 已实现**：`services/graph.py` `validate_entity_relation` 在 validate API 复用 `relation_types.from/to_entity_type_ids` 白名单校验（纯逻辑，未建表）。**方案核心价值已落地**。
+2. **Gap 2 已实现**：`action_entity_role_rules` 表（migration 0003）+ `validate_action_role` + 11 条种子规则。
+3. Graph 查询 API + 46 条种子关系 + 12 项测试 + 49 回归全过。
+> 见 [实现报告](entity-center-entity-graph-v1-report.md)。
 
-### 可选新增 1 表
-3. **Gap 2 落地**：`action_entity_role_rules`（subject_type/object_type/subject_role/object_role）—— 若语义抽取需要严格角色门。**或用更轻的方案**：在 relation_action_mappings 补 role 语义，或依赖 relation 级类型约束推导。
-
-### 后置
-4. **Gap 3**：relation_source_rules 留到 Signal Engine 阶段（与 trend_score/stats 一起）
-5. **Gap 5**：subtype_rules 后置
+### 未落地（后续）
+4. **Gap 3（relation_source_rules）**：留到 Signal Engine 阶段（与 trend_score/stats 一起）
+5. **Gap 5（subtype_rules）**：后置（V1 类型级约束已够）
+6. **Gap 4（confidence 分解）**：观测 metadata 存分解权重 — 未做（主置信保持 EWMA 单值，可后续扩展）
+7. **2-hop Graph**：depth=2 聚合 V2 实现
 
 ---
 
