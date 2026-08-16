@@ -298,8 +298,8 @@ docker compose restart nginx                                                 # n
 
 | 项 | dev | test | 生产 |
 |----|-----|------|------|
-| DB | VPS `entity-center-postgres` 容器 **:5432**（2026-08-14 方案B 起暴露） | 同容器 `entity_center_test` 库 | compose 内 `entity-center-postgres` |
-| 连接 | `EC_DATABASE_URL` (.env) | conftest | 容器内 env |
+| DB | 独立容器 `entity-center-postgres` **:5433**（`entity_center` 库，2026-08-16 实测） | 同容器 `entity_center_test` 库 | compose 内 `news-platform-v8-entity-center-postgres-1` **:5432** |
+| 连接 | `EC_DATABASE_URL` (.env → :5433) | conftest → :5433 entity_center_test | 容器内 env |
 
 ---
 
