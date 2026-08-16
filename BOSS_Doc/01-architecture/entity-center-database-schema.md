@@ -1,8 +1,8 @@
 # Entity Center 数据库 Schema 参考（entity_center schema）
 
 > **核对日期**: 2026-08-17 · **来源**: VPS 生产库实测（`news-platform-v8-entity-center-postgres-1` :5432）
-> **库**: `entity_center` · **Schema**: `entity_center` · **Migration**: Alembic 0002
-> **规模**: 21 表 + 1 视图 · 759 实体 / 2803 别名 / 220 标识符 / 23 active 关系 / 23 候选 / 23 观测
+> **库**: `entity_center` · **Schema**: `entity_center` · **Migration**: Alembic 0003（Entity Graph V1 新增 1 表）
+> **规模**: 22 表 + 1 视图 · 759 实体 / 2803 别名 / 220 标识符 / 69 active 关系（Entity Graph 种子后）
 
 ---
 
@@ -153,6 +153,22 @@ docker exec entity-center-postgres psql -U entity_center -d entity_center_test
 | changes | jsonb | [{field,old,new}] |
 | created_by | uuid | |
 | created_at | timestamptz | |
+
+### 1.3 Entity Graph 新增表（2026-08-17, migration 0003）
+
+**`action_entity_role_rules`**（11）— 动作主体/对象实体类型+语义角色约束
+| 字段 | 类型 | 约束 |
+|------|------|------|
+| id | uuid | PK |
+| action_id | uuid | FK→actions, 索引 `idx_action_role_action` |
+| subject_entity_type_id / object_entity_type_id | uuid | FK→entity_types, 索引 `idx_action_role_subject`/`idx_action_role_object` |
+| subject_role / object_role | varying(64) | acquirer/acquired/sanctioner/target 等 |
+| priority | integer | DEFAULT 0 |
+| allowed | boolean | DEFAULT true |
+| description | text | |
+| status | varying(20) | CHECK active/deprecated |
+| created_at / updated_at | timestamptz | |
+| UNIQUE | | (action_id, subject_type, object_type) `uq_action_role_rule` |
 
 ### 1.3 关系/观测域
 
