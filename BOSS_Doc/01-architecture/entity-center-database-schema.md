@@ -22,6 +22,44 @@ docker exec entity-center-postgres psql -U entity_center -d entity_center_test
 
 ---
 
+## 0. 三库拓扑（2026-08-17 实测）
+
+VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 news_intel 零耦合）：
+
+```
+┌─ compose (news-platform-v8) ─────────────────────────────────────────────┐
+│                                                                          │
+│  news-platform-v8-entity-center-postgres-1   news-platform-v8-postgres-1 │
+│  ┌─────────────────────────────┐            ┌─────────────────────────┐  │
+│  │ entity_center (生产EC)      │            │ news_intel (主情报库)   │  │
+│  │ 759实体/2803别名/69关系/22表 │            │ 27 ORM表/articles/events│  │
+│  │ 0.0.0.0:5432 (Tailscale)    │            │ 内部5432 (无宿主映射)   │  │
+│  │ ↑ entity-center-backend     │            │ ↑ backend (FastAPI)    │  │
+│  └─────────────────────────────┘            └─────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+  独立容器 (非 compose, 早期遗留)
+  entity-center-postgres
+  ┌──────────────────────────────────┐
+  │ entity_center (开发EC)  :5433     │ ← 本地 .env EC_DATABASE_URL
+  │ entity_center_test (测试) :5433   │ ← pytest conftest 指向
+  │ 100.107.117.23:5433              │
+  └──────────────────────────────────┘
+```
+
+| 容器 | 端口 | 数据库 | 用途 | 使用者 |
+|------|:---:|--------|------|--------|
+| `news-platform-v8-entity-center-postgres-1` | 0.0.0.0:**5432** | `entity_center` | **生产** Entity Center | entity-center-backend (Web `/entity-center` 管理台) |
+| `news-platform-v8-postgres-1` | 内部 5432（无宿主映射） | `news_intel` | **主新闻情报库**（新闻流水线全链路） | backend (FastAPI, `/api/v1/*`、`/news`、`/events`) |
+| `entity-center-postgres` | 100.107.117.23:**5433** | `entity_center` + `entity_center_test` | **开发/测试** Entity Center | 本地开发 `.env` + pytest conftest |
+
+**关键点**：
+- 生产 EC（:5432）与开发 EC（:5433）是**两个独立实例**，数据需分别维护（实体导入/迁移/种子两边都跑）
+- 生产 Web 只读 :5432；本地开发/测试用 :5433
+- `news_intel` 与 `entity_center` **零耦合**（独立库/schema，互不引用）
+
+---
+
 ## 1. 表清单 + 字段
 
 > 类型说明：`varying(N)`=character varying · 时间戳均为 `timestamp with time zone`（TIMESTAMPTZ）
