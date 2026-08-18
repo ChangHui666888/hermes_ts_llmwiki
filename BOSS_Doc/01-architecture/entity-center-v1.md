@@ -609,3 +609,30 @@ action_entity_role_rules 11 · 新增后总表数 22 表 + 1 视图
 
 ### 未完成（记录在报告 §13）
 relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端画像接入 graph 端点 · INVESTS/PARTNERS_WITH 动作缺口（前端标签映射）
+
+## 17. 通道 B — 实体标识符人工维护 + 附带修复（2026-08-18，ADD ONLY）
+
+> 目的：补上"人工维护"通道的缺口——`entity_identifiers` 此前无任何 API/CSV/前端入口（生产 kb_v1_id×68/ticker×151 全由离线脚本写入），画像页"标识符"列大多为 "—"。本期全部 ADD ONLY：不动冻结表、无迁移、现有端点行为不变，新参数默认空/None。
+
+### 17.1 标识符人工维护（核心）
+- **create/update 扩展**：`create_entity`/`update_entity` 新增 `identifiers`（list[{scheme,identifier}]，`source="manual"`）。API：`EntityCreateRequest.identifiers`、`EntityUpdateRequest.identifiers`（三态：`None` 不动 / `[]` 清空 / `[...]` 全量替换，diff 式保留未变行 UUID）。
+- **⚠️ 全局唯一预检**：`uq_identifier_scheme_value (scheme,identifier)` 是**跨实体**唯一。写入前 `_identifier_conflict(exclude_entity_id)` 预检，被其他实体占用 → create 返回 409 / update 返回 400，**实体保持不变**（不做静默丢弃）。
+- 前端：添加表单 + 编辑弹窗标识符从只读改为可编辑输入（格式 `scheme:value,` 逗号分隔）；画像弹窗仍只读展示。
+
+### 17.2 CSV 扩展
+- entities 新增 `identifiers` 列（`scheme:value`，竖线 `|` 分隔，按**第一个 `:`** 切分）；导出批量查询 `entity_id.in_` 一次取回；导入"列不存在"不动标识符、"列存在空值"清空。
+
+### 17.3 附带修复（均为明确 bug，行为增益）
+| # | 修复 |
+|---|---|
+| 2 | entities CSV 导出 subtype 列不再硬编码空串（outerjoin EntitySubtype） |
+| 3 | CSV 数值解析（importance/weight/polarity/confidence）逐行 try/except，坏值记 errors+skipped 不中断整批 |
+| 4 | relationships CSV 导入读取 status 列（校验 active/inactive，默认 active）；置 active 前预检 `uq_active_relation` 部分唯一索引避免 IntegrityError |
+| 5 | `update_entity` 单独传 subtype 生效（逻辑抽出 type 块，无 type 时用当前 entity_type_id 校验） |
+| 6 | 前端 CSV 导入 entity_types/entity_subtypes 后调 loadOntology()、relationships 调 loadEntities() 刷新 |
+
+### 17.4 测试
+`tests/test_channel_b.py`：服务级（create 带标识符/跨实体冲突不建实体/diff 替换/单独 subtype）+ CSV 级（导出含 subtype+标识符/坏数值不中断/status 生效）+ API 级（POST 带标识符详情回显/PATCH 替换/复用他人标识符 409）。标识符用 `ticker:TEST-<uuid>` 避免跨测试碰撞。
+
+### 17.5 未做（下一期）
+**通道 C**：事实→关系候选的自动抽取触发源（独立后处理脚本，读 fact 表 → resolve 实体 → 批量候选），审批 Tab 增强（明细/evidence/名称解析/分页）。
