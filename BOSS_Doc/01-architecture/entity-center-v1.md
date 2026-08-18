@@ -636,3 +636,69 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 
 ### 17.5 未做（下一期）
 **通道 C**：事实→关系候选的自动抽取触发源（独立后处理脚本，读 fact 表 → resolve 实体 → 批量候选），审批 Tab 增强（明细/evidence/名称解析/分页）。
+
+## 18. 通道 B — 人工维护实体数据 使用指导（2026-08-18）
+
+> 通道 B = **Admin UI / CSV / API** 三条人工维护途径，与通道 A（批量同步脚本）互补。日常补录/修正实体数据，尤其**标识符**（此前只能靠离线脚本写入，画像页"标识符"列多为 "—"）。
+
+### 18.1 能力矩阵
+
+| 操作 | UI 实体Tab | CSV | API |
+|---|---|---|---|
+| 新增实体 | ✅「+ 添加实体」 | ✅ entities 导入 | `POST /admin/entities` |
+| 编辑字段（类型/子类型/重要度/国家/说明） | ✅ 编辑弹窗 | ✅ | `PATCH /admin/entities/{id}` |
+| 编辑别名 | ✅ 编辑弹窗（逗号分隔） | ✅ aliases 列 | PATCH `aliases` |
+| **编辑标识符** | ✅ 编辑弹窗（`scheme:value`） | ✅ identifiers 列 | PATCH `identifiers` |
+| 状态（废弃/启用） | ✅ 行内按钮 | ✅ status 列 | `PATCH .../status` |
+| 合并实体 | ✅「合并」 | ❌ | `POST .../merge` |
+| 关系维护 | ⚠️ 仅画像查看 | ✅ relationships CSV | candidates API |
+
+### 18.2 标识符维护（重点）
+
+- **合法 scheme**: `kb_v1_id`（KB V1 实体 ID）/ `ticker`（股票代码）/ `isin` / `wikidata` / `legacy_pg_id` / `iso_alpha3` / `cik`
+- **格式**: `scheme:value`，多个用逗号或竖线分隔，如 `ticker:NVDA, kb_v1_id:COMP_NVIDIA`
+- **编辑入口**: 实体 Tab → 搜索 → 点「编辑」→ 弹窗底部「标识符」输入框
+- **回显**: 打开编辑弹窗即显示全部现有标识符（`ticker:NVDA, kb_v1_id:COMP_NVIDIA`）
+- **保存语义**: **全量替换**——输入框内容 = 保存后的完整集合；清空输入框 = 删除全部标识符
+- ⚠️ **全局唯一**: 同一 `scheme:value` 全库只能属于一个实体（`ticker:AAPL` 只能有一个）。被其他实体占用时保存返回 **400「标识符 xx:yy 已被其他实体占用」**——需先移除占用方或换值
+- **查看**: 画像弹窗「标识符」区只读展示；导出 CSV 的 identifiers 列
+
+### 18.3 新增实体
+
+- **UI**: 实体 Tab →「+ 添加实体」→ 名称*(必填)/类型/子类型/重要度(0-100)/国家/别名(逗号分隔)/标识符(逗号分隔)/说明 → 创建。名称冲突返回 409。
+- **CSV**: 实体 Tab →「导出实体CSV」拿模板（行2=字段备注）→ 填行 →「导入实体CSV」→ 看报告（created/updated/skipped/errors）。
+- **API**:
+  ```bash
+  curl -X POST http://100.107.117.23/entity-center/admin/entities \
+    -H "Authorization: Bearer <admin-jwt>" -H "Content-Type: application/json" \
+    -d '{"canonical_name":"X Corp","type":"COMPANY","importance":60,
+         "aliases":["X"],"identifiers":[{"scheme":"ticker","identifier":"XCOR"}]}'
+  ```
+
+### 18.4 CSV 列说明（以导出模板为准）
+
+- **entities**: `canonical_name`*(只允许新增)/`type`/`subtype`/`importance`/`country`/`aliases`(竖线 `|` 分隔)/`identifiers`(`scheme:value` 竖线分隔)/`description`/`status`/`id`/`created_at`
+- **relationships**: `from_name`/`to_name`/`relation_type`(均只允许新增)/`confidence`/`status`(active/inactive)
+- **字段备注行语义**: `自动生成`=勿填 / `只允许新增`=新建必填、已存在不可改 / `可编辑`=已存在时更新
+- **容错**: 数值列(importance/confidence 等)非法值 → 该行 skipped+errors，**不中断整批**；`identifiers` 列缺省=不动标识符、空值=清空
+- **导入报告**: created=新建 / updated=更新 / skipped+errors=被跳过行与原因
+
+### 18.5 关系维护
+
+- **CSV 导入 relationships**: from/to 实体须已存在（按 canonical_name 精确匹配）、relation_type 编码合法；status 缺省 active
+- ⚠️ 同 (from,to,type) 只能有一条 active（`uq_active_relation`）；重复置 active → 该行 skipped
+- **候选审批**（语义抽取的手动端）: 候选审批 Tab 审关系候选 → 通过即生成 active 关系（`POST /api/v1/relations/candidates` 提交 → admin 审批）
+
+### 18.6 状态与合并
+
+- 废弃/启用: 实体行内按钮（废弃=deprecated，启用=active）
+- 合并: 行内「合并」→ 粘贴 target id → 执行。source 标 merged、别名/标识符迁移到 target，**禁链式合并**（target 不能是已合并结果）
+
+### 18.7 注意事项（⚠️）
+
+1. **canonical_name 不可改**（标识字段，只能废弃后重建）
+2. **标识符全局唯一**，重复值保存返回 400
+3. CSV 模板**用导出的为准**（含备注行），勿手写列名
+4. 大库导出 CSV 可能较慢（759+ 实体 ~24s，别名数据累积所致）
+5. 改前端只改 `search-engine-v2/scripts/news-platform-v8/frontend/`（根 `frontend/` 是陈旧副本勿动）
+6. 生产实体中心代码经 **tar 手动同步 + `restart nginx`** 部署（VPS 目录非 git）
