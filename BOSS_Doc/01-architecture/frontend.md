@@ -67,7 +67,7 @@ scripts/news-platform-v8/frontend/src/
 | `/stories/[id]` | 故事时间线 | v2.1: 垂直射线时间线 + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 消除时间标记与卡片重叠 |
 | `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
 | `/entities/[name]` | 实体画像 | 国家归属 + 关系网络 + KB 关联 + 相关事件 + 同国实体 + 别名 |
-| `/entitiesmap` | 实体关系网 | 全量实体关系拓扑图 (D3 力导向): 实体唯一/拖拽/边跟随, 17 类关系类型复选框过滤, 不同关系类型不同颜色+线条(directed 箭头/symmetric 虚线), 浅色背景; **实体类型两层筛选(entity_types+entity_subtypes, 父选带出子选/三态) + 最大跳数下拉(无限制/1-5, 默认无限制=全量) + 主体搜索定位(复用 entity-center resolve 别名解析: 中英/简称/全称一致, 如"苹果"→Apple) + 1跳仅显示直接关系 (2026-08-18)**; 数据实时拉取 entity-center (batch/entities/ontology) |
+| `/entitiesmap` | 实体关系网 | 全量实体关系拓扑图 (D3 力导向): 实体唯一/拖拽/边跟随, 17 类关系类型复选框过滤, 不同关系类型不同颜色+线条(directed 箭头/symmetric 虚线), 浅色背景; **实体类型两层筛选(entity_types+entity_subtypes, 父选带出子选/三态) + 最大跳数下拉(无限制/1-5, 默认无限制=全量) + 主体搜索定位(复用 entity-center resolve 别名解析: 中英/简称/全称一致, 如"苹果"→Apple) + 1跳仅显示直接关系 + **地图模式(MapLibre, 实体落地国家首都地标, 关系线颜色/线型保持, 复用 KB locations/countries 坐标) (2026-08-18)**; 数据实时拉取 entity-center (batch/entities/ontology) |
 | `/search` | 搜索 | 事件全文搜索 (debounce 300ms, 2 字符起搜) |
 | `/sources` | 来源注册表 | 来源权威度柱状图 (实时 event/article 数) |
 | `/map` | 地理监控 V2 | MapLibre GL 地图 + 5 区域/6 类型筛选；hover 列表联动地图标记；"All"可显示全部 (≤1000) |
