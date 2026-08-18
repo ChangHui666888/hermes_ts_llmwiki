@@ -702,3 +702,24 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 4. 大库导出 CSV 可能较慢（759+ 实体 ~24s，别名数据累积所致）
 5. 改前端只改 `search-engine-v2/scripts/news-platform-v8/frontend/`（根 `frontend/` 是陈旧副本勿动）
 6. 生产实体中心代码经 **tar 手动同步 + `restart nginx`** 部署（VPS 目录非 git）
+
+## 19. 策划实体关系补充（2026-08-18，数据运维）
+
+> 用户提供 64 条关系清单（制裁/冲突/领土争端/战略合作/组织成员/金融/监管等），先补实体（正确解析、别名完整）再补关系。
+
+### 19.1 实体补充（新建 2 + 补别名 3，幂等）
+- **新建**：`Pakistan`（COUNTRY，别名 巴基斯坦/巴基斯坦伊斯兰共和国/Islamic Republic of Pakistan）、`APEC`（INTERNATIONAL_ORGANIZATION，别名 亚太经合组织/Asia-Pacific Economic Cooperation/亚佩克）
+- **补别名**（已有实体，保留现有）：`Viet Nam` +Vietnam/越南社会主义共和国、`Korea, Democratic People's Republic of` +North Korea/DPRK/朝鲜民主主义人民共和国、`Palestine, State of` +Palestine
+- ⚠️ Vietnam 不新建（库中已有 `Viet Nam` 国家，补别名即可，避免重复实体对）
+
+### 19.2 关系类型白名单扩展（4 类，ADD ONLY 放宽，同步 relation_types.yaml）
+- `STRATEGIC_PARTNERSHIP` from/to + INTERNATIONAL_ORGANIZATION（NATO/EU 伙伴）
+- `TRADE_RESTRICTION` to + INTERNATIONAL_ORGANIZATION（UK→EU）
+- `FINANCIAL_RELATION` from + INTERNATIONAL_ORGANIZATION、to + COUNTRY/GOVERNMENT（IMF/World Bank→国家）
+- `REGULATORY_PENALTY` from + INTERNATIONAL_ORGANIZATION、to + COUNTRY/GOVERNMENT（ICC/IAEA→国家）
+
+### 19.3 关系导入（64 条，走审批流）
+- 脚本 `scripts/sync_curated_data.py`（幂等，--dry-run；**生产执行须显式 `EC_DATABASE_URL` 指向 5432**）
+- 顺序：resolve → `validate_entity_relation` → `create_candidate` → `approve_candidate`（每候选独立 data_revision + audit）
+- ⚠️ **坑**：resolve 缓存必须在补实体后重新解析（新别名/新实体生效），否则 North Korea/Palestine/Vietnam/Pakistan/APEC 解析失败
+- 结果：64 条全落库（未解析 0 / 类型拒绝 0）；生产 active 关系 69→128；resolve 复检 39 名全对（North Korea→DPR、Vietnam→Viet Nam、Pakistan→Pakistan、APEC→APEC）
