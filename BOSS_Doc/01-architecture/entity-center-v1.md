@@ -723,3 +723,21 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 - 顺序：resolve → `validate_entity_relation` → `create_candidate` → `approve_candidate`（每候选独立 data_revision + audit）
 - ⚠️ **坑**：resolve 缓存必须在补实体后重新解析（新别名/新实体生效），否则 North Korea/Palestine/Vietnam/Pakistan/APEC 解析失败
 - 结果：64 条全落库（未解析 0 / 类型拒绝 0）；生产 active 关系 69→128；resolve 复检 39 名全对（North Korea→DPR、Vietnam→Viet Nam、Pakistan→Pakistan、APEC→APEC）
+
+## 20. 关系 + 规则管理（2026-08-18，web 配置页面）
+
+> entity-center 配置页面（http://100.107.117.23/entity-center）提供实体关系与规则的 web 管理（列表/编辑/删除/新增）。
+
+### 20.1 实体关系管理
+- 后端 `/admin/relationships`：`GET` 列表（分页/过滤 q/relation_type/status）· `POST` 新增（resolve 中英别名 + validate 类型约束 + **symmetric 方向归一** + 复合唯一 409）· `PATCH {id}`（confidence/status）· `PATCH {id}/status`（**停用=inactive 软删**/启用，写 valid_to）
+- 前端「关系」Tab：列表表格 + 新增弹窗（300ms 防抖 resolve 建议）+ 编辑弹窗（confidence/status）+ 行内停用/启用
+
+### 20.2 规则管理
+- **动作角色规则** `/admin/role-rules`：`action_entity_role_rules` 完整 CRUD（复合唯一 action+subject+object；删除=置 deprecated 软删）
+- **关系↔动作映射** `/admin/mappings`：`relation_action_mappings` 单条 CRUD（复合唯一 relation+action+context；**无 status 字段 → 删除=物理 DELETE**）
+- 关系-实体类型映射已可管理（Ontology 编辑页 `from/to_entity_type_ids` tags）
+- 前端：Ontology Tab 映射表改可管理（编辑/删除/新增）+ 新增"动作角色规则"表
+
+### 20.3 新增文件
+- 后端：`services/relation_admin.py` + `services/rule_admin.py` + `api/relations_admin.py` + `api/rules_admin.py`（全 require_admin，ADD ONLY）
+- 测试：`tests/test_relations_admin.py` + `tests/test_rules_admin.py`
