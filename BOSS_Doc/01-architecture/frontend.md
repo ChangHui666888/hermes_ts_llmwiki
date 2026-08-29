@@ -1,6 +1,6 @@
 # 前端 — Sentinel Intelligence (Next.js 16)
 
-> 最后更新: 2026-08-07
+> 最后更新: 2026-08-29
 > 技术栈: Next.js 16.2.10 · React 19.2.4 · TypeScript 5.9 · Tailwind CSS v4 · shadcn/ui
 > 实际路径: `search-engine-v2/scripts/news-platform-v8/frontend/`（⚠️ 仓库根 `frontend/` 是陈旧副本，未被 git 跟踪、仅有 1 页，勿改）
 > 部署: Docker 容器 (`news-platform-v8-frontend-1`, `node:20-alpine`)
@@ -19,6 +19,7 @@ scripts/news-platform-v8/frontend/src/
 │   ├── events/            # 事件模块
 │   │   ├── page.tsx       # 事件列表 (筛选/分页/排序)
 │   │   └── [id]/page.tsx  # 事件 Dossier 详情 (7 子组件)
+│   ├── ab-events/page.tsx # A/B 事件 (单页主从: B表格 + dossier详情, 2026-08-29)
 │   ├── stories/           # Story 演化层 (Phase 3c)
 │   │   ├── page.tsx       # 故事列表 (按事件数降序)
 │   │   └── [id]/page.tsx  # 故事时间线 v2 (垂直射线 + 点击就地展开事件)
@@ -63,6 +64,7 @@ scripts/news-platform-v8/frontend/src/
 | `/articles/list` | 全部文章 | 分页 20/页、排序下拉 (最新/最热, `?sort=`) |
 | `/events` | 事件列表 | 分页 20/页、type/stage/country 筛选 + 排序下拉 (首次/更新/置信度, `?sort=`) |
 | `/events/[id]` | 事件 Dossier | 7 面板：Header/Fact/Evidence/Timeline/SourceChain/Intelligence/Graph；**story跟踪按钮** (v2.4, 事件归属的 story → /stories/{id}) |
+| `/ab-events` | A/B 事件 | **单页主从布局** (2026-08-29): B 事件表格 (搜索/排序/客户端分页 10/页, 仿 `/events?view=table` 表格视图) + 点击行下方展开 B 事件 dossier 详情面板 (仿 `/events/[id]` 的 Header/Facts/A事件脉络卡片, 展示嵌套 A 事件, subject 链接 `/entities`) |
 | `/stories` | 故事列表 | **四维度聚合** (Subject/Action/Object/Location 菜单切换, `?dimension=`) + 维度徽章 |
 | `/stories/[id]` | 故事时间线 | v2.1: 垂直射线时间线 + 时间点前置标记 + 点击事件就地展开事件内容框(SAO/摘要/证据, 懒加载 EventDossier), 消除时间标记与卡片重叠 |
 | `/entities` | 实体中心 | 实体列表(按事件次数排序) + 搜索 |
