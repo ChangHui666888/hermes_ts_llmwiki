@@ -118,6 +118,7 @@ Nginx 反向代理将 `/api/v1/*` 路由到 FastAPI 后端容器 (:8000)。
 - **shadcn/ui** — 基础 UI 组件 (button)
 - **CSS 变量** — 全局样式在 `globals.css`
 - **深色/浅色** — 通过 CSS 变量 `--background` / `--foreground` 切换
+- **⚠️ @theme 颜色令牌 (2026-08-29 修复)** — globals.css 的 `@theme inline` 中必须含 `--color-*: var(--*)` 映射（`--color-card: var(--card)` 等），否则 Tailwind v4 不生成 `bg-card`/`text-foreground`/`border-border`/`bg-secondary`/`text-muted-foreground` 等工具类，全站卡片透明、边框/次要文字变白。含自定义 accent/status 色映射（`--color-accent-blue` 等），使 `bg-accent-blue/20` 透明度变体也能编译。
 
 ## 关键依赖
 
