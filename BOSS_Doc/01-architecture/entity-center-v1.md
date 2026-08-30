@@ -778,8 +778,10 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 ### 21.3 审视发现并修正
 
 1. **既有 kb_v1_id 错误映射 2 条**（enrich_aliases 曾误配）：`BYD→COMP_BOYD_GAMING`→修正 `COMP_BYD`；`CATL→COMP_CATALYST_ACQUISITION`→修正 `COMP_CATL`
-2. **KB 国名与 entity-center 不一致**（KB "United States of America"↔EC "United States"、"Russian Federation"↔"Russia"、"Iran, Islamic Republic of"↔"Iran"、"Korea, Republic of"↔"South Korea"）→ 靠别名匹配，不覆盖既有 canonical
+2. **KB 国名与 entity-center 不一致**（KB "United States of America"↔EC "United States"、"Russian Federation"↔"Russia"、"Iran, Islamic Republic of"↔"Iran"、"Korea, Republic of"↔"South Korea"）→ `COUNTRY_MATCH_ALIASES` 变体映射 + 别名匹配，不覆盖既有 canonical
 3. **公司 industry 自由文本（83 值）**：仅精确命中 69 KB 行业实体才建 INDUSTRY_AFFILIATION，其余只记 `meta.industry`
+4. **占位符实体（第 2 轮）**：KB `LOC_UNKNOWN`（"Unknown" 位置）曾被导入 → 前缀匹配误报 `unknown-bank-314159`，Golden Set 降 70/71。修正：`_is_placeholder` 过滤 + 废弃该实体 + 移除 `COMP_UNKNOWN`(韦尔股份)/`PERS_UNKNOWN`(蔡奇) 历史错误标识符 → **Golden Set 恢复 71/71=100%**
+5. **类型冲突守卫**：Hong Kong/Singapore 等已作 LOCATION 不建 COUNTRY 重复（`type_collision`）
 
 ### 21.4 脚本与执行
 
