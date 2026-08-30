@@ -741,3 +741,49 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 ### 20.3 新增文件
 - 后端：`services/relation_admin.py` + `services/rule_admin.py` + `api/relations_admin.py` + `api/rules_admin.py`（全 require_admin，ADD ONLY）
 - 测试：`tests/test_relations_admin.py` + `tests/test_rules_admin.py`
+
+## 21. KB V1 → Entity Center 数据迁移（2026-08-31，数据运维）
+
+> 补全 entity-center 实体与关系：将 Knowledge Base V1（`search-engine-v2/knowledge_base/*.yaml`）数据审视后迁移，字段格式按 entity-center 要求转换。**范围经用户确认 = 精选导入**。
+
+### 21.1 迁移范围（用户确认）
+
+| 数据集 | KB 规模 | 处理 | 说明 |
+|---|---|---|---|
+| 国家 countries | 249 | **全量**（补 192→249，~57 新增 + 富化既有） | 已有 192 不覆盖 canonical/importance，只补别名/标识符/meta |
+| 机构 organizations | 58 | **全量** | 按 type 映射 5 类（INT_ORG/FINANCIAL_INST/GOV/MILITARY/ORG） |
+| 城市 locations | 245 | **全量**（补 63→245） | 全部带中文名别名 |
+| 行业 industries | 69 | **全量**（当前 0） | INDUSTRY 类型实体从零建 |
+| 公司 companies | 8,145 | **精选 ~300** | 过滤 = 非美国 OR 中文名 OR 有行业；97.9% 美国仅 ticker 不导入 |
+| 人物 people | 18,800 | **精选 108** | 过滤 = 有职位 OR 有组织；Wikidata 冷门不导入 |
+| 关系 | countries ally 59/rival 24 | **全量** | ally→STRATEGIC_PARTNERSHIP(SIGNS_CONTRACT)、rival→POLITICAL_HOSTILITY(WARNS)；公司→行业 INDUSTRY_AFFILIATION 仅可靠映射 |
+
+### 21.2 字段格式映射（KB → entity-center）
+
+| KB V1 字段 | entity-center 落点 | 规则 |
+|---|---|---|
+| `id` (COMP_NVIDIA) | `entity_identifiers(scheme=kb_v1_id)` | 全局唯一 |
+| `name.en` | `entities.canonical_name` | 已有匹配不覆盖 |
+| `name.zh` / `aliases[]` | `entity_aliases(language=按字符, alias_type=kb_curated)` | 去重、跳过 canonical |
+| `ticker` | `entity_identifiers(scheme=ticker)` | 已有跳过 |
+| `industry` | `meta.industry` + 可选 INDUSTRY_AFFILIATION | 仅精确命中 KB 行业才建关系 |
+| `country/exchange/position/organization` | `meta.{country,exchange,position,organization}` | |
+| `iso.alpha2/alpha3` | `meta.iso_codes` + `entity_identifiers(scheme=iso_alpha3)` | |
+| `capital/continent/currency/government` | `meta.{...}` | |
+| `province/lat/lon` | `meta.{...}` | |
+| 无 importance | `importance=40-50, importance_source=kb_v1_import` | 不覆盖既有定级 |
+
+**类型映射**：`CTRY→COUNTRY · COMP→COMPANY · PERS→PERSON · LOC→LOCATION · IND→INDUSTRY`；`ORG_` 按 type 字段细分（International Org/military_alliance/political_economic→INT_ORG；Central Bank→FINANCIAL_INSTITUTION+central_bank；Government→GOVERNMENT+agency；Military→MILITARY_ORGANIZATION；Regulator→GOVERNMENT+regulator；finance→FINANCIAL_INSTITUTION；其余→ORGANIZATION）
+
+### 21.3 审视发现并修正
+
+1. **既有 kb_v1_id 错误映射 2 条**（enrich_aliases 曾误配）：`BYD→COMP_BOYD_GAMING`→修正 `COMP_BYD`；`CATL→COMP_CATALYST_ACQUISITION`→修正 `COMP_CATL`
+2. **KB 国名与 entity-center 不一致**（KB "United States of America"↔EC "United States"、"Russian Federation"↔"Russia"、"Iran, Islamic Republic of"↔"Iran"、"Korea, Republic of"↔"South Korea"）→ 靠别名匹配，不覆盖既有 canonical
+3. **公司 industry 自由文本（83 值）**：仅精确命中 69 KB 行业实体才建 INDUSTRY_AFFILIATION，其余只记 `meta.industry`
+
+### 21.4 脚本与执行
+
+- 脚本：`scripts/migrate_kb_v1.py`（幂等，`--dry-run`；`EC_DATABASE_URL` 指定目标，默认 dev 5433，生产 5432）
+- 复用服务层：`create_entity`（实体+别名+标识符）、`create_candidate`/`approve_candidate`（关系审批流）、`resolve`（端点解析）、`uuid7`
+- 顺序：实体导入（预加载现有实体+批量别名 map 避免 N×M）→ 标识符修正 → 重解析 → 关系导入 → 报告
+- 部署：dev 验证后，生产 `EC_DATABASE_URL=postgresql+asyncpg://entity_center:entity_center_prod@100.107.117.23:5432/entity_center` 同脚本执行
