@@ -1,8 +1,8 @@
 # Entity Center 数据库 Schema 参考（entity_center schema）
 
-> **核对日期**: 2026-08-17 · **来源**: VPS 生产库实测（`news-platform-v8-entity-center-postgres-1` :5432）
+> **核对日期**: 2026-08-31 · **来源**: VPS 生产库实测（`news-platform-v8-entity-center-postgres-1` :5432）
 > **库**: `entity_center` · **Schema**: `entity_center` · **Migration**: Alembic 0003（Entity Graph V1 新增 1 表）
-> **规模**: 22 表 + 1 视图 · 759 实体 / 2803 别名 / 220 标识符 / 69 active 关系（Entity Graph 种子后）
+> **规模**: 22 表 + 1 视图 · **1359 实体（1348 active）** / **3996 别名** / **1497 标识符** / **248 active 关系**（KB V1 数据迁移后, 2026-08-31）
 
 ---
 
@@ -87,7 +87,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 | status | varying(20) | CHECK, DEFAULT 'active' |
 | created_at / updated_at | timestamptz | |
 
-**`entities`**（12）— 759 实体
+**`entities`**（12）— 1359 实体（1348 active / 11 deprecated）
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -103,7 +103,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 | created_at / updated_at | timestamptz | |
 | 索引 | | `idx_entities_type` `idx_entities_importance` `idx_entities_status` |
 
-**`entity_aliases`**（11）— 2803 条
+**`entity_aliases`**（11）— 3996 条
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -116,7 +116,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 | valid_from / valid_to | timestamptz | |
 | created_at | timestamptz | |
 
-**`entity_identifiers`**（7）— 220 条
+**`entity_identifiers`**（7）— 1497 条（kb_v1_id 991 / ticker 256 / iso_alpha3 247 / isin 3）
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -210,7 +210,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 
 ### 1.3 关系/观测域
 
-**`entity_relationships`**（13）— 关系实例（23 active）
+**`entity_relationships`**（13）— 关系实例（248 active）
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -225,7 +225,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 | UNIQUE | | `uq_active_relation`(from,to,type) WHERE active（部分唯一） |
 | 索引 | | `idx_relations_pair` `idx_relations_superseded` |
 
-**`relation_observations`**（14）— 时点观测（23）
+**`relation_observations`**（14）— 时点观测（255）
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -256,7 +256,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 | extracted_by | varying(32) | DEFAULT 'system' |
 | created_at | timestamptz | |
 
-**`relation_candidates`**（18）— 候选审批（23）
+**`relation_candidates`**（18）— 候选审批（255）
 | 字段 | 类型 | 约束 |
 |------|------|------|
 | id | uuid | PK |
@@ -309,7 +309,7 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 `id`(uuid PK) · `table_name`(64) · `record_id`(uuid) · `operation`(16 CHECK INSERT/UPDATE/DEACTIVATE/DELETE) · `payload`(jsonb) · `synced_at`(timestamptz) · `sync_attempts`(int DEFAULT 0) · `last_error`(text) · `created_at`
 索引：`idx_sync_outbox_pending`(created_at WHERE synced_at IS NULL) `idx_sync_outbox_table_record`
 
-**`alembic_version`**（1）：`version_num`（当前 0002）
+**`alembic_version`**（1）：`version_num`（当前 0003）
 
 ### 1.5 视图
 
@@ -343,18 +343,26 @@ VPS 上共有 **3 个 postgres:16 容器**，职责分离（Entity Center 与 ne
 
 ---
 
-## 3. 数据量（2026-08-17）
+## 3. 数据量（2026-08-31，KB V1 数据迁移后）
 
 ```
-entities 759 · entity_aliases 2803 · entity_identifiers 220
+entities 1359(active 1348) · entity_aliases 3996 · entity_identifiers 1497
 entity_types 16 · entity_subtypes 27 · relation_types 17 · actions 139 · relation_action_mappings 137
-entity_relationships 23(active) · relation_observations 23 · relation_evidence 23 · relation_candidates 23
-config_versions 4 · ontology_versions 229 · sync_outbox 4905
+entity_relationships 248(active) · relation_observations 255 · relation_evidence 255 · relation_candidates 255
+audit_log 400 · data_revisions 255 · sync_outbox ~10398
 ```
+
+**实体按类型（active）**：COMPANY 368 · COUNTRY 248 · LOCATION 241 · PERSON 121 · MILITARY_ORGANIZATION 119 · INDUSTRY 66 · GOVERNMENT 63 · INTERNATIONAL_ORGANIZATION 41 · COMMODITY 30 · FINANCIAL_INSTITUTION 30 · CURRENCY 17 · ORGANIZATION 4
+
+**关系按类型（active）**：STRATEGIC_PARTNERSHIP 68 · INDUSTRY_AFFILIATION 66 · ORGANIZATION_MEMBER 29 · SUPPLY_CHAIN 18 · POLITICAL_HOSTILITY 14 · MARKET_COMPETITION 11 · ECONOMIC_SANCTION 8 · MILITARY_CONFLICT 7 · TRADE_RESTRICTION 7 · MAJOR_INVESTMENT 6 · FINANCIAL_RELATION 4 · TERRITORIAL_DISPUTE 4 · REGULATORY_PENALTY 2 · PERSONNEL_MOVEMENT 2 · GENERAL_RELATION 1 · CORPORATE_CONTROL 1
+
+**⚠️ 数据来源说明（2026-08-31）**：国家/机构/城市/行业（KB 全量）+ 公司/人物（KB 精选）+ 原 771 精选实体；关系含国家 ally/rival、公司→行业归属（KB 迁移）与策划关系。迁移脚本 `scripts/migrate_kb_v1.py`（幂等），详见 [entity-center-v1.md §21](entity-center-v1.md)。
 
 ---
 
-## 4. 常用查询命令
+## 4. 查询命令
+
+### 4.1 结构查询（Schema 元数据）
 
 ```bash
 # 全部表+字段
@@ -373,8 +381,120 @@ FROM pg_constraint WHERE connamespace='entity_center'::regnamespace;
 SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
 FROM pg_stat_user_tables WHERE schemaname='entity_center' ORDER BY pg_total_relation_size(relid) DESC;
 
-# 行数
+# 行数（n_live_tup 为统计估算值，小表可能为 0；准确数用 COUNT）
 SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE schemaname='entity_center' ORDER BY relname;
+```
+
+### 4.2 数据查询命令
+
+```bash
+# ── 实体查询 ──
+# 按类型+搜索（关键词可中文/英文，匹配 canonical 或别名）
+SELECT e.canonical_name, t.code AS type, e.importance, e.status
+FROM entity_center.entities e
+JOIN entity_center.entity_types t ON t.id = e.entity_type_id
+WHERE t.code = 'COMPANY' AND e.canonical_name ILIKE '%nvidia%'
+ORDER BY e.importance DESC LIMIT 20;
+
+# 别名查询（含中文，如 "宁德时代" → CATL）
+SELECT e.canonical_name, a.alias, a.language, a.alias_type, a.is_preferred
+FROM entity_center.entity_aliases a
+JOIN entity_center.entities e ON e.id = a.entity_id
+WHERE a.alias = '宁德时代';
+
+# 标识符查询（kb_v1_id / ticker / iso_alpha3 / isin）
+SELECT e.canonical_name, i.scheme, i.identifier
+FROM entity_center.entity_identifiers i
+JOIN entity_center.entities e ON e.id = i.entity_id
+WHERE i.scheme = 'ticker' AND i.identifier = 'NVDA';
+
+# 按重要性排序（Top 重要实体）
+SELECT canonical_name, importance, importance_source
+FROM entity_center.entities WHERE status = 'active'
+ORDER BY importance DESC LIMIT 50;
+
+# 实体数按类型聚合
+SELECT t.code, COUNT(*) FROM entity_center.entities e
+JOIN entity_center.entity_types t ON t.id = e.entity_type_id
+WHERE e.status = 'active' GROUP BY t.code ORDER BY 2 DESC;
+
+# 查某实体的完整画像（meta 全部字段）
+SELECT canonical_name, t.code AS type, s.name AS subtype, importance,
+       e.metadata, e.description
+FROM entity_center.entities e
+JOIN entity_center.entity_types t ON t.id = e.entity_type_id
+LEFT JOIN entity_center.entity_subtypes s ON s.id = e.subtype_id
+WHERE e.canonical_name = 'NVIDIA';
+
+# ── 关系查询 ──
+# 某实体的全部关系（出入站, 1 跳）
+SELECT f.canonical_name AS from_entity, rt.name AS relation,
+       t.canonical_name AS to_entity, er.confidence
+FROM entity_center.entity_relationships er
+JOIN entity_center.entities f ON f.id = er.from_entity_id
+JOIN entity_center.entities t ON t.id = er.to_entity_id
+JOIN entity_center.relation_types rt ON rt.id = er.relation_type_id
+WHERE er.status = 'active' AND (f.canonical_name = 'NVIDIA' OR t.canonical_name = 'NVIDIA')
+ORDER BY er.confidence DESC;
+
+# 关系数按类型聚合
+SELECT rt.code, COUNT(*) FROM entity_center.entity_relationships er
+JOIN entity_center.relation_types rt ON rt.id = er.relation_type_id
+WHERE er.status = 'active' GROUP BY rt.code ORDER BY 2 DESC;
+
+# 全部国家→国家关系（如战略合作/制裁/冲突）
+SELECT f.canonical_name, rt.code, t.canonical_name
+FROM entity_center.entity_relationships er
+JOIN entity_center.entities f ON f.id = er.from_entity_id
+JOIN entity_center.entities t ON t.id = er.to_entity_id
+JOIN entity_center.relation_types rt ON rt.id = er.relation_type_id
+WHERE er.status = 'active'
+  AND rt.code IN ('STRATEGIC_PARTNERSHIP','POLITICAL_HOSTILITY','ECONOMIC_SANCTION','MILITARY_CONFLICT')
+ORDER BY rt.code, f.canonical_name;
+
+# 公司→行业归属
+SELECT f.canonical_name AS company, t.canonical_name AS industry
+FROM entity_center.entity_relationships er
+JOIN entity_center.entities f ON f.id = er.from_entity_id
+JOIN entity_center.entities t ON t.id = er.to_entity_id
+JOIN entity_center.relation_types rt ON rt.id = er.relation_type_id
+WHERE er.status = 'active' AND rt.code = 'INDUSTRY_AFFILIATION' LIMIT 30;
+
+# ── 候选审批/观测/证据 ──
+# 待审批候选（pending）
+SELECT c.id, f.canonical_name, rt.code, t.canonical_name, c.confidence, c.evidence_text
+FROM entity_center.relation_candidates c
+JOIN entity_center.entities f ON f.id = c.from_entity_id
+JOIN entity_center.entities t ON t.id = c.to_entity_id
+JOIN entity_center.relation_types rt ON rt.id = c.relation_type_id
+WHERE c.status = 'pending' ORDER BY c.created_at DESC;
+
+# 关系时点观测（某关系的动态）
+SELECT o.effect, o.polarity, o.event_at, o.confidence, ac.code AS action
+FROM entity_center.relation_observations o
+JOIN entity_center.actions ac ON ac.id = o.action_id
+WHERE o.relationship_id = '<关系UUID>'
+ORDER BY o.event_at DESC;
+
+# ── 审计/变更 ──
+# 最近审计（实体/关系变更）
+SELECT target_type, operation, field, new_value, created_at
+FROM entity_center.audit_log ORDER BY created_at DESC LIMIT 50;
+
+# sync_outbox 积压检查（同步镜像滞后排查）
+SELECT COUNT(*) AS backlog FROM entity_center.sync_outbox WHERE synced_at IS NULL;
+
+# ── Ontology ──
+# 关系类型清单（含方向/权重/实体类型白名单）
+SELECT code, name, weight, directionality, event_enabled, from_entity_type_ids, to_entity_type_ids
+FROM entity_center.relation_types WHERE status = 'active' ORDER BY weight DESC;
+
+# 动作→关系映射（context 词表）
+SELECT rt.code AS relation, ac.code AS action, ram.context, ram.weight
+FROM entity_center.relation_action_mappings ram
+JOIN entity_center.relation_types rt ON rt.id = ram.relation_type_id
+JOIN entity_center.actions ac ON ac.id = ram.action_id
+WHERE rt.code = 'ECONOMIC_SANCTION';
 ```
 
 ---
