@@ -362,6 +362,15 @@ audit_log 400 · data_revisions 255 · sync_outbox ~10398
 
 ## 4. 查询命令
 
+> 💡 **可直接运行脚本**：`entity_center/scripts/entity_center_queries.sql`（git 仓库内）含 35 条查询，支持 psql `\set` 可调参数，一条命令跑完全部：
+> ```bash
+> # 生产
+> cd /home/administrator/news-platform-v8/scripts/news-platform-v8
+> docker compose exec -T entity-center-postgres psql -U entity_center -d entity_center -f entity_center_queries.sql
+> # 开发 (本地已 clone entity_center)
+> docker exec entity-center-postgres psql -U entity_center -d entity_center -f scripts/entity_center_queries.sql
+> ```
+
 ### 4.1 结构查询（Schema 元数据）
 
 ```bash
