@@ -881,3 +881,20 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 
 - 验证：prod 30/30 新关系存在（别名解析 CATL/ICBC 生效），0 缺失
 - ⚠️ 关系端点含中文别名时，验证查询须按 entity_id 关联别名（不能按 canonical_name 精确匹配）
+
+## 24. entitiesmap 中英文切换（2026-09-01，部署✅）
+
+> 实体关系网页面 `/entitiesmap` 支持 中文/EN 切换，实体名称随语言切换。
+
+### 24.1 实现
+- **后端** `admin/entities` 新增 `name_zh` 字段：选取优先级 `meta.name_zh(策展) > zh 别名(含CJK, 优先is_preferred) > canonical`
+  - 修复：Federal Reserve 曾误选别名"鲍威尔"，meta.name_zh=美联储 优先后正确
+- **前端** `entitiesmap/page.tsx` 加 中文/EN 切换按钮（lang state 默认 zh）+ limit 1000→2000
+- **前端** `EntityNetworkGraph.tsx`：节点标签/悬停/关系类型名(zh名称 en编码)/实体类型·子类型筛选/搜索建议/定位主体/地图弹窗 均按 lang 切换
+  - `dispName` 用 useCallback 仅在 lang 变化时变，避免 nodes useMemo 每渲染重算
+- 提交：frontend `48790ac` / backend `bc6bdbb`
+
+### 24.2 验证（Playwright）
+- 中文模式 307 标签含中文 264（微软公司/苹果公司/台积电/俄罗斯/中央汇金投资/中国建设银行）
+- EN 模式 307 标签（Microsoft/Apple/TSMC/Russian Federation/ICBC）
+- 切换往返 123 实体标签中英互换，切回中文恢复 264 中文标签 ✅
