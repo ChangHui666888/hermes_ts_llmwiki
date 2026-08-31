@@ -827,3 +827,43 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 - 脚本：`scripts/fund_data.py`（数据）+ `scripts/sync_funds_to_db.py`（实体导入+重定型）+ `scripts/sync_fund_relations.py`（关系）
 - 幂等，`--dry-run`；`EC_DATABASE_URL` 指定目标（dev 5433 / prod 5432）
 - 结果：prod FINANCIAL_INSTITUTION 30→60（asset_manager 30）；中文解析全通（大基金三期→国家集成电路产业投资基金三期、中投→中国投资有限责任公司、深圳具身智能基金→深圳市人工智能和具身机器人产业基金）
+
+## 23. 精选公司/机构实体 + 基金投资关系（2026-08-31，数据运维）
+
+> 用户提供 146 个公司/机构清单（跳过既有 42，新建 103）+ 193 条基金投资/控制关系。
+
+### 23.1 实体（103 新建，跳过既有 42）
+
+| 分组 | 实体 |
+|---|---|
+| 半导体制造/代工 | 华虹公司/士兰微/华润微/芯联微电子/时代半导体/思特威/集益威/牛芯/加特兰/燕东微 |
+| 半导体设计 | 国科微/芯朋微/国芯科技/瑞芯微/安路科技/北斗星通 |
+| 设备 | 长川科技/精测电子/华海清科/芯源微 |
+| 材料 | 安集科技/雅克科技/晶瑞电材/德邦科技/臻宝/中安/新松/太原晋科硅 |
+| EDA/IP | 广立微/盛科通信/行芯/深圳鸿芯微纳/全芯智造/九同方 |
+| 封测/存储/分销 | 长电汽车电子/江波龙/中电港/赛微电子 |
+| 机器人/具身智能 | 银河通用/松延/星动纪元/云深处/自变量/万勋/沃兰特/它石/图湃/星海图/云鲸/加速进化/罗森博特/未磁/巨一/科沃斯/大疆/雷赛/傅利叶/达闼 |
+| AI | 地平线/智谱AI/月之暗面/MiniMax/零一万物/百川智能/壁仞/天数智芯/燧原/摩尔线程/云从/佳都/广电运通/视源/极飞 |
+| 汽车/家电/医疗 | 小鹏/文远/小马/亿纬锂能/华大基因/美的/格力/TCL科技 |
+| 金融 | 国开行/光大/恒丰/湖南/中信建投/申万/银河/华泰/信保/再保险/新华/中汇/信达/东方/长城/证金/建银/国泰君安资管 |
+| 概念赛道 | 人形机器人/具身智能/人工智能(INDUSTRY)/低空经济(SEGMENT) |
+
+- 类型：公司→COMPANY；金融→FINANCIAL_INSTITUTION(commercial_bank/investment_bank/asset_manager)；概念→SEGMENT/INDUSTRY
+- ⚠️ 防重复：既有 42 个（canonical 8 + alias 34）跳过；长鑫科技→CXMT 别名映射（不新建）
+- importance_source=curated_20260831
+
+### 23.2 关系（193 条，走审批流）
+
+- **大基金一期**(33条)/**二期**(38条)/**三期**(14条) → 半导体公司 MAJOR_INVESTMENT
+- **北京机器人基金** → 机器人公司(宇树/银河通用/松延/星动/云深处等15条)
+- **中央汇金** → 大行/券商/AMC/保险 CORPORATE_CONTROL(14)+MAJOR_INVESTMENT(5)
+- **国家AI基金** → AI公司(讯飞/商汤/寒武纪/地平线/智谱/DeepSeek等12条)
+- **深圳AI具身基金** → 机器人(8条, 含华为/腾讯 STRATEGIC_PARTNERSHIP)
+- **上海未来/广州AI/广东战新/中投/武汉/成都/合肥/苏州/南京/上海具身** → 被投
+- **白名单扩展(ADD ONLY)**：CORPORATE_CONTROL ±FINANCIAL_INSTITUTION；MAJOR_INVESTMENT to +FINANCIAL_INSTITUTION/INDUSTRY/SEGMENT；STRATEGIC_PARTNERSHIP from +FINANCIAL_INSTITUTION
+
+### 23.3 脚本与结果
+
+- `scripts/curated_entities_data.py` + `sync_curated_entities.py`（实体）+ `fund_invest_relations_data.py` + `sync_fund_invest_relations.py`（关系）
+- 幂等、`--dry-run`、内存查重优化 + 连接重试续传；`EC_DATABASE_URL` 指定目标
+- 结果：prod 实体 **1487**（+128）/关系 **442**（+194，MAJOR_INVESTMENT 174/CORPORATE_CONTROL 21）；解析全通（大疆→大疆创新/长鑫科技→CXMT/傅利叶→傅利叶智能）
