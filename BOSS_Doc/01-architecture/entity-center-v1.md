@@ -789,3 +789,41 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 - 复用服务层：`create_entity`（实体+别名+标识符）、`create_candidate`/`approve_candidate`（关系审批流）、`resolve`（端点解析）、`uuid7`
 - 顺序：实体导入（预加载现有实体+批量别名 map 避免 N×M）→ 标识符修正 → 重解析 → 关系导入 → 报告
 - 部署：dev 验证后，生产 `EC_DATABASE_URL=postgresql+asyncpg://entity_center:entity_center_prod@100.107.117.23:5432/entity_center` 同脚本执行
+
+## 22. 基金/投资主体实体库（2026-08-31，数据运维）
+
+> 用户要求完善基金实体到实体中心，必须包含并扩散、尽量完整。30 只基金（用户清单 17 + 扩散 13），类型统一 `FINANCIAL_INSTITUTION` + `asset_manager`。
+
+### 22.1 基金清单（30 只）
+
+| 分组 | 基金 | 说明 |
+|---|---|---|
+| **国家大基金** | 国家集成电路产业投资基金一期/二期/三期 | 1387亿/2041.5亿/3440亿，半导体全产业链 |
+| | 华芯投资管理有限责任公司 | 大基金受托管理人(GP) |
+| **主权财富/国家队** | 中国投资有限责任公司(CIC 中投) | 2007年，2000亿美元主权基金 |
+| | 中央汇金投资 | 国有金融资本持股(四大行) |
+| | 全国社会保障基金理事会 | NSSF 社保基金 |
+| | 中国国新控股 / 中国诚通控股 | 国有资本运营公司 |
+| **国家级产业基金** | 国家制造业转型升级基金(1472亿) / 国家绿色发展基金(885亿) / 国家中小企业发展基金(357.5亿) / 国家新兴产业创投引导基金(400亿) / 国家战略性新兴产业引导基金 / 国家科技成果转化引导基金(373亿) | 财政部/发改委/科技部牵头 |
+| **AI 产业基金** | 国家人工智能产业投资基金 / 北京AI基金(100亿) / 上海AI基金(100亿) / 广州AI基金 | 大模型/算力/AI芯片 |
+| **机器人·具身智能** | 北京机器人基金(100亿) / 深圳市AI和具身机器人基金(100亿) / 合肥智能机器人专项 / 苏州吴中机器人 / 上海具身智能创投 / 南京先进制造母基金 | 人形机器人/具身智能 |
+| **地方母基金/未来产业** | 上海未来产业基金(100亿母基金) / 广东省战新引导基金(100亿) / 武汉武创未来智能 / 成都未来产业创投 / 深圳市政府投资引导基金(1000亿) | 地方引导母基金 |
+
+### 22.2 字段与类型
+
+- 类型：`FINANCIAL_INSTITUTION` + subtype `asset_manager`（资产管理）
+- meta：`{country: China, fund_type: sovereign_wealth|national_fund|national_ic|provincial_fund|municipal_fund|theme_fund|mother_fund, scale, focus, phase, notes}`
+- 别名：中英全称/简称（大基金三期/中投/中央汇金/社保基金/国新/深圳具身智能基金等）
+- ⚠️ **既有 5 只基金（大基金1/2/3/汇金/社保）误为 COMPANY → 已重定型** FINANCIAL_INSTITUTION（保留原 importance 与关系）
+
+### 22.3 基金→被投关系（走审批流）
+
+- **大基金→半导体** `MAJOR_INVESTMENT`：一期→SMIC/AMEC；二期→SMIC/Naura/AMEC/CXMT；三期→SMIC/Naura/CXMT/AMEC
+- **汇金→大行** `FINANCIAL_RELATION`：ICBC/Bank of China/Agricultural Bank of China/招商银行（MAJOR_INVESTMENT 白名单 to 仅 COMPANY/TECHNOLOGY/PRODUCT，银行是 FINANCIAL_INSTITUTION → 用 FINANCIAL_RELATION）
+- 幂等，`sync_fund_relations.py`，生产验证 0 拒绝
+
+### 22.4 脚本与验证
+
+- 脚本：`scripts/fund_data.py`（数据）+ `scripts/sync_funds_to_db.py`（实体导入+重定型）+ `scripts/sync_fund_relations.py`（关系）
+- 幂等，`--dry-run`；`EC_DATABASE_URL` 指定目标（dev 5433 / prod 5432）
+- 结果：prod FINANCIAL_INSTITUTION 30→60（asset_manager 30）；中文解析全通（大基金三期→国家集成电路产业投资基金三期、中投→中国投资有限责任公司、深圳具身智能基金→深圳市人工智能和具身机器人产业基金）
