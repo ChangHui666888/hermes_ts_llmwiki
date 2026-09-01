@@ -898,3 +898,39 @@ relation_source_rules（🟡 推荐→Signal 阶段）· 2-hop（V2）· 前端�
 - 中文模式 307 标签含中文 264（微软公司/苹果公司/台积电/俄罗斯/中央汇金投资/中国建设银行）
 - EN 模式 307 标签（Microsoft/Apple/TSMC/Russian Federation/ICBC）
 - 切换往返 123 实体标签中英互换，切回中文恢复 264 中文标签 ✅
+
+## 25. 全球价值/资金网络 (2026-09-01, 货币-储备-商品-能源-矿产-稳定币-CBDC)
+
+用户要求把 Entity Center 从"实体库"升级为**全球资源—货币—金融传导网络**，使"沙特减产→油价↑→通胀→美联储→利率→美元→黄金↓"这类新闻能自动形成传导链。
+
+### 25.1 Ontology 扩展
+- **实体类型 16→17**：新增 `DIGITAL_ASSET`（稳定币≠加密≠CBDC 靠子类型区分）
+- **子类型 27→40**：DIGITAL_ASSET(+stablecoin/cryptocurrency/cbdc/tokenized_asset) · CURRENCY(+fiat_currency/reserve_currency) · COMMODITY(+energy/fuel/precious_metal/industrial_metal/rare_earth/semiconductor_material/agricultural)
+- **关系类型 17→32**：新增 MONETARY(ISSUES/MANAGES_MONETARY_POLICY/PEGGED_TO/HOLDS_RESERVE/PRICED_IN) · RESOURCE(PRODUCES/EXPORTS/IMPORTS/REFINED_INTO/USED_IN) · ASSET(BACKED_BY/COLLATERAL_FOR) · DIGITAL_FINANCE(MINTED_BY/TRADED_AGAINST) · MACRO(IMPACTS)
+- **动作 139→151**：新增 MANAGES_MONETARY_POLICY/PEGS/HOLDS_RESERVE/PRICES/PRODUCES/EXPORTS/IMPORTS/REFINES/USES_IN/BACKS/MINTS/IMPACTS + relation_action_mappings
+
+### 25.2 实体增量 (~54, 生产 1487→1548)
+- **稳定币**：USDT/USDC/DAI/PYUSD/FDUSD + 发行方 Tether/Circle/Paxos/MakerDAO
+- **加密**：BTC/ETH/SOL/XRP · **CBDC**：e-CNY/数字欧元
+- **货币补齐**：SAR/AED/NOK/NZD/SEK + 既有 17 货币补 fiat/reserve subtype
+- **能源**：LNG/迪拜原油/电力 + 成品油(汽油/柴油/航空煤油/燃料油/石脑油)
+- **矿产**：钨/钛/锰/钼/石墨/铟 + 半导体材料(镓/锗/钽)
+- **稀土**：钕/镝/铽/镨/铈/镧 + 永磁体(PRODUCT)
+- **宏观指标(SEGMENT)**：通胀/利率/GDP/CPI/贸易收支
+- **机构**：世界黄金协会(WGC)/国际能源署(IEA)/国际清算银行(BIS) + 关系依赖(Battery/MAS/HKMA)
+
+### 25.3 核心关系 (~77, 生产 442→549)
+- 央行→货币(ISSUES/MANAGES_MONETARY_POLICY, 13 央行) · 联系汇率(HKD/SAR/AED→USD)
+- 稳定币挂钩(PEGGED_TO→USD) · 发行(MINTED_BY) · 背书(BACKED_BY)
+- 商品计价(PRICED_IN→USD, WTI/Brent/黄金/铜/锂) · 黄金储备(HOLDS_RESERVE, 美/中/俄/Fed/PBOC)
+- 能源生产(PRODUCES, 沙特/俄/美/OPEC/卡塔尔LNG) · 炼化(REFINED_INTO, 原油→汽油/柴油/航油)
+- 矿产→行业(USED_IN, 锂→电池/铜镓硅→半导体/稀土→永磁) · 加密交易(TRADED_AGAINST)
+- CBDC(ISSUES, PBOC→e-CNY) · **宏观传导链**(IMPACTS, 汽油→通胀→美联储→利率→美元→黄金)
+
+### 25.4 脚本与部署
+- 数据: `entity_center/scripts/global_value_data.py` + `sync_global_value_entities.py`
+- 关系: `global_value_relations_data.py` + `sync_global_value_relations.py`（走 create_candidate→approve_candidate 审批流）
+- 白名单扩展(ADD ONLY): PRODUCES+INT_ORG / IMPACTS+SEGMENT / ISSUES+INT_ORG / MANAGES_MONETARY_POLICY+INT_ORG
+- 部署: ontology YAML→generate_seed_sql→DB(dev 5433/prod 5432) + 数据脚本(EC_DATABASE_URL) 直写库；前端 entity-colors.ts 补 DIGITAL_ASSET + 15 关系配色
+- ⚠️ load_seeds.py 的 config_defaults 会因 `idx_config_active` 唯一约束回滚整个事务 → 本轮回 ontology 用单 seed SQL 直应用（config 未改）
+- 传导链验证: 汽油→通胀→美联储→利率→美元→黄金 逐节点 resolve + IMPACTS 关系全通
